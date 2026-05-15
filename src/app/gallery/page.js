@@ -182,9 +182,8 @@ export default function GalleryPage() {
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
-              className={`${styles.filterTab} ${
-                activeTab === cat ? styles.filterTabActive : ""
-              }`}
+              className={`${styles.filterTab} ${activeTab === cat ? styles.filterTabActive : ""
+                }`}
               onClick={() => setActiveTab(cat)}
             >
               {cat}
