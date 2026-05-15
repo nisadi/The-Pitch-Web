@@ -1,0 +1,483 @@
+.container {
+  width: 100%;
+  overflow-x: hidden;
+  background: #f3f3f0;
+}
+
+/* Status Bar */
+.statusBar {
+  background: #90948e;
+  color: #FFFFFF;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 3rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.statusItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  background: #A3FF00;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #A3FF00;
+}
+
+/* Layout Grid */
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 3rem;
+}
+
+.section {
+  margin-bottom: 3rem;
+}
+
+.sectionTitle {
+  font-size: 1.75rem;
+  font-weight: 900;
+  margin-bottom: 1.5rem;
+  color: #1d3521;
+  text-transform: uppercase;
+}
+
+/* Sport Grid */
+.sportGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.sportCard {
+  position: relative;
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: var(--transition);
+}
+
+.activeSport {
+  border-color: var(--primary);
+  transform: scale(1.02);
+}
+
+.sportCard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sportOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
+  display: flex;
+  align-items: flex-end;
+  padding: 1rem;
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+/* Date & Location Row */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.calendarNav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-weight: 800;
+  color: #1d3521;
+}
+
+.navBtns {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.calendarGrid {
+  background: #FFFFFF;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  text-align: center;
+  border: 1px solid #EEEEEE;
+}
+
+.dayName {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #AAAAAA;
+  padding-bottom: 0.5rem;
+}
+
+.day {
+  padding: 0.75rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #555555;
+}
+
+.day:hover {
+  background: #F0F0F0;
+}
+
+.selectedDay {
+  background: #1d3521 !important;
+  color: #FFFFFF !important;
+}
+
+.dimmedDay {
+  color: #DDDDDD;
+}
+
+/* Location List */
+.locationList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.locationItem {
+  background: #FFFFFF;
+  padding: 1.25rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+  font-weight: 700;
+  transition: var(--transition);
+  border: 1px solid #EEEEEE;
+  color: #1d1d1d;
+}
+
+.activeLocation {
+  border-left: 4px solid var(--primary);
+  background: #F9FFF0;
+}
+
+.radio {
+  color: #CCCCCC;
+}
+
+.activeLocation .radio {
+  color: var(--primary);
+}
+
+/* Slot Selection */
+.legend {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #888888;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.dotSelected {
+  background: #1d3521;
+}
+
+.dotTaken {
+  background: #E0E0E0;
+}
+
+.dotAvailable {
+  background: #F5F5F5;
+  border: 1px solid #DDDDDD;
+}
+
+.slotGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+
+.slot {
+  padding: 1.25rem;
+  text-align: center;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition);
+  color: #1d1d1d;
+}
+
+.available {
+  background: #F5F5F5;
+  border: 1px solid #EEEEEE;
+}
+
+.available:hover {
+  background: #EEEEEE;
+}
+
+.taken {
+  background: #E0E0E0;
+  color: #AAAAAA;
+  cursor: not-allowed;
+}
+
+.selected {
+  background: #1d3521;
+  color: #FFFFFF;
+}
+
+/* Sidebar */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.sessionCard {
+  background: #252525;
+  color: #FFFFFF;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.cartIcon {
+  font-size: 1.5rem;
+}
+
+.sidebarHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.sessionInfo {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+}
+
+.infoGroup {
+  margin-bottom: 1.5rem;
+}
+
+.infoGroup label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 1px;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.infoRow span,
+.infoRow strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.changeBtn {
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.mutedIcon {
+  opacity: 0.3;
+}
+
+.pricing {
+  margin-bottom: 2rem;
+}
+
+.priceRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.totalRow span:first-child {
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.totalPrice {
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: #FF5C00;
+}
+
+.checkoutBtn {
+  display: block;
+  background: var(--accent);
+  color: #FFFFFF;
+  text-align: center;
+  padding: 1.25rem;
+  border-radius: 8px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  margin-bottom: 1.5rem;
+  transition: var(--transition);
+}
+
+.checkoutBtn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+}
+
+.secureBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.concierge {
+  margin-top: 2rem;
+  background: rgba(163, 255, 0, 0.05);
+  border: 1px solid rgba(163, 255, 0, 0.1);
+  padding: 1.25rem;
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+}
+
+.conciergeIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.concierge strong {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--primary);
+  margin-bottom: 0.25rem;
+}
+
+.concierge p {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  line-height: 1.4;
+}
+
+.rulesCard {
+  background: #F8F8F8;
+  padding: 2rem;
+  border-radius: 12px;
+  border: 1px solid #EEEEEE;
+}
+
+.rulesCard h4 {
+  font-size: 0.8rem;
+  font-weight: 900;
+  margin-bottom: 1.5rem;
+  color: #1d3521;
+}
+
+.rulesList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rulesList li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555555;
+}
+
+.rulesList li svg {
+  color: #1d3521;
+}
+
+@media (max-width: 1024px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sportGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+  }
+}
