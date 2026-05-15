@@ -123,28 +123,25 @@
   padding: 2rem 1.5rem 4rem;
 }
 
-/* Row 1: 2 equal columns */
+/* Row 1: wide left + narrow right */
 .gridRow1 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.5fr 1fr;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
-/* Row 2: 3 columns — small | large | small */
-.gridRow2 {
+/* Middle: 2 stacked left + 1 tall right spanning 2 rows */
+.gridMiddle {
   display: grid;
-  grid-template-columns: 1fr 1.6fr 1fr;
+  grid-template-columns: 1fr 1.6fr;
+  grid-template-rows: 1fr 1fr;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
-/* Row 3: 2 small side by side + 1 full width below */
-.gridRow3 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-bottom: 1rem;
+.gridMiddleTall {
+  grid-row: 1 / 3;
 }
 
 /* Row 4: 3 equal columns */
@@ -170,15 +167,16 @@
 }
 
 .cardStandard {
-  height: 260px;
+  height: 240px;
 }
 
 .cardTall {
-  height: 340px;
+  height: 100%;
+  min-height: 496px;
 }
 
-.cardWide {
-  height: 300px;
+.cardBottom {
+  height: 260px;
 }
 
 .galleryCard img {
@@ -414,8 +412,13 @@
     height: 260px;
   }
 
-  .gridRow2 {
+  .gridMiddle {
     grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+  }
+
+  .gridMiddleTall {
+    grid-row: auto;
   }
 
   .gridRow4 {
@@ -476,16 +479,20 @@
   }
 
   .gridRow1,
-  .gridRow2,
-  .gridRow3,
+  .gridMiddle,
   .gridRow4 {
     grid-template-columns: 1fr;
   }
 
+  .gridMiddleTall {
+    grid-row: auto;
+  }
+
   .cardStandard,
   .cardTall,
-  .cardWide {
+  .cardBottom {
     height: 220px;
+    min-height: unset;
   }
 
   .ctaInner {

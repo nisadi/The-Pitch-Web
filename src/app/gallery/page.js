@@ -15,7 +15,7 @@ const GALLERY_ITEMS = [
     title: "Main Arena Pitch A",
     category: "Ground",
     badge: "badgeGround",
-    row: 1,
+    position: "row1",
   },
   {
     id: 2,
@@ -23,7 +23,7 @@ const GALLERY_ITEMS = [
     title: "The Fuel Station",
     category: "Cafe",
     badge: "badgeCafe",
-    row: 1,
+    position: "row1",
   },
   {
     id: 3,
@@ -31,15 +31,15 @@ const GALLERY_ITEMS = [
     title: "Championship Parties",
     category: "Events",
     badge: "badgeEvents",
-    row: 2,
+    position: "midLeft",
   },
   {
     id: 4,
     src: "/images/gallery-kids-area.png",
-    title: "Play Center Zone",
+    title: "The Junior Zone",
     category: "Kids Area",
     badge: "badgeKids",
-    row: 2,
+    position: "midTall",
   },
   {
     id: 5,
@@ -47,7 +47,7 @@ const GALLERY_ITEMS = [
     title: "Corporate Lounges",
     category: "Events",
     badge: "badgeLounge",
-    row: 3,
+    position: "midLeft",
   },
   {
     id: 6,
@@ -55,23 +55,23 @@ const GALLERY_ITEMS = [
     title: "Vantage Seating",
     category: "Ground",
     badge: "badgeGround",
-    row: 4,
+    position: "bottom",
   },
   {
     id: 7,
     src: "/images/gallery-drinks.png",
-    title: "Corporate Lounges",
+    title: "Healthy Fuel",
     category: "Cafe",
     badge: "badgeCafe",
-    row: 4,
+    position: "bottom",
   },
   {
     id: 8,
-    src: "/images/gallery-events.png",
-    title: "Live Tournaments",
+    src: "/images/gallery-lounge.png",
+    title: "Corporate Lounges",
     category: "Events",
-    badge: "badgeEvents",
-    row: 4,
+    badge: "badgeLounge",
+    position: "bottom",
   },
 ];
 
@@ -121,13 +121,16 @@ export default function GalleryPage() {
     );
   }, [filteredItems.length]);
 
-  // Determine layout rows from filtered items
-  const row1 = filteredItems.filter((_, i) => i < 2);
-  const row2 = filteredItems.filter((_, i) => i >= 2 && i < 4);
-  const row3 = filteredItems.filter((_, i) => i >= 4 && i < 6);
-  const row4 = filteredItems.filter((_, i) => i >= 6);
-
   const getGlobalIndex = (item) => filteredItems.indexOf(item);
+
+  // Split items by position for the fixed layout
+  const row1Items = filteredItems.filter((i) => i.position === "row1");
+  const midLeftItems = filteredItems.filter((i) => i.position === "midLeft");
+  const midTallItems = filteredItems.filter((i) => i.position === "midTall");
+  const bottomItems = filteredItems.filter((i) => i.position === "bottom");
+
+  // For filtered views, just use a simple grid
+  const isFiltered = activeTab !== "All Access";
 
   return (
     <div className={styles.galleryPage}>
@@ -200,92 +203,70 @@ export default function GalleryPage() {
             animate="animate"
             exit="exit"
           >
-            {/* Row 1 */}
-            {row1.length > 0 && (
-              <div
-                className={styles.gridRow1}
-                style={{
-                  gridTemplateColumns:
-                    row1.length === 1 ? "1fr" : undefined,
-                }}
-              >
-                {row1.map((item) => (
+            {isFiltered ? (
+              /* Filtered view — simple 3-col grid */
+              <div className={styles.gridRow4}>
+                {filteredItems.map((item) => (
                   <GalleryCard
                     key={item.id}
                     item={item}
-                    sizeClass={styles.cardStandard}
+                    sizeClass={styles.cardBottom}
                     onClick={() => openLightbox(getGlobalIndex(item))}
                   />
                 ))}
               </div>
-            )}
+            ) : (
+              <>
+                {/* Row 1: wide left + narrow right */}
+                {row1Items.length > 0 && (
+                  <div className={styles.gridRow1}>
+                    {row1Items.map((item) => (
+                      <GalleryCard
+                        key={item.id}
+                        item={item}
+                        sizeClass={styles.cardStandard}
+                        onClick={() => openLightbox(getGlobalIndex(item))}
+                      />
+                    ))}
+                  </div>
+                )}
 
-            {/* Row 2 */}
-            {row2.length > 0 && (
-              <div
-                className={styles.gridRow2}
-                style={{
-                  gridTemplateColumns:
-                    row2.length === 1
-                      ? "1fr"
-                      : row2.length === 2
-                      ? "1fr 1.6fr"
-                      : undefined,
-                }}
-              >
-                {row2.map((item, idx) => (
-                  <GalleryCard
-                    key={item.id}
-                    item={item}
-                    sizeClass={idx === 1 ? styles.cardTall : styles.cardStandard}
-                    onClick={() => openLightbox(getGlobalIndex(item))}
-                  />
-                ))}
-              </div>
-            )}
+                {/* Middle: 2 stacked left + 1 tall right */}
+                {(midLeftItems.length > 0 || midTallItems.length > 0) && (
+                  <div className={styles.gridMiddle}>
+                    {midLeftItems.map((item) => (
+                      <GalleryCard
+                        key={item.id}
+                        item={item}
+                        sizeClass={styles.cardStandard}
+                        onClick={() => openLightbox(getGlobalIndex(item))}
+                      />
+                    ))}
+                    {midTallItems.map((item) => (
+                      <GalleryCard
+                        key={item.id}
+                        item={item}
+                        sizeClass={`${styles.cardTall} ${styles.gridMiddleTall}`}
+                        onClick={() => openLightbox(getGlobalIndex(item))}
+                      />
+                    ))}
+                  </div>
+                )}
 
-            {/* Row 3 */}
-            {row3.length > 0 && (
-              <div
-                className={styles.gridRow3}
-                style={{
-                  gridTemplateColumns:
-                    row3.length === 1 ? "1fr" : undefined,
-                }}
-              >
-                {row3.map((item) => (
-                  <GalleryCard
-                    key={item.id}
-                    item={item}
-                    sizeClass={styles.cardStandard}
-                    onClick={() => openLightbox(getGlobalIndex(item))}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Row 4 */}
-            {row4.length > 0 && (
-              <div
-                className={styles.gridRow4}
-                style={{
-                  gridTemplateColumns:
-                    row4.length === 1
-                      ? "1fr"
-                      : row4.length === 2
-                      ? "1fr 1fr"
-                      : undefined,
-                }}
-              >
-                {row4.map((item) => (
-                  <GalleryCard
-                    key={item.id}
-                    item={item}
-                    sizeClass={styles.cardWide}
-                    onClick={() => openLightbox(getGlobalIndex(item))}
-                  />
-                ))}
-              </div>
+                {/* Row 4: 3 equal columns */}
+                {bottomItems.length > 0 && (
+                  <div className={styles.gridRow4}>
+                    {bottomItems.map((item) => (
+                      <GalleryCard
+                        key={item.id}
+                        item={item}
+                        sizeClass={styles.cardBottom}
+                        onClick={() => openLightbox(getGlobalIndex(item))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         </AnimatePresence>
