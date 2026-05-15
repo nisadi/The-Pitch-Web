@@ -1,0 +1,517 @@
+/* ========================================
+   GALLERY PAGE — THE PITCH INDOOR STADIUM
+   ======================================== */
+
+.galleryPage {
+  width: 100%;
+  overflow-x: hidden;
+  background: #f3f3f0;
+  font-family: var(--font-outfit);
+}
+
+/* ─── HERO SECTION ─── */
+.hero {
+  position: relative;
+  width: 100%;
+  background: #f3f3f0;
+  padding: 3.5rem 5% 2.5rem;
+  overflow: hidden;
+}
+
+.heroInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3rem;
+}
+
+.heroContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.heroLabel {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #11452d;
+  margin-bottom: 1rem;
+}
+
+.heroTitle {
+  font-size: 3.5rem;
+  font-weight: 900;
+  line-height: 1.05;
+  color: #11452d;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
+}
+
+.heroDesc {
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.8;
+  max-width: 440px;
+}
+
+.heroVisual {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heroIllustration {
+  width: 340px;
+  height: 340px;
+  object-fit: contain;
+}
+
+/* ─── FILTER TABS ─── */
+.filterSection {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 0.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.filterTabs {
+  display: inline-flex;
+  gap: 0.4rem;
+  background: #e8e8e4;
+  padding: 0.35rem;
+  border-radius: 50px;
+}
+
+.filterTab {
+  padding: 0.65rem 1.6rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #777;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 50px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.3px;
+  font-family: inherit;
+  position: relative;
+}
+
+.filterTab:hover {
+  color: #11452d;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.filterTabActive {
+  color: #ffffff;
+  background: #11452d;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(17, 69, 45, 0.25);
+}
+
+/* ─── GALLERY GRID ─── */
+.gallerySection {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* Row 1: 2 equal columns */
+.gridRow1 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Row 2: 3 columns — small | large | small */
+.gridRow2 {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Row 3: 2 small side by side + 1 full width below */
+.gridRow3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Row 4: 3 equal columns */
+.gridRow4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+}
+
+/* ─── GALLERY CARD ─── */
+.galleryCard {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+              box-shadow 0.4s ease;
+}
+
+.galleryCard:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.cardStandard {
+  height: 260px;
+}
+
+.cardTall {
+  height: 340px;
+}
+
+.cardWide {
+  height: 300px;
+}
+
+.galleryCard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+.galleryCard:hover img {
+  transform: scale(1.08);
+}
+
+.cardInfo {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.78) 0%,
+    rgba(0, 0, 0, 0.3) 60%,
+    transparent 100%
+  );
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.cardTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.cardBadge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+}
+
+.badgeGround {
+  background: #11452d;
+  color: #ffffff;
+}
+
+.badgeCafe {
+  background: #b14e14;
+  color: #ffffff;
+}
+
+.badgeKids {
+  background: #932c01;
+  color: #ffffff;
+}
+
+.badgeEvents {
+  background: #6b21a8;
+  color: #ffffff;
+}
+
+.badgeLounge {
+  background: #1e3a5f;
+  color: #ffffff;
+}
+
+/* ─── CTA SECTION ─── */
+.ctaSection {
+  padding: 0 1.5rem 4rem;
+}
+
+.ctaInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #11452d;
+  border-radius: 16px;
+  padding: 3.5rem 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.ctaContent h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.ctaContent p {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.6;
+  max-width: 480px;
+}
+
+.ctaButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #932c01;
+  color: #ffffff;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  border: 2px solid #932c01;
+}
+
+.ctaButton:hover {
+  background: #b14e14;
+  border-color: #b14e14;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(147, 44, 1, 0.4);
+}
+
+/* ─── LIGHTBOX ─── */
+.lightboxOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.lightboxContent {
+  position: relative;
+  max-width: 90vw;
+  max-height: 85vh;
+}
+
+.lightboxImage {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.lightboxClose:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lightboxCaption {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.lightboxNav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+
+.lightboxNav:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lightboxPrev {
+  left: -70px;
+}
+
+.lightboxNext {
+  right: -70px;
+}
+
+/* ─── RESPONSIVE — TABLET ─── */
+@media (max-width: 1024px) {
+  .heroInner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .heroDesc {
+    margin: 0 auto;
+  }
+
+  .heroIllustration {
+    width: 260px;
+    height: 260px;
+  }
+
+  .gridRow2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .gridRow4 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ctaInner {
+    flex-direction: column;
+    text-align: center;
+    padding: 2.5rem 2rem;
+  }
+
+  .ctaContent p {
+    margin: 0 auto;
+  }
+
+  .lightboxPrev {
+    left: -24px;
+  }
+
+  .lightboxNext {
+    right: -24px;
+  }
+}
+
+/* ─── RESPONSIVE — MOBILE ─── */
+@media (max-width: 640px) {
+  .hero {
+    padding: 2rem 1rem 1.5rem;
+  }
+
+  .heroTitle {
+    font-size: 2.2rem;
+  }
+
+  .heroIllustration {
+    width: 200px;
+    height: 200px;
+  }
+
+  .filterTabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 0;
+  }
+
+  .filterTabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filterTab {
+    padding: 0.6rem 1rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .gridRow1,
+  .gridRow2,
+  .gridRow3,
+  .gridRow4 {
+    grid-template-columns: 1fr;
+  }
+
+  .cardStandard,
+  .cardTall,
+  .cardWide {
+    height: 220px;
+  }
+
+  .ctaInner {
+    padding: 2rem 1.25rem;
+  }
+
+  .ctaContent h2 {
+    font-size: 1.5rem;
+  }
+
+  .lightboxPrev {
+    left: 8px;
+    top: auto;
+    bottom: -60px;
+    transform: none;
+  }
+
+  .lightboxNext {
+    right: 8px;
+    top: auto;
+    bottom: -60px;
+    transform: none;
+  }
+
+  .lightboxNav {
+    width: 40px;
+    height: 40px;
+  }
+}
