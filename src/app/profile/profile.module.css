@@ -1,0 +1,363 @@
+.container {
+    --primary: #184d28;
+    --primary-light: #2f6d3d;
+    --accent: #b24708;
+    --bg: #f4f4f2;
+
+    min-height: 100vh;
+    width: 100%;
+    background: var(--bg);
+    padding: 3rem 7%;
+    overflow-x: hidden;
+    color: #222;
+}
+
+/* HEADER */
+
+.header {
+    margin-bottom: 2.5rem;
+}
+
+.header h1 {
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--primary);
+    margin-bottom: 0.4rem;
+    letter-spacing: -1px;
+}
+
+.header p {
+    color: #666;
+    font-size: 0.95rem;
+}
+
+/* MAIN GRID */
+
+.mainGrid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+/* PROFILE CARD */
+
+.profileCard {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.profileTop {
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+}
+
+.avatarWrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.avatar {
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.memberBadge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    padding: 0.35rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    letter-spacing: 0.5px;
+}
+
+.profileTop h2 {
+    margin: 0;
+    font-size: 1.7rem;
+    font-weight: 800;
+}
+
+.username {
+    color: #777;
+    font-size: 0.82rem;
+    margin-top: 0.4rem;
+}
+
+/* CONTACT */
+
+.contactBox {
+    background: white;
+    border-radius: 6px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    color: #555;
+    font-size: 0.85rem;
+}
+
+.contactBox svg {
+    color: var(--primary);
+}
+
+/* BUTTONS */
+
+.editBtn {
+    border: none;
+    background: var(--accent);
+    color: white;
+    height: 46px;
+    border-radius: 5px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.editBtn:hover {
+    background: #963b05;
+}
+
+.logoutBtn {
+    border: 1px solid #d5d5d5;
+    background: white;
+    color: #444;
+    height: 46px;
+    border-radius: 5px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+/* STATS */
+
+.statsCard {
+    background: linear-gradient(135deg, #202020, #3a3a3a);
+    border-radius: 6px;
+    padding: 1.7rem;
+    margin-top: 1rem;
+    color: white;
+}
+
+.statsLabel {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #8dcf95;
+    letter-spacing: 0.5px;
+}
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-top: 1.5rem;
+}
+
+.statsGrid h3 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 900;
+}
+
+.statsGrid p {
+    margin-top: 0.3rem;
+    font-size: 0.62rem;
+    color: #aaa;
+}
+
+/* RIGHT CONTENT */
+
+.rightContent {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* HISTORY */
+
+.historyCard {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.historyHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+}
+
+.historyHeader h3 {
+    font-size: 0.95rem;
+    font-weight: 900;
+    color: var(--primary);
+}
+
+.historyHeader a {
+    text-decoration: none;
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.bookingList {
+    display: flex;
+    flex-direction: column;
+}
+
+.bookingItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.2rem 1.5rem;
+    border-top: 1px solid #f1f1f1;
+    gap: 1rem;
+}
+
+.bookingImage {
+    width: 70px;
+    height: 48px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.bookingInfo {
+    flex: 1;
+}
+
+.bookingInfo h4 {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.bookingInfo p {
+    margin: 0 0 0.35rem;
+    color: #777;
+    font-size: 0.75rem;
+}
+
+.bookingInfo span {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.bookingPrice {
+    font-size: 1rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+/* BOTTOM CARDS */
+
+.bottomCards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.perksCard {
+    background: var(--primary-light);
+    color: white;
+    border-radius: 6px;
+    padding: 1.5rem;
+}
+
+.cardTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.cardTop span {
+    font-size: 0.62rem;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+.perksCard h3 {
+    margin: 0 0 1rem;
+    font-size: 1.2rem;
+}
+
+.perksCard ul {
+    padding-left: 1rem;
+    margin: 0;
+}
+
+.perksCard li {
+    margin-bottom: 0.6rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.sessionCard {
+    background: #b8c0b4;
+    border-radius: 6px;
+    padding: 1.5rem;
+}
+
+.sessionCard h3 {
+    margin: 1rem 0 0.8rem;
+    font-size: 1.2rem;
+    color: #222;
+}
+
+.sessionCard p {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #444;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 992px) {
+    .mainGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 2rem 5%;
+    }
+
+    .header h1 {
+        font-size: 2.2rem;
+    }
+
+    .bottomCards {
+        grid-template-columns: 1fr;
+    }
+
+    .bookingItem {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .bookingPrice {
+        margin-left: 82px;
+    }
+}
