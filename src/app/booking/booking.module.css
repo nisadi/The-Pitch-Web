@@ -1,7 +1,14 @@
 .container {
+  --primary: #0c422e;
+  --accent: #932C01;
+  --accent-hover: #b14e14;
+  --transition: all 0.3s ease;
+
   width: 100%;
   overflow-x: hidden;
   background: #f3f3f0;
+  padding: 4rem 7%;
+  min-height: 100vh;
 }
 
 /* Status Bar */
@@ -237,11 +244,11 @@
 }
 
 .slot {
-  padding: 1.25rem;
+  padding: 1rem;
   text-align: center;
   border-radius: 8px;
-  font-weight: 800;
-  font-size: 0.9rem;
+  font-weight: 750;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: var(--transition);
   color: #1d1d1d;

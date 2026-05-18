@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import styles from "./booking.module.css";
-import { 
-  CheckCircle2, 
-  Calendar as CalendarIcon, 
-  MapPin, 
-  Clock, 
-  ShieldCheck, 
+import { motion } from "framer-motion";
+import {
+  CheckCircle2,
+  Calendar as CalendarIcon,
+  MapPin,
+  Clock,
+  ShieldCheck,
   Info,
   ChevronLeft,
   ChevronRight,
@@ -16,10 +17,39 @@ import {
 import Link from "next/link";
 
 const BookingPage = () => {
-  const [selectedSport, setSelectedSport] = useState("Football");
-  const [selectedDate, setSelectedDate] = useState("2026-03-26");
+  const initialDate = new Date(2026, 2, 26); // March 26, 2026
+
+  const fadeInUp = {
+    initial: { opacity: 0, y: 30 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: false, amount: 0.1 },
+    transition: { duration: 0.6, ease: "easeOut" }
+  };
+  
+  const [selectedSport, setSelectedSport] = useState("FOOTBALL");
+  const [currentMonth, setCurrentMonth] = useState(new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const [selectedLocation, setSelectedLocation] = useState("Maharagama");
   const [selectedSlot, setSelectedSlot] = useState("10:00 AM - 11:00 AM");
+
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year, month) => {
+    let day = new Date(year, month, 1).getDay();
+    return day === 0 ? 6 : day - 1;
+  };
+
+  const daysInMonth = getDaysInMonth(currentMonth.getFullYear(), currentMonth.getMonth());
+  const firstDay = getFirstDayOfMonth(currentMonth.getFullYear(), currentMonth.getMonth());
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   const sports = [
     { id: "cricket", name: "CRICKET", icon: "🏏", image: "/images/hero-stadium.png" },
@@ -28,25 +58,25 @@ const BookingPage = () => {
     { id: "cricksal", name: "CRICKSAL", icon: "🥅", image: "/images/facility-courts.png" },
   ];
 
-  const locations = ["Maharagama", "Attidiya", "Moratuwa"];
+  const locations = ["Maharagama", "Attidiya", "Moratuwa", "Kottawa"];
 
   const timeSlots = [
-    { time: "08:00 AM", status: "taken" },
-    { time: "09:00 AM", status: "taken" },
-    { time: "10:00 AM - 11.00", status: "selected" },
-    { time: "11:00 AM", status: "available" },
-    { time: "12:00 AM", status: "available" },
-    { time: "1:00 PM", status: "available" },
-    { time: "2:00 PM", status: "available" },
-    { time: "3:00 PM", status: "available" },
-    { time: "4:00 PM", status: "available" },
-    { time: "5:00 PM", status: "available" },
+    { time: "08:00 AM - 09:00 AM", status: "taken" },
+    { time: "09:00 AM - 10:00 AM", status: "taken" },
+    { time: "10:00 AM - 11:00 AM", status: "available" },
+    { time: "11:00 AM - 12:00 PM", status: "available" },
+    { time: "12:00 PM - 01:00 PM", status: "available" },
+    { time: "01:00 PM - 02:00 PM", status: "available" },
+    { time: "02:00 PM - 03:00 PM", status: "available" },
+    { time: "03:00 PM - 04:00 PM", status: "available" },
+    { time: "04:00 PM - 05:00 PM", status: "available" },
+    { time: "05:00 PM - 06:00 PM", status: "available" },
   ];
 
   return (
     <div className={styles.container}>
       {/* Top Status Bar */}
-      <div className={styles.statusBar}>
+      <motion.div {...fadeInUp} className={styles.statusBar}>
         <div className={styles.statusItem}>
           <div className={styles.indicator} />
           <span>FACILITY STATUS: 100% OPERATIONAL</span>
@@ -54,17 +84,17 @@ const BookingPage = () => {
         <div className={styles.statusItem}>ACTIVE COURTS: 5/8</div>
         <div className={styles.statusItem}>INDOOR TEMP: 68°F</div>
         <div className={styles.statusItem}>PEAK HOURS: 5PM - 9PM</div>
-      </div>
+      </motion.div>
 
       <div className={styles.mainGrid}>
         <div className={styles.leftColumn}>
           {/* Sport Selection */}
-          <section className={styles.section}>
+          <motion.section {...fadeInUp} className={styles.section}>
             <h2 className={styles.sectionTitle}>SELECT YOUR SPORT</h2>
             <div className={styles.sportGrid}>
               {sports.map((sport) => (
-                <div 
-                  key={sport.id} 
+                <div
+                  key={sport.id}
                   className={`${styles.sportCard} ${selectedSport === sport.name ? styles.activeSport : ""}`}
                   onClick={() => setSelectedSport(sport.name)}
                 >
@@ -75,18 +105,18 @@ const BookingPage = () => {
                 </div>
               ))}
             </div>
-          </section>
+          </motion.section>
 
           <div className={styles.row}>
             {/* Date Selection */}
-            <section className={`${styles.section} ${styles.dateSection}`}>
+            <motion.section {...fadeInUp} className={`${styles.section} ${styles.dateSection}`}>
               <div className={styles.sectionHeader}>
                 <h2 className={styles.sectionTitle}>Select Date</h2>
                 <div className={styles.calendarNav}>
-                  <span>March 26</span>
+                  <span>{monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}</span>
                   <div className={styles.navBtns}>
-                    <ChevronLeft size={16} />
-                    <ChevronRight size={16} />
+                    <ChevronLeft size={16} onClick={handlePrevMonth} style={{cursor: 'pointer'}} />
+                    <ChevronRight size={16} onClick={handleNextMonth} style={{cursor: 'pointer'}} />
                   </div>
                 </div>
               </div>
@@ -94,29 +124,36 @@ const BookingPage = () => {
                 {["MO", "TU", "WE", "TH", "FR", "SA", "SU"].map(day => (
                   <div key={day} className={styles.dayName}>{day}</div>
                 ))}
-                {[...Array(31)].map((_, i) => {
+                {[...Array(firstDay)].map((_, i) => (
+                  <div key={`empty-${i}`} className={styles.day}></div>
+                ))}
+                {[...Array(daysInMonth)].map((_, i) => {
                   const day = i + 1;
-                  const isSelected = day === 26;
-                  const isDimmed = day < 1;
+                  const isSelected = 
+                    selectedDate.getDate() === day && 
+                    selectedDate.getMonth() === currentMonth.getMonth() && 
+                    selectedDate.getFullYear() === currentMonth.getFullYear();
+                  const isDimmed = false;
                   return (
-                    <div 
-                      key={i} 
+                    <div
+                      key={day}
                       className={`${styles.day} ${isSelected ? styles.selectedDay : ""} ${isDimmed ? styles.dimmedDay : ""}`}
+                      onClick={() => setSelectedDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
                     >
                       {day < 10 ? `0${day}` : day}
                     </div>
                   );
                 })}
               </div>
-            </section>
+            </motion.section>
 
             {/* Location Selection */}
-            <section className={`${styles.section} ${styles.locationSection}`}>
+            <motion.section {...fadeInUp} className={`${styles.section} ${styles.locationSection}`}>
               <h2 className={styles.sectionTitle}>Location</h2>
               <div className={styles.locationList}>
                 {locations.map((loc) => (
-                  <div 
-                    key={loc} 
+                  <div
+                    key={loc}
                     className={`${styles.locationItem} ${selectedLocation === loc ? styles.activeLocation : ""}`}
                     onClick={() => setSelectedLocation(loc)}
                   >
@@ -127,11 +164,11 @@ const BookingPage = () => {
                   </div>
                 ))}
               </div>
-            </section>
+            </motion.section>
           </div>
 
           {/* Slots Selection */}
-          <section className={styles.section}>
+          <motion.section {...fadeInUp} className={styles.section}>
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>AVAILABLE SLOTS</h2>
               <div className={styles.legend}>
@@ -141,21 +178,25 @@ const BookingPage = () => {
               </div>
             </div>
             <div className={styles.slotGrid}>
-              {timeSlots.map((slot, i) => (
-                <div 
-                  key={i} 
-                  className={`${styles.slot} ${styles[slot.status]}`}
-                  onClick={() => slot.status === "available" && setSelectedSlot(slot.time)}
-                >
-                  {slot.time}
-                </div>
-              ))}
+              {timeSlots.map((slot, i) => {
+                const isSelected = selectedSlot === slot.time;
+                const slotClass = isSelected ? styles.selected : styles[slot.status];
+                return (
+                  <div
+                    key={i}
+                    className={`${styles.slot} ${slotClass}`}
+                    onClick={() => slot.status !== "taken" && setSelectedSlot(slot.time)}
+                  >
+                    {slot.time}
+                  </div>
+                );
+              })}
             </div>
-          </section>
+          </motion.section>
         </div>
 
         {/* Sidebar */}
-        <aside className={styles.sidebar}>
+        <motion.aside {...fadeInUp} className={styles.sidebar}>
           <div className={styles.sessionCard}>
             <div className={styles.sidebarHeader}>
               <div className={styles.cartIcon}>🛒</div>
@@ -164,9 +205,9 @@ const BookingPage = () => {
 
             <div className={styles.sessionInfo}>
               <div className={styles.infoGroup}>
-                <label>SPORT</label>
+                <label>SPORT & LOCATION</label>
                 <div className={styles.infoRow}>
-                  <span>{selectedSport} - Pitch 1</span>
+                  <span>{selectedSport} - {selectedLocation}</span>
                   <button className={styles.changeBtn}>CHANGE</button>
                 </div>
               </div>
@@ -175,8 +216,8 @@ const BookingPage = () => {
                 <label>SCHEDULE</label>
                 <div className={styles.infoRow}>
                   <div>
-                    <strong>{selectedSport} - Pitch 1</strong>
-                    <p>10:00 AM (1 Hour)</p>
+                    <strong>{selectedDate.getDate()} {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}</strong>
+                    <p>{selectedSlot} (1 Hour)</p>
                   </div>
                   <CalendarIcon size={20} className={styles.mutedIcon} />
                 </div>
@@ -210,7 +251,7 @@ const BookingPage = () => {
             <div className={styles.concierge}>
               <div className={styles.conciergeIcon}><Info size={16} /></div>
               <div>
-                <strong>{selectedSport.toUpperCase()} - PITCH 1</strong>
+                <strong>{selectedSport.toUpperCase()} - {selectedLocation.toUpperCase()}</strong>
                 <p>Call our concierge at (555) 012-3456 for team reservations.</p>
               </div>
             </div>
@@ -224,7 +265,7 @@ const BookingPage = () => {
               <li><CheckCircle2 size={16} /> 24h cancellation for full refund</li>
             </ul>
           </div>
-        </aside>
+        </motion.aside>
       </div>
     </div>
   );

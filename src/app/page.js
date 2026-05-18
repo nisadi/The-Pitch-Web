@@ -40,7 +40,7 @@ export default function Home() {
   const fadeInUp = {
     initial: { opacity: 0, y: 30 },
     whileInView: { opacity: 1, y: 0 },
-    viewport: { once: true },
+    viewport: { once: false, amount: 0.1 },
     transition: { duration: 0.6, ease: "easeOut" }
   };
 
@@ -51,7 +51,7 @@ export default function Home() {
         staggerChildren: 0.1
       }
     },
-    viewport: { once: true }
+    viewport: { once: false, amount: 0.1 }
   };
 
   return (
@@ -60,7 +60,8 @@ export default function Home() {
       <section className={styles.hero}>
         <motion.img
           initial={{ scale: 1.1, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
+          whileInView={{ scale: 1, opacity: 1 }}
+          viewport={{ once: false, amount: 0.1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
           src="/images/hero-stadium.png"
           alt="Indoor Stadium"
@@ -72,7 +73,8 @@ export default function Home() {
         <div className={styles.heroContent}>
           <motion.h1 
             initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             className={styles.title}
           >
@@ -85,7 +87,8 @@ export default function Home() {
 
           <motion.p 
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: false, amount: 0.1 }}
             transition={{ duration: 1, delay: 0.6 }}
             className={styles.subtitle}
           >
@@ -97,7 +100,8 @@ export default function Home() {
 
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.1 }}
             transition={{ duration: 0.6, delay: 1 }}
             className={styles.heroButtons}
           >
@@ -114,7 +118,8 @@ export default function Home() {
 
         <motion.div 
           initial={{ opacity: 0, y: 60 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.1 }}
           transition={{ duration: 0.8, delay: 1.2 }}
           className={styles.infoBar}
         >
@@ -167,7 +172,7 @@ export default function Home() {
         <motion.div 
           initial={{ opacity: 0, x: 50 }}
           whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: false, amount: 0.1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
           className={styles.hoursCard}
         >
@@ -222,7 +227,7 @@ export default function Home() {
           variants={staggerContainer}
           initial="initial"
           whileInView="whileInView"
-          viewport={{ once: true }}
+          viewport={{ once: false, amount: 0.1 }}
           className={styles.cardGrid}
         >
           {[
@@ -254,7 +259,7 @@ export default function Home() {
         <motion.div 
           initial={{ opacity: 0, x: -50 }}
           whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: false, amount: 0.1 }}
           transition={{ duration: 0.8 }}
           className={styles.bookingLeft}
         >
@@ -285,7 +290,7 @@ export default function Home() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
+          viewport={{ once: false, amount: 0.1 }}
           transition={{ duration: 0.6 }}
           className={styles.bookingForm}
         >
@@ -326,7 +331,7 @@ export default function Home() {
           variants={staggerContainer}
           initial="initial"
           whileInView="whileInView"
-          viewport={{ once: true }}
+          viewport={{ once: false, amount: 0.1 }}
           className={styles.reviewGrid}
         >
           {reviews.map((review, index) => (

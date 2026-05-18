@@ -1,9 +1,5 @@
 .navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 80px;
+  height: 200px;
   background: rgba(10, 10, 10, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -17,7 +13,7 @@
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 5 2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -83,6 +79,7 @@
 
 @media (max-width: 1024px) {
   .navLinks {
-    display: none; /* Mobile menu logic can be added later */
+    display: none;
+    /* Mobile menu logic can be added later */
   }
 }
