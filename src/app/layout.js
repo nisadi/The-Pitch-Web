@@ -1,6 +1,5 @@
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import AppShell from "@/components/AppShell";
 
 export const metadata = {
   title: "The Pitch Indoor Stadium | Premium Sports & Appointment Booking",
@@ -13,9 +12,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body style={{ paddingTop: '80px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Navbar />
-        <main style={{ flex: 1 }}>{children}</main>
-        <Footer />
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

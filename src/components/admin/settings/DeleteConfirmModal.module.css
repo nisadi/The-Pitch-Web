@@ -1,0 +1,104 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.dialog {
+  width: min(440px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.35rem 1.5rem 1.25rem;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.description {
+  color: var(--foreground-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 1.1rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: var(--foreground);
+}
+
+.label code {
+  color: #ff8a8a;
+  font-weight: 700;
+  background: rgba(255, 107, 107, 0.1);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 0.65rem 0.8rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  margin-bottom: 1.15rem;
+}
+
+.input:focus {
+  border-color: rgba(255, 107, 107, 0.5);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.cancelBtn,
+.deleteBtn {
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.cancelBtn {
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.cancelBtn:hover {
+  background: var(--surface-hover);
+}
+
+.deleteBtn {
+  background: #dc2626;
+  color: #fff;
+}
+
+.deleteBtn:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.deleteBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
