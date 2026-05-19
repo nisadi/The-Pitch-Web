@@ -71,7 +71,7 @@ export default function SportsPage() {
         </div>
       </div>
 
-      {/* ─── FACILITIES GRID ─── */}
+      {/* ─── FACILITIES GRID ─── */}{/*check grid*/}
       <section className={styles.facilitiesSection}>
         <motion.div 
           className={styles.gridContainer}

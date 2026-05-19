@@ -111,7 +111,7 @@ export default function Home() {
             </Link>
 
             <Link href="/sports" className={styles.secondaryBtn}>
-              EXPLORE FACILITIES
+              EXPLORE SPORTS
             </Link>
           </motion.div>
         </div>
