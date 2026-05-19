@@ -1,14 +1,10 @@
-import AdminPanel from "@/components/admin/AdminPanel";
-import styles from "@/components/admin/Admin.module.css";
+import UserManagement from "@/components/admin/UserManagement";
 
 export const metadata = {
-  title: "Manage Users | Admin",
+  title: "Users | Admin",
+  description: "Manage team members, roles, and invitations.",
 };
 
 export default function AdminUsersPage() {
-  return (
-    <AdminPanel>
-      <p className={styles.placeholder}>User management coming soon.</p>
-    </AdminPanel>
-  );
+  return <UserManagement />;
 }

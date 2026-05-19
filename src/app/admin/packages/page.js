@@ -1,14 +1,10 @@
-import AdminPanel from "@/components/admin/AdminPanel";
-import styles from "@/components/admin/Admin.module.css";
+import PackageManagement from "@/components/admin/PackageManagement";
 
 export const metadata = {
-  title: "Manage Packages | Admin",
+  title: "Packages | Admin",
+  description: "Create and publish membership packages for the customer website.",
 };
 
 export default function AdminPackagesPage() {
-  return (
-    <AdminPanel>
-      <p className={styles.placeholder}>Package management coming soon.</p>
-    </AdminPanel>
-  );
+  return <PackageManagement />;
 }

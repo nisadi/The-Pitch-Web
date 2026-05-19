@@ -5,6 +5,7 @@ import AdminSidebarToggle from "./AdminSidebarToggle";
 import AdminTopBar from "./AdminTopBar";
 import { AdminLocationProvider } from "./adminLocationContext";
 import { AdminSettingsProvider } from "./settings/adminSettingsContext";
+import { UsersProvider } from "@/lib/users/usersContext";
 import { AdminSidebarProvider, useAdminSidebar } from "./adminSidebarContext";
 import styles from "./Admin.module.css";
 
@@ -36,11 +37,13 @@ function AdminShellInner({ children }) {
 export default function AdminShell({ children }) {
   return (
     <AdminSettingsProvider>
-      <AdminLocationProvider>
-        <AdminSidebarProvider>
-          <AdminShellInner>{children}</AdminShellInner>
-        </AdminSidebarProvider>
-      </AdminLocationProvider>
+      <UsersProvider>
+        <AdminLocationProvider>
+          <AdminSidebarProvider>
+            <AdminShellInner>{children}</AdminShellInner>
+          </AdminSidebarProvider>
+        </AdminLocationProvider>
+      </UsersProvider>
     </AdminSettingsProvider>
   );
 }

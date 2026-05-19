@@ -13,6 +13,8 @@ export const DEFAULT_ADMIN_SETTINGS = {
       peakHourRate: 4500,
       nonPeakHourRate: 3000,
       sportIds: ["futsal", "cricket", "badminton"],
+      operationalStart: "08:00",
+      operationalEnd: "21:00",
       status: "active",
     },
     {
@@ -26,6 +28,8 @@ export const DEFAULT_ADMIN_SETTINGS = {
       peakHourRate: 4200,
       nonPeakHourRate: 2800,
       sportIds: ["futsal", "cricket"],
+      operationalStart: "07:00",
+      operationalEnd: "22:00",
       status: "active",
     },
     {
@@ -39,6 +43,8 @@ export const DEFAULT_ADMIN_SETTINGS = {
       peakHourRate: 4000,
       nonPeakHourRate: 2500,
       sportIds: ["futsal", "badminton"],
+      operationalStart: "08:00",
+      operationalEnd: "20:00",
       status: "active",
     },
   ],
@@ -98,6 +104,9 @@ export const DEFAULT_ADMIN_SETTINGS = {
   },
 };
 
+export const DEFAULT_OPERATIONAL_START = "08:00";
+export const DEFAULT_OPERATIONAL_END = "21:00";
+
 export function normalizeLocation(location) {
   return {
     ...location,
@@ -106,6 +115,8 @@ export function normalizeLocation(location) {
     peakHourRate: Number(location.peakHourRate) || 0,
     nonPeakHourRate: Number(location.nonPeakHourRate) || 0,
     sportIds: Array.isArray(location.sportIds) ? location.sportIds : [],
+    operationalStart: location.operationalStart || DEFAULT_OPERATIONAL_START,
+    operationalEnd: location.operationalEnd || DEFAULT_OPERATIONAL_END,
   };
 }
 

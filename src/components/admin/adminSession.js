@@ -3,7 +3,7 @@ const STORAGE_KEY = "pitch_admin_user";
 export const defaultAdminUser = {
   name: "Admin User",
   email: "admin@thepitch.com",
-  role: "Stadium Manager",
+  role: "admin",
 };
 
 export function getAdminUser() {

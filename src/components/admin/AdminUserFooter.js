@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { clearAdminSession, getAdminUser } from "./adminSession";
+import { USER_ROLES } from "@/lib/users/usersDefaults";
 import { useAdminSidebar } from "./adminSidebarContext";
 import styles from "./Admin.module.css";
 
@@ -47,7 +48,9 @@ export default function AdminUserFooter() {
         <div className={styles.avatar}>{getInitials(user.name)}</div>
         <div className={styles.userInfo}>
           <strong>{user.name}</strong>
-          <span>{user.email}</span>
+          <span>
+            {USER_ROLES[user.role]?.label ?? user.role} · {user.email}
+          </span>
         </div>
       </Link>
 

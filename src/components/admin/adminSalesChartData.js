@@ -1,8 +1,3 @@
-export const SALES_CHART_TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "channel", label: "By channel" },
-];
-
 export const salesOverviewData = {
   thisPeriod: {
     label: "This period (May 12 – 18)",
@@ -29,51 +24,6 @@ export const salesOverviewData = {
     ],
   },
 };
-
-export const salesByChannelData = [
-  {
-    id: "maharagama",
-    label: "Maharagama",
-    color: "#3b82f6",
-    points: [
-      { date: "12 May", value: 350 },
-      { date: "13 May", value: 0 },
-      { date: "14 May", value: 920 },
-      { date: "15 May", value: 880 },
-      { date: "16 May", value: 410 },
-      { date: "17 May", value: 280 },
-      { date: "18 May", value: 290 },
-    ],
-  },
-  {
-    id: "attidiya",
-    label: "Attidiya",
-    color: "#a855f7",
-    points: [
-      { date: "12 May", value: 280 },
-      { date: "13 May", value: 0 },
-      { date: "14 May", value: 760 },
-      { date: "15 May", value: 740 },
-      { date: "16 May", value: 320 },
-      { date: "17 May", value: 290 },
-      { date: "18 May", value: 210 },
-    ],
-  },
-  {
-    id: "moratuwa",
-    label: "Moratuwa",
-    color: "#14b8a6",
-    points: [
-      { date: "12 May", value: 170 },
-      { date: "13 May", value: 0 },
-      { date: "14 May", value: 520 },
-      { date: "15 May", value: 480 },
-      { date: "16 May", value: 170 },
-      { date: "17 May", value: 130 },
-      { date: "18 May", value: 100 },
-    ],
-  },
-];
 
 export function sumSalesPoints(points) {
   return points.reduce((sum, point) => sum + point.value, 0);

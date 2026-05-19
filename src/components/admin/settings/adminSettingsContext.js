@@ -57,7 +57,7 @@ export function AdminSettingsProvider({ children }) {
       const id = location.id || slugifyId(location.shortName || location.name);
       commit((prev) => ({
         ...prev,
-        locations: [...prev.locations, { ...location, id }],
+        locations: [...prev.locations, normalizeLocation({ ...location, id })],
       }));
       return id;
     },
@@ -69,7 +69,7 @@ export function AdminSettingsProvider({ children }) {
       commit((prev) => ({
         ...prev,
         locations: prev.locations.map((item) =>
-          item.id === id ? { ...item, ...patch } : item
+          item.id === id ? normalizeLocation({ ...item, ...patch }) : item
         ),
       }));
     },

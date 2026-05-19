@@ -2,10 +2,8 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  SALES_CHART_TABS,
   formatLkr,
   formatPercentChange,
-  salesByChannelData,
   salesOverviewData,
 } from "./adminSalesChartData";
 import styles from "./AdminSalesChart.module.css";
@@ -313,8 +311,6 @@ function SalesLineChart({ series, maxY = 2500, showComparison = false }) {
 }
 
 export default function AdminSalesChart() {
-  const [activeTab, setActiveTab] = useState("overview");
-
   const overviewSeries = useMemo(
     () => [
       {
@@ -333,44 +329,12 @@ export default function AdminSalesChart() {
     []
   );
 
-  const channelSeries = useMemo(
-    () =>
-      salesByChannelData.map((channel) => ({
-        label: channel.label,
-        color: channel.color,
-        dashed: false,
-        points: channel.points,
-      })),
-    []
-  );
-
-  const isOverview = activeTab === "overview";
-  const chartSeries = isOverview ? overviewSeries : channelSeries;
-
   return (
     <section className={styles.panel}>
-      <div className={styles.headerRow}>
-        <div className={styles.tabs}>
-          {SALES_CHART_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <SalesLineChart
-        series={chartSeries}
-        showComparison={isOverview}
-      />
+      <SalesLineChart series={overviewSeries} showComparison />
 
       <div className={styles.legend}>
-        {chartSeries.map((item) => (
+        {overviewSeries.map((item) => (
           <span key={item.label} className={styles.legendItem}>
             <span
               className={`${styles.legendLine} ${item.dashed ? styles.legendLineDashed : ""}`}

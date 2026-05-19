@@ -1,14 +1,10 @@
-import AdminPanel from "@/components/admin/AdminPanel";
-import styles from "@/components/admin/Admin.module.css";
+import CustomerManagement from "@/components/admin/CustomerManagement";
 
 export const metadata = {
-  title: "Manage Customers | Admin",
+  title: "Customer | Admin",
+  description: "Manage customer records and enquiries.",
 };
 
 export default function AdminCustomersPage() {
-  return (
-    <AdminPanel>
-      <p className={styles.placeholder}>Customer management coming soon.</p>
-    </AdminPanel>
-  );
+  return <CustomerManagement />;
 }

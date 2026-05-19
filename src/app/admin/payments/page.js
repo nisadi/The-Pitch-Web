@@ -1,14 +1,10 @@
-import AdminPanel from "@/components/admin/AdminPanel";
-import styles from "@/components/admin/Admin.module.css";
+import PaymentSummary from "@/components/admin/PaymentSummary";
 
 export const metadata = {
   title: "Payments | Admin",
+  description: "Monitor transactions, filter by date, and export payment summaries.",
 };
 
 export default function AdminPaymentsPage() {
-  return (
-    <AdminPanel>
-      <p className={styles.placeholder}>Payment management coming soon.</p>
-    </AdminPanel>
-  );
+  return <PaymentSummary />;
 }

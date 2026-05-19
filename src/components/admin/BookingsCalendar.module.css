@@ -3,6 +3,9 @@
   grid-template-columns: 1fr 300px;
   gap: 1.5rem;
   align-items: start;
+  height: calc(100vh - 7.5rem);
+  height: calc(100dvh - 7.5rem);
+  min-height: 0;
 }
 
 .wrapperFull {
@@ -10,11 +13,31 @@
 }
 
 .calendarPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1rem 1.25rem 1.15rem;
   min-width: 0;
+  overflow: hidden;
+}
+
+.calendarBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.monthView {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .toolbar {
@@ -23,7 +46,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
 }
 
 .toolbarLeft {
@@ -124,7 +148,8 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 0.25rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+  flex-shrink: 0;
 }
 
 .weekday {
@@ -138,19 +163,22 @@
 }
 
 .daysGrid {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
   gap: 0.25rem;
 }
 
 .dayCell {
-  aspect-ratio: 1;
-  min-height: 72px;
+  min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 0.5rem 0.25rem;
+  padding: 0.35rem 0.2rem;
   border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
@@ -211,6 +239,8 @@
 
 /* Week view */
 .weekGrid {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -220,7 +250,7 @@
 
 .weekHeader {
   display: grid;
-  grid-template-columns: 56px repeat(7, 1fr);
+  grid-template-columns: 96px repeat(7, 1fr);
   background: var(--background);
   border-bottom: 1px solid var(--border);
 }
@@ -262,16 +292,19 @@
 
 .weekBody {
   display: grid;
-  grid-template-columns: 56px repeat(7, 1fr);
-  max-height: 520px;
+  grid-template-columns: 96px repeat(7, 1fr);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
 .timeLabel {
   padding: 0.4rem 0.35rem;
-  font-size: 0.65rem;
+  font-size: 0.58rem;
+  line-height: 1.3;
   color: var(--foreground-muted);
-  text-align: right;
+  text-align: center;
+  white-space: nowrap;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   min-height: 48px;
@@ -314,18 +347,19 @@
 
 /* Day view */
 .daySchedule {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  max-height: 600px;
   overflow-y: auto;
 }
 
 .dayRow {
   display: grid;
-  grid-template-columns: 72px 1fr;
+  grid-template-columns: 108px 1fr;
   border-bottom: 1px solid var(--border);
   min-height: 56px;
 }
@@ -351,14 +385,20 @@
 
 /* Agenda view */
 .agendaList {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  max-height: 640px;
+  gap: 1rem;
+  overflow-x: hidden;
   overflow-y: auto;
+  padding-right: 0.35rem;
+  padding-bottom: 0.5rem;
+  scrollbar-gutter: stable;
 }
 
 .agendaDay {
+  flex-shrink: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -392,10 +432,11 @@
 
 .agendaRow {
   display: grid;
-  grid-template-columns: 120px 1fr auto;
+  grid-template-columns: 132px 1fr auto;
   gap: 1rem;
-  align-items: center;
-  padding: 0.75rem 1rem;
+  align-items: flex-start;
+  flex-shrink: 0;
+  padding: 0.85rem 1rem;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--background);
@@ -412,24 +453,35 @@
   color: var(--primary);
 }
 
+.agendaInfo {
+  min-width: 0;
+  line-height: 1.45;
+}
+
 .agendaInfo strong {
   display: block;
   font-size: 0.9rem;
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.2rem;
 }
 
 .agendaInfo span {
+  display: block;
   font-size: 0.75rem;
   color: var(--foreground-muted);
+}
+
+.agendaRow .statusBadge {
+  margin-top: 0.1rem;
 }
 
 .legend {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .legendItem {
@@ -576,6 +628,11 @@
 }
 
 @media (max-width: 768px) {
+  .wrapper {
+    height: calc(100vh - 6.5rem);
+    height: calc(100dvh - 6.5rem);
+  }
+
   .calendarPanel {
     padding: 1rem;
   }
@@ -606,7 +663,15 @@
 
   .weekHeader,
   .weekBody {
-    grid-template-columns: 40px repeat(7, minmax(44px, 1fr));
+    grid-template-columns: 76px repeat(7, minmax(44px, 1fr));
+  }
+
+  .timeLabel {
+    font-size: 0.52rem;
+  }
+
+  .dayRow {
+    grid-template-columns: 88px 1fr;
   }
 
   .weekBody {
@@ -614,10 +679,7 @@
   }
 
   .dayCell {
-    min-height: 44px;
+    min-height: 0;
   }
 
-  .agendaList {
-    max-height: none;
-  }
 }

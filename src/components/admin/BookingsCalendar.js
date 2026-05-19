@@ -6,7 +6,6 @@ import {
   BOOKING_STATUSES,
   filterByLocation,
   getBookingsForDate,
-  HOURS,
   mockBookings,
   toDateKey,
 } from "./bookingsData";
@@ -14,12 +13,15 @@ import {
   dateFromKey,
   formatHeaderRange,
   formatHourLabel,
+  formatOperationalHoursDisplay,
   formatShortDate,
+  getOperationalHours,
   getWeekDateKeys,
   parseTimeStart,
   sortBookingsByTime,
 } from "./bookingsUtils";
 import { useAdminLocation } from "./adminLocationContext";
+import { useAdminSettings } from "./settings/adminSettingsContext";
 import styles from "./BookingsCalendar.module.css";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -68,7 +70,22 @@ export default function BookingsCalendar() {
   const [calendarView, setCalendarView] = useState("month");
   const [focusDate, setFocusDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(todayKey);
-  const { filterValue: locationFilter } = useAdminLocation();
+  const { filterValue: locationFilter, locationId } = useAdminLocation();
+  const { locations } = useAdminSettings();
+
+  const activeLocation = useMemo(
+    () => locations.find((loc) => loc.id === locationId),
+    [locations, locationId]
+  );
+
+  const calendarHours = useMemo(
+    () =>
+      getOperationalHours(
+        activeLocation?.operationalStart,
+        activeLocation?.operationalEnd
+      ),
+    [activeLocation]
+  );
 
   const filteredBookings = useMemo(
     () => filterByLocation(mockBookings, locationFilter),
@@ -249,8 +266,9 @@ export default function BookingsCalendar() {
           </div>
         </div>
 
+        <div className={styles.calendarBody}>
         {calendarView === "month" && (
-          <>
+          <div className={styles.monthView}>
             <div className={styles.weekdays}>
               {WEEKDAYS.map((day) => (
                 <span key={day} className={styles.weekday}>
@@ -308,7 +326,7 @@ export default function BookingsCalendar() {
                 );
               })}
             </div>
-          </>
+          </div>
         )}
 
         {calendarView === "week" && (
@@ -339,7 +357,7 @@ export default function BookingsCalendar() {
               })}
             </div>
             <div className={styles.weekBody}>
-              {HOURS.flatMap((hour) => [
+              {calendarHours.flatMap((hour) => [
                 <div key={`time-${hour}`} className={styles.timeLabel}>
                   {formatHourLabel(hour)}
                 </div>,
@@ -382,7 +400,7 @@ export default function BookingsCalendar() {
 
         {calendarView === "day" && (
           <div className={styles.daySchedule}>
-            {HOURS.map((hour) => {
+            {calendarHours.map((hour) => {
               const slotBookings = dayViewBookings.filter(
                 (b) => Math.floor(parseTimeStart(b.time) / 60) === hour
               );
@@ -455,7 +473,22 @@ export default function BookingsCalendar() {
           </div>
         )}
 
+        </div>
+
         <div className={styles.legend}>
+          {activeLocation && (
+            <span className={styles.legendItem}>
+              <span
+                className={styles.dot}
+                style={{ background: "var(--primary)" }}
+              />
+              Hours:{" "}
+              {formatOperationalHoursDisplay(
+                activeLocation.operationalStart,
+                activeLocation.operationalEnd
+              )}
+            </span>
+          )}
           {Object.entries(BOOKING_STATUSES).map(([key, { label, color }]) => (
             <span key={key} className={styles.legendItem}>
               <span className={styles.dot} style={{ background: color }} />

@@ -6,36 +6,6 @@
   overflow: visible;
 }
 
-.headerRow {
-  margin-bottom: 1.25rem;
-}
-
-.tabs {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--background);
-}
-
-.tab {
-  padding: 0.45rem 0.9rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--foreground-muted);
-  transition: var(--transition);
-}
-
-.tab:hover {
-  color: var(--foreground);
-  background: var(--surface-hover);
-}
-
-.tabActive {
-  background: var(--foreground);
-  color: var(--background);
-}
-
 .chartArea {
   position: relative;
   width: 100%;

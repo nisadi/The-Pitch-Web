@@ -4,6 +4,10 @@ import { useState } from "react";
 import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import LocationFormModal from "./LocationFormModal";
+import {
+  formatOperationalHoursDisplay,
+  isOperationalRangeValid,
+} from "../bookingsUtils";
 import { slugifyId } from "./adminSettingsDefaults";
 import { useAdminSettings } from "./adminSettingsContext";
 import styles from "./AdminSettings.module.css";
@@ -18,8 +22,38 @@ const EMPTY = {
   peakHourRate: "",
   nonPeakHourRate: "",
   sportIds: [],
+  operationalStart: "08:00",
+  operationalEnd: "21:00",
   status: "active",
 };
+
+function locationToForm(location) {
+  return {
+    name: location.name ?? "",
+    shortName: location.shortName ?? "",
+    address: location.address ?? "",
+    phone: location.phone ?? "",
+    description: location.description ?? "",
+    image: location.image ?? "",
+    peakHourRate: String(location.peakHourRate ?? ""),
+    nonPeakHourRate: String(location.nonPeakHourRate ?? ""),
+    sportIds: Array.isArray(location.sportIds) ? [...location.sportIds] : [],
+    operationalStart: location.operationalStart ?? "08:00",
+    operationalEnd: location.operationalEnd ?? "21:00",
+    status: location.status ?? "active",
+  };
+}
+
+function isValidRates(peak, nonPeak) {
+  return (
+    peak !== "" &&
+    nonPeak !== "" &&
+    !Number.isNaN(Number(peak)) &&
+    !Number.isNaN(Number(nonPeak)) &&
+    Number(peak) >= 0 &&
+    Number(nonPeak) >= 0
+  );
+}
 
 export default function SettingsLocations() {
   const { locations, sports, addLocation, updateLocation, removeLocation } =
@@ -52,32 +86,27 @@ export default function SettingsLocations() {
 
   const startEdit = (location) => {
     setEditingId(location.id);
-    setForm({
-      name: location.name,
-      shortName: location.shortName,
-      address: location.address,
-      phone: location.phone,
-      description: location.description ?? "",
-      image: location.image ?? "",
-      peakHourRate: String(location.peakHourRate ?? ""),
-      nonPeakHourRate: String(location.nonPeakHourRate ?? ""),
-      sportIds: location.sportIds ?? [],
-      status: location.status,
-    });
+    setForm(locationToForm(location));
     setModalOpen(true);
   };
 
   const handleSubmit = () => {
+    const peakRate = String(form.peakHourRate).trim();
+    const nonPeakRate = String(form.nonPeakHourRate).trim();
+
     const payload = {
-      ...form,
       name: form.name.trim(),
       shortName: form.shortName.trim(),
       address: form.address.trim(),
       phone: form.phone.trim(),
       description: form.description.trim(),
-      image: form.image,
-      peakHourRate: Number(form.peakHourRate),
-      nonPeakHourRate: Number(form.nonPeakHourRate),
+      image: form.image ?? "",
+      peakHourRate: Number(peakRate),
+      nonPeakHourRate: Number(nonPeakRate),
+      sportIds: form.sportIds ?? [],
+      operationalStart: form.operationalStart,
+      operationalEnd: form.operationalEnd,
+      status: form.status,
     };
 
     if (
@@ -85,10 +114,17 @@ export default function SettingsLocations() {
       !payload.shortName ||
       !payload.address ||
       !payload.phone ||
-      !payload.peakHourRate ||
-      !payload.nonPeakHourRate ||
-      !form.sportIds?.length
+      !isValidRates(peakRate, nonPeakRate) ||
+      !payload.sportIds.length ||
+      !payload.operationalStart ||
+      !payload.operationalEnd
     ) {
+      window.alert("Please fill in all required fields.");
+      return;
+    }
+
+    if (!isOperationalRangeValid(payload.operationalStart, payload.operationalEnd)) {
+      window.alert("Closing time must be after opening time.");
       return;
     }
 
@@ -164,6 +200,13 @@ export default function SettingsLocations() {
                       Peak LKR {Number(location.peakHourRate || 0).toLocaleString("en-LK")}{" "}
                       · Off-peak LKR{" "}
                       {Number(location.nonPeakHourRate || 0).toLocaleString("en-LK")}
+                    </p>
+                    <p className={styles.cardMeta}>
+                      Hours:{" "}
+                      {formatOperationalHoursDisplay(
+                        location.operationalStart,
+                        location.operationalEnd
+                      )}
                     </p>
                     {(location.sportIds?.length ?? 0) > 0 && (
                       <div className={styles.tagList}>

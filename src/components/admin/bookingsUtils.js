@@ -1,4 +1,61 @@
 import { toDateKey } from "./bookingsData";
+import {
+  DEFAULT_OPERATIONAL_END,
+  DEFAULT_OPERATIONAL_START,
+} from "./settings/adminSettingsDefaults";
+
+export function parseTimeField(timeStr) {
+  const [hourPart, minutePart] = (timeStr || "00:00").split(":");
+  const hour = Number(hourPart);
+  const minute = Number(minutePart) || 0;
+  return {
+    hour: Number.isFinite(hour) ? hour : 0,
+    minute: Number.isFinite(minute) ? minute : 0,
+  };
+}
+
+/** Booking slot start hours for week/day grid (e.g. 8 → 8.00-9.00 AM). */
+export function getOperationalHours(
+  operationalStart = DEFAULT_OPERATIONAL_START,
+  operationalEnd = DEFAULT_OPERATIONAL_END
+) {
+  const start = parseTimeField(operationalStart);
+  const end = parseTimeField(operationalEnd);
+
+  const startHour = start.hour;
+  let lastSlotHour = end.minute === 0 ? end.hour - 1 : end.hour;
+
+  if (lastSlotHour < startHour) {
+    lastSlotHour = startHour;
+  }
+
+  return Array.from(
+    { length: lastSlotHour - startHour + 1 },
+    (_, index) => startHour + index
+  );
+}
+
+export function compareTimeStrings(start, end) {
+  const a = parseTimeField(start);
+  const b = parseTimeField(end);
+  return a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
+}
+
+export function isOperationalRangeValid(start, end) {
+  return compareTimeStrings(start, end) < 0;
+}
+
+export function formatOperationalHoursDisplay(operationalStart, operationalEnd) {
+  const formatPoint = (timeStr) => {
+    const { hour, minute } = parseTimeField(timeStr);
+    const period = hour >= 12 ? "PM" : "AM";
+    let displayHour = hour % 12;
+    if (displayHour === 0) displayHour = 12;
+    return `${displayHour}.${String(minute).padStart(2, "0")} ${period}`;
+  };
+
+  return `${formatPoint(operationalStart)} – ${formatPoint(operationalEnd)}`;
+}
 
 export function parseTimeStart(timeStr) {
   const part = timeStr.split("-")[0].trim();
@@ -38,11 +95,24 @@ export function getWeekDateKeys(reference) {
   });
 }
 
+function formatClockTime(hour, minute = 0) {
+  const period = hour >= 12 ? "PM" : "AM";
+  let displayHour = hour % 12;
+  if (displayHour === 0) displayHour = 12;
+  const mins = String(minute).padStart(2, "0");
+  return { text: `${displayHour}.${mins}`, period };
+}
+
+/** Hour slot label for calendar rows, e.g. 8.00 - 9.00 AM */
 export function formatHourLabel(hour) {
-  if (hour === 0) return "12 AM";
-  if (hour < 12) return `${hour} AM`;
-  if (hour === 12) return "12 PM";
-  return `${hour - 12} PM`;
+  const start = formatClockTime(hour);
+  const end = formatClockTime(hour + 1);
+
+  if (start.period === end.period) {
+    return `${start.text} - ${end.text} ${start.period}`;
+  }
+
+  return `${start.text} ${start.period} - ${end.text} ${end.period}`;
 }
 
 export function formatShortDate(dateKey) {

@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Save,
 } from "lucide-react";
+import { isOperationalRangeValid } from "../bookingsUtils";
 import styles from "./LocationFormModal.module.css";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -82,14 +83,27 @@ export default function LocationFormModal({
     onChange({ sportIds: next });
   };
 
+  const peakRate = String(form.peakHourRate ?? "").trim();
+  const nonPeakRate = String(form.nonPeakHourRate ?? "").trim();
+  const ratesValid =
+    peakRate !== "" &&
+    nonPeakRate !== "" &&
+    !Number.isNaN(Number(peakRate)) &&
+    !Number.isNaN(Number(nonPeakRate)) &&
+    Number(peakRate) >= 0 &&
+    Number(nonPeakRate) >= 0;
+
   const canSave =
     form.name.trim() &&
     form.shortName.trim() &&
     form.address.trim() &&
     form.phone.trim() &&
-    String(form.peakHourRate).trim() !== "" &&
-    String(form.nonPeakHourRate).trim() !== "" &&
-    selectedSportIds.length > 0;
+    ratesValid &&
+    selectedSportIds.length > 0 &&
+    form.operationalStart &&
+    form.operationalEnd &&
+    isOperationalRangeValid(form.operationalStart, form.operationalEnd) &&
+    (isEdit || Boolean(form.image));
 
   return createPortal(
     <div
@@ -174,7 +188,8 @@ export default function LocationFormModal({
 
             <div className={styles.field}>
               <span className={styles.label}>
-                Location image <span className={styles.required}>*</span>
+                Location image{" "}
+                {!isEdit && <span className={styles.required}>*</span>}
               </span>
               <input
                 id={fileInputId}
@@ -232,6 +247,46 @@ export default function LocationFormModal({
                 onChange={(e) => onChange({ description: e.target.value })}
                 placeholder="Enter location description"
               />
+            </div>
+          </section>
+
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Operational hours</h3>
+            <p className={styles.hint} style={{ marginBottom: "0.75rem" }}>
+              Set when this venue is open. The bookings calendar week and day
+              views use these times for the selected location.
+            </p>
+
+            <div className={styles.formRow}>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="loc-modal-op-start">
+                  Opens at <span className={styles.required}>*</span>
+                </label>
+                <input
+                  id="loc-modal-op-start"
+                  type="time"
+                  className={styles.input}
+                  value={form.operationalStart ?? "08:00"}
+                  onChange={(e) =>
+                    onChange({ operationalStart: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="loc-modal-op-end">
+                  Closes at <span className={styles.required}>*</span>
+                </label>
+                <input
+                  id="loc-modal-op-end"
+                  type="time"
+                  className={styles.input}
+                  value={form.operationalEnd ?? "21:00"}
+                  onChange={(e) => onChange({ operationalEnd: e.target.value })}
+                  required
+                />
+              </div>
             </div>
           </section>
 
@@ -399,7 +454,7 @@ export default function LocationFormModal({
             disabled={!canSave}
           >
             <Save size={18} />
-            Save location
+            {isEdit ? "Save changes" : "Save location"}
           </button>
         </footer>
       </div>
