@@ -35,7 +35,7 @@ export default function SignupPage() {
         setSuccessMsg(null);
         setLoading(true);
 
-        const { user, error: signUpError } = await signUp(
+        const { user, error: signUpError, adminCreated } = await signUp(
             formData.email,
             formData.password,
             formData.fullName,
@@ -44,23 +44,24 @@ export default function SignupPage() {
 
         if (signUpError) {
             if (signUpError.message.includes("rate limit")) {
-                setError("Email rate limit exceeded. Please try again later or disable email confirmations in your Supabase Auth settings for testing.");
+                setError("Email rate limit exceeded. Please try again later or copy your Supabase service_role key to .env.local to bypass verification.");
             } else {
                 setError(signUpError.message);
             }
             setLoading(false);
         } else {
-            // Check if user is returned but session is not established (email confirmation required)
-            if (user && user.identities && user.identities.length === 0) {
-                 setError("This email is already registered. Please sign in.");
-                 setLoading(false);
+            if (adminCreated) {
+                setSuccessMsg("Account created and verified! Logging you in...");
+                setLoading(false);
+                setTimeout(() => {
+                    window.location.href = "/profile";
+                }, 1500);
             } else {
-                 setSuccessMsg("Signup successful! Please check your email to confirm your account before logging in.");
-                 setLoading(false);
-                 // Optionally redirect after a delay
-                 setTimeout(() => {
-                     router.push("/login");
-                 }, 5000);
+                setSuccessMsg("Signup successful! Please check your email to confirm your account before logging in.");
+                setLoading(false);
+                setTimeout(() => {
+                    router.push("/login");
+                }, 5000);
             }
         }
     };
