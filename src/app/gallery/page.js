@@ -48,8 +48,9 @@ export default function GalleryPage() {
           const positions = ["row1", "row1", "midLeft", "midTall", "midLeft", "bottom", "bottom", "bottom"];
           return {
             ...item,
+            src: item.image_url || "/images/placeholder.png", // Map database image_url to src
             position: item.position || positions[index % positions.length],
-            badge: item.badge || `badge${item.category.replace(/\s+/g, '')}`
+            badge: item.badge || `badge${item.category?.replace(/\s+/g, '') || 'Ground'}`
           };
         }));
       }

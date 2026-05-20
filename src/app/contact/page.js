@@ -137,7 +137,7 @@ export default function ContactPage() {
                     </div>
                     <div className={styles.itemContent}>
                       <span className={styles.itemLabel}>RECEPTION & BOOKINGS</span>
-                      <span className={styles.itemValue}>{loc.phone_number || 'N/A'}</span>
+                      <span className={styles.itemValue}>{loc.phone || 'N/A'}</span>
                       <span className={styles.itemSub}>Mon-Sun: 6:00 AM – 11:00 PM</span>
                     </div>
                   </div>
@@ -148,7 +148,7 @@ export default function ContactPage() {
                     </div>
                     <div className={styles.itemContent}>
                       <span className={styles.itemLabel}>EVENTS & CORPORATE</span>
-                      <span className={styles.itemValue} style={{ fontSize: '1.1rem' }}>{loc.email || 'N/A'}</span>
+                      <span className={styles.itemValue} style={{ fontSize: '1.1rem' }}>{`play@thepitch${loc.slug || 'attidiya'}.com`}</span>
                       <span className={styles.itemSub}>Response within 12 business hours</span>
                     </div>
                   </div>
@@ -160,7 +160,6 @@ export default function ContactPage() {
                     <div className={styles.itemContent}>
                       <span className={styles.itemLabel}>STADIUM ADDRESS</span>
                       <span className={styles.itemValue} style={{ fontSize: '1rem' }}>{loc.address || 'N/A'}</span>
-                      <span className={styles.itemSub}>{loc.postal_code || ''}</span>
                     </div>
                   </div>
                 </motion.div>
