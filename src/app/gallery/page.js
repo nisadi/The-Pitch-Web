@@ -1,79 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, X, ChevronLeft, ChevronRight } from "lucide-react";
 import styles from "./gallery.module.css";
+import { getGallery } from "@/services/gallery";
 
 const CATEGORIES = ["All Access", "Ground", "Cafe", "Kids Area", "Events"];
 
-const GALLERY_ITEMS = [
-  {
-    id: 1,
-    src: "/images/gallery-pitch-a.png",
-    title: "Main Arena Pitch A",
-    category: "Ground",
-    badge: "badgeGround",
-    position: "row1",
-  },
-  {
-    id: 2,
-    src: "/images/gallery-cafe.png",
-    title: "The Fuel Station",
-    category: "Cafe",
-    badge: "badgeCafe",
-    position: "row1",
-  },
-  {
-    id: 3,
-    src: "/images/gallery-party.png",
-    title: "Championship Parties",
-    category: "Events",
-    badge: "badgeEvents",
-    position: "midLeft",
-  },
-  {
-    id: 4,
-    src: "/images/gallery-kids-area.png",
-    title: "The Junior Zone",
-    category: "Kids Area",
-    badge: "badgeKids",
-    position: "midTall",
-  },
-  {
-    id: 5,
-    src: "/images/gallery-lounge.png",
-    title: "Corporate Lounges",
-    category: "Events",
-    badge: "badgeLounge",
-    position: "midLeft",
-  },
-  {
-    id: 6,
-    src: "/images/gallery-vantage.png",
-    title: "Vantage Seating",
-    category: "Ground",
-    badge: "badgeGround",
-    position: "bottom",
-  },
-  {
-    id: 7,
-    src: "/images/gallery-drinks.png",
-    title: "Healthy Fuel",
-    category: "Cafe",
-    badge: "badgeCafe",
-    position: "bottom",
-  },
-  {
-    id: 8,
-    src: "/images/gallery-lounge.png",
-    title: "Corporate Lounges",
-    category: "Events",
-    badge: "badgeLounge",
-    position: "bottom",
-  },
-];
+
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -100,11 +36,31 @@ const cardVariant = {
 export default function GalleryPage() {
   const [activeTab, setActiveTab] = useState("All Access");
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [galleryItems, setGalleryItems] = useState([]);
+
+  useEffect(() => {
+    const fetchGallery = async () => {
+      const data = await getGallery();
+      if (data && data.length > 0) {
+        // Map database fields to what the component expects if necessary
+        setGalleryItems(data.map((item, index) => {
+          // Provide some default positions for the masonry layout if not defined in DB
+          const positions = ["row1", "row1", "midLeft", "midTall", "midLeft", "bottom", "bottom", "bottom"];
+          return {
+            ...item,
+            position: item.position || positions[index % positions.length],
+            badge: item.badge || `badge${item.category.replace(/\s+/g, '')}`
+          };
+        }));
+      }
+    };
+    fetchGallery();
+  }, []);
 
   const filteredItems =
     activeTab === "All Access"
-      ? GALLERY_ITEMS
-      : GALLERY_ITEMS.filter((item) => item.category === activeTab);
+      ? galleryItems
+      : galleryItems.filter((item) => item.category === activeTab);
 
   const openLightbox = useCallback((idx) => setLightboxIndex(idx), []);
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);

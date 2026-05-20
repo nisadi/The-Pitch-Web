@@ -2,8 +2,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "./login.module.css";
 import { motion } from "framer-motion";
+import { signIn } from "@/services/auth";
 
 import {
     Mail,
@@ -16,6 +18,29 @@ import {
 
 export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
+    const [formData, setFormData] = useState({ email: "", password: "" });
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+
+        const { user, error: signInError } = await signIn(formData.email, formData.password);
+
+        if (signInError) {
+            setError(signInError.message);
+            setLoading(false);
+        } else {
+            router.push("/profile");
+        }
+    };
 
     const fadeInUp = {
         initial: { opacity: 0, y: 30 },
@@ -43,8 +68,10 @@ export default function LoginPage() {
                 </div>
 
                 {/* RIGHT SIDE */}
-                <div className={styles.rightSide}>
+                <form className={styles.rightSide} onSubmit={handleSubmit}>
                     <h2>LOGIN</h2>
+
+                    {error && <p className={styles.errorMsg} style={{color: 'red', fontSize: '14px', marginBottom: '10px'}}>{error}</p>}
 
                     <div className={styles.formGroup}>
                         <label>EMAIL ADDRESS</label>
@@ -54,7 +81,11 @@ export default function LoginPage() {
 
                             <input
                                 type="email"
+                                name="email"
                                 placeholder="Enter your email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                required
                             />
                         </div>
                     </div>
@@ -67,7 +98,11 @@ export default function LoginPage() {
 
                             <input
                                 type={showPassword ? "text" : "password"}
+                                name="password"
                                 placeholder="Enter your password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
                             />
 
                             <button
@@ -92,8 +127,8 @@ export default function LoginPage() {
                         <Link href="#">Forgot Password?</Link>
                     </div>
 
-                    <button className={styles.loginBtn}>
-                        LOGIN
+                    <button type="submit" className={styles.loginBtn} disabled={loading}>
+                        {loading ? "LOGGING IN..." : "LOGIN"}
                         <ArrowRight size={18} />
                     </button>
 
@@ -101,7 +136,7 @@ export default function LoginPage() {
                         Don&apos;t have an account?
                         <Link href="/signup"> Sign Up</Link>
                     </p>
-                </div>
+                </form>
             </motion.div>
         </div>
     );

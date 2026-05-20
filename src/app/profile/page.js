@@ -13,57 +13,63 @@ import {
     ShieldCheck,
     User,
 } from "lucide-react";
+import { getSession, signOut } from "@/services/auth";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 export default function ProfilePage() {
+    const router = useRouter();
     const [profile, setProfile] = React.useState({
-        name: "Alex Harrison",
-        email: "alex.harrison@stadium.club",
-        phone: "+94 77 128 3567",
+        name: "",
+        email: "",
+        phone: "",
         badge: "GOLD MEMBER",
-        avatar: "https://randomuser.me/api/portraits/men/32.jpg"
+        avatar: ""
     });
+    const [bookings, setBookings] = React.useState([]);
 
     React.useEffect(() => {
-        try {
-            const stored = localStorage.getItem("athleteProfile");
-            if (stored) {
-                setProfile(JSON.parse(stored));
-            } else {
-                localStorage.setItem("athleteProfile", JSON.stringify(profile));
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }, []);
+        const loadProfile = async () => {
+            const { session } = await getSession();
+            if (session) {
+                const user = session.user;
+                setProfile({
+                    name: user.user_metadata?.full_name || "Athlete",
+                    email: user.email,
+                    phone: user.user_metadata?.phone_number || "",
+                    badge: "GOLD MEMBER",
+                    avatar: user.user_metadata?.avatar_url || ""
+                });
 
-    const bookings = [
-        {
-            id: 1,
-            title: "Main Arena - Field 2",
-            date: "Oct 24, 2024",
-            time: "19:00 - 21:00",
-            price: "Rs. 3000.00",
-            image:
-                "https://images.unsplash.com/photo-1517466787929-bc90951d0974?q=80&w=1200&auto=format&fit=crop",
-        },
-        {
-            id: 2,
-            title: "Practice Court A",
-            date: "Oct 20, 2024",
-            time: "17:00 - 18:30",
-            price: "Rs. 2000.00",
-            image:
-                "https://images.unsplash.com/photo-1547347298-4074fc3086f0?q=80&w=1200&auto=format&fit=crop",
-        },
-        {
-            id: 3,
-            title: "North Wing - Court 4",
-            date: "Oct 15, 2024",
-            time: "20:00 - 21:00",
-            price: "Rs. 5000.00",
-            image:
-                "https://images.unsplash.com/photo-1522778119026-d647f0596c20?q=80&w=1200&auto=format&fit=crop",
-        },
-    ];
+                // Fetch bookings
+                const { data } = await supabase
+                    .from('bookings')
+                    .select('*, sports(name), locations(name)')
+                    .eq('user_id', user.id)
+                    .order('booking_date', { ascending: false });
+
+                if (data) {
+                    setBookings(data.map(b => ({
+                        id: b.id,
+                        title: `${b.locations?.name || 'Arena'} - ${b.sports?.name || 'Sport'}`,
+                        date: new Date(b.booking_date).toLocaleDateString(),
+                        time: `${b.start_time} - ${b.end_time}`,
+                        price: `Rs. ${b.total_amount}.00`,
+                        image: "https://images.unsplash.com/photo-1517466787929-bc90951d0974?q=80&w=1200&auto=format&fit=crop",
+                    })));
+                }
+            } else {
+                router.push('/login');
+            }
+        };
+        loadProfile();
+    }, [router]);
+
+    const handleLogout = async () => {
+        await signOut();
+        router.push('/');
+    };
+
+    // Bookings mapped dynamically
 
     const fadeInUp = {
         initial: { opacity: 0, y: 25 },
@@ -125,7 +131,7 @@ export default function ProfilePage() {
                         EDIT PROFILE
                     </Link>
 
-                    <button className={styles.logoutBtn}>
+                    <button className={styles.logoutBtn} onClick={handleLogout}>
                         <LogOut size={15} />
                         LOGOUT
                     </button>

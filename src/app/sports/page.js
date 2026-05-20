@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Coffee, Car, Droplets } from "lucide-react";
 import styles from "./sports.module.css";
+import { getSports } from "@/services/sports";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -23,6 +25,18 @@ const staggerContainer = {
 };
 
 export default function SportsPage() {
+  const [sports, setSports] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSports = async () => {
+      const data = await getSports();
+      setSports(data);
+      setLoading(false);
+    };
+    loadSports();
+  }, []);
+
   return (
     <div className={styles.pageContainer}>
       {/* ─── HERO SECTION ─── */}
@@ -71,7 +85,6 @@ export default function SportsPage() {
         </div>
       </div>
 
-      {/* ─── FACILITIES GRID ─── */}{/*check grid*/}
       <section className={styles.facilitiesSection}>
         <motion.div 
           className={styles.gridContainer}
@@ -79,72 +92,39 @@ export default function SportsPage() {
           initial="initial"
           whileInView="whileInView"
         >
-          {/* Cricket */}
-          <motion.div variants={fadeInUp} className={`${styles.card} ${styles.cardCricket}`}>
-            <img src="/images/cricket-facility.png" alt="Cricket" className={styles.cardBg} />
-            <div className={styles.cardOverlay}></div>
-            <div className={styles.cardContent}>
-              <span className={styles.badge}>MOST POPULAR</span>
-              <h2 className={styles.cardTitle}>Cricket</h2>
-              <p className={styles.cardDesc}>Experience professional-grade pitches with advanced bowling machines and high-speed motion capture analysis.</p>
-              <div className={styles.priceInfo}>
-                <span className={styles.priceLabel}>STARTING AT</span>
-                <span className={styles.priceValue}>Rs. 3000</span>
-                <span className={styles.priceUnit}> /hr</span>
-              </div>
-            </div>
-          </motion.div>
+          {loading ? (
+            <p style={{ textAlign: "center", color: "#fff", width: "100%" }}>Loading sports...</p>
+          ) : sports.length > 0 ? (
+            sports.map((sport) => {
+              // Determine card class based on sport name (fallback to a default)
+              let cardClass = "";
+              if (sport.name.toLowerCase().includes("cricket")) cardClass = styles.cardCricket;
+              else if (sport.name.toLowerCase().includes("football")) cardClass = styles.cardFootball;
+              else if (sport.name.toLowerCase().includes("futsal")) cardClass = styles.cardFutsal;
+              else if (sport.name.toLowerCase().includes("hybrid")) cardClass = styles.cardCricksal;
+              else cardClass = styles.cardFootball; // default fallback
 
-          {/* Football */}
-          <motion.div variants={fadeInUp} className={`${styles.card} ${styles.cardFootball}`}>
-            <img src="/images/football-facility.png" alt="Football" className={styles.cardBg} />
-            <div className={styles.cardOverlay}></div>
-            <div className={styles.cardContent}>
-              <h2 className={styles.cardTitle}>Football</h2>
-              <p className={styles.cardDesc}>Full-size indoor arena with premium turf and lighting.</p>
-              <div className={styles.priceInfo}>
-                <span className={styles.priceLabel}>STARTING AT</span>
-                <span className={styles.priceValue}>Rs. 5000</span>
-                <span className={styles.priceUnit}> /hr</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Futsal */}
-          <motion.div variants={fadeInUp} className={`${styles.card} ${styles.cardFutsal}`}>
-            <img src="/images/futsal-facility.png" alt="Futsal" className={styles.cardBg} />
-            <div className={styles.cardOverlay}></div>
-            <div className={styles.cardContent}>
-              <h2 className={styles.cardTitle}>Futsal</h2>
-              <p className={styles.cardDesc}>Fast-paced action on high-grip surfaces. Perfect for technical skill development and small-sided games.</p>
-              <div className={styles.priceInfo}>
-                <span className={styles.priceLabel}>STARTING AT</span>
-                <span className={styles.priceValue}>Rs. 3000</span>
-                <span className={styles.priceUnit}> /hr</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Cricksal Hybrid */}
-          <motion.div variants={fadeInUp} className={`${styles.card} ${styles.cardCricksal}`}>
-            <div className={styles.cardBg}></div>
-            <div className={styles.cardContent}>
-              <h2 className={styles.cardTitle}>Cricksal Hybrid</h2>
-              <p className={styles.cardDesc}>Our signature hybrid format. A custom-built arena that merges the tactical depth of cricket with the explosive pace of futsal.</p>
-              <div className={styles.priceRow}>
-                <div className={styles.priceInfo}>
-                  <span className={styles.priceLabel}>TEAM RATE</span>
-                  <span className={styles.priceValue}>Rs. 8000</span>
-                  <span className={styles.priceUnit}> /hr</span>
-                </div>
-                <div className={styles.priceInfo}>
-                  <span className={styles.priceLabel}>INDIVIDUAL</span>
-                  <span className={styles.priceValue}>Rs. 1000</span>
-                  <span className={styles.priceUnit}> /pp</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+              return (
+                <motion.div key={sport.id} variants={fadeInUp} className={`${styles.card} ${cardClass}`}>
+                  {sport.image_url && <img src={sport.image_url} alt={sport.name} className={styles.cardBg} />}
+                  {!sport.image_url && <div className={styles.cardBg}></div>}
+                  <div className={styles.cardOverlay}></div>
+                  <div className={styles.cardContent}>
+                    {sport.name.toLowerCase().includes("cricket") && <span className={styles.badge}>MOST POPULAR</span>}
+                    <h2 className={styles.cardTitle}>{sport.name}</h2>
+                    <p className={styles.cardDesc}>{sport.description}</p>
+                    <div className={styles.priceInfo}>
+                      <span className={styles.priceLabel}>STARTING AT</span>
+                      <span className={styles.priceValue}>Rs. 3000</span>
+                      <span className={styles.priceUnit}> /hr</span>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })
+          ) : (
+            <p style={{ textAlign: "center", color: "#fff", width: "100%" }}>No sports found.</p>
+          )}
         </motion.div>
       </section>
 

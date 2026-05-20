@@ -1,14 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, Menu, X } from 'lucide-react';
+import { User, Menu, X, LogIn } from 'lucide-react';
+import { getSession } from '@/services/auth';
 import styles from './Navbar.module.css';
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { session } = await getSession();
+      setIsAuthenticated(!!session);
+    };
+    checkAuth();
+  }, [pathname]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -29,16 +39,24 @@ const Navbar = () => {
           <Link href="/" className={getLinkClass('/')} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
           <Link href="/gallery" className={getLinkClass('/gallery')} onClick={() => setIsMobileMenuOpen(false)}>Gallery</Link>
           <Link href="/sports" className={getLinkClass('/sports')} onClick={() => setIsMobileMenuOpen(false)}>sports</Link>
-          <Link href="/booking" className={getLinkClass('/booking')} onClick={() => setIsMobileMenuOpen(false)}>Booking</Link>
+          {isAuthenticated && (
+            <Link href="/booking" className={getLinkClass('/booking')} onClick={() => setIsMobileMenuOpen(false)}>Booking</Link>
+          )}
           <Link href="/events" className={getLinkClass('/events')} onClick={() => setIsMobileMenuOpen(false)}>Events</Link>
           <Link href="/contact" className={getLinkClass('/contact')} onClick={() => setIsMobileMenuOpen(false)}>Contact</Link>
         </div>
 
         <div className={styles.rightSection}>
           <div className={styles.actions}>
-            <Link href="/profile" className={styles.profileIcon} onClick={() => setIsMobileMenuOpen(false)}>
-              <User size={24} />
-            </Link>
+            {isAuthenticated ? (
+              <Link href="/profile" className={styles.profileIcon} onClick={() => setIsMobileMenuOpen(false)}>
+                <User size={24} />
+              </Link>
+            ) : (
+              <Link href="/login" className={styles.profileIcon} onClick={() => setIsMobileMenuOpen(false)}>
+                <LogIn size={24} />
+              </Link>
+            )}
           </div>
 
           <button className={styles.mobileMenuButton} onClick={toggleMobileMenu}>

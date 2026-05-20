@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "./checkout.module.css";
 import { motion } from "framer-motion";
+import { getSession } from "@/services/auth";
+import { createBooking } from "@/services/bookings";
 import {
   ClipboardList,
   CreditCard,
@@ -17,7 +19,9 @@ import {
 } from "lucide-react";
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const [paymentMethod, setPaymentMethod] = useState("credit");
+  const [isProcessing, setIsProcessing] = useState(false);
   const [booking, setBooking] = useState({
     sport: "Indoor Football",
     location: "Field 1",
@@ -32,22 +36,27 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     try {
-      const stored = sessionStorage.getItem("currentBooking");
+      const stored = sessionStorage.getItem("pendingBooking");
       if (stored) {
         const parsed = JSON.parse(stored);
-        const totalNum = parseFloat(parsed.price.replace(/[^\d.]/g, '')) || 3500;
+        const sportPrice = 3000; // Mock rate based on sport
         const feeNum = 500;
-        const baseNum = totalNum - feeNum;
+        const totalNum = sportPrice + feeNum;
+        
         setBooking({
-          sport: parsed.sport || "Indoor Football",
-          location: parsed.location || "Field 1",
+          sportId: parsed.sport?.id,
+          locationId: parsed.location?.id,
+          sport: parsed.sport?.name || "Indoor Football",
+          location: parsed.location?.name || "Field 1",
           date: parsed.date || "Friday, Nov 15, 2024",
-          time: parsed.time || "06:00 PM - 08:00 PM",
+          originalDate: parsed.originalDate,
+          time: parsed.slot || "06:00 PM - 08:00 PM",
           rate: "Standard Rate",
-          basePrice: `Rs. ${baseNum.toFixed(2)}`,
+          basePrice: `Rs. ${sportPrice.toFixed(2)}`,
           maintenanceFee: `Rs. ${feeNum.toFixed(2)}`,
-          total: parsed.price || "Rs. 3500.00",
-          ref: parsed.ref || "#TP-94821-X"
+          totalAmountNum: totalNum,
+          total: `Rs. ${totalNum.toFixed(2)}`,
+          ref: `#TP-${Math.floor(10000 + Math.random() * 90000)}-X`
         });
       }
     } catch (e) {
@@ -60,6 +69,51 @@ export default function CheckoutPage() {
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: false, amount: 0.1 },
     transition: { duration: 0.6, ease: "easeOut" }
+  };
+
+  const handleConfirmPay = async () => {
+    setIsProcessing(true);
+    const { session } = await getSession();
+    if (!session) {
+      alert("Please login first.");
+      router.push("/login");
+      return;
+    }
+
+    const timeParts = booking.time.split(" - ");
+    const startTime = timeParts[0];
+    const endTime = timeParts[1];
+
+    const result = await createBooking({
+      user_id: session.user.id,
+      sport_id: booking.sportId,
+      location_id: booking.locationId,
+      pitch_id: null,
+      booking_date: booking.originalDate,
+      start_time: startTime,
+      end_time: endTime,
+      total_amount: booking.totalAmountNum
+    });
+
+    if (!result) {
+      alert("Error creating booking. Please try again.");
+      setIsProcessing(false);
+      return;
+    }
+
+    const confirmData = {
+      ref: booking.ref,
+      badge: `${booking.sport.toUpperCase()} COURT`,
+      date: booking.date,
+      time: booking.time,
+      location: `${booking.sport} - ${booking.location}`,
+      status: "Fully Paid",
+      venueTitle: `The Pitch (${booking.sport})`,
+      venueDesc: `Elite level synthetic turf at ${booking.location}, climate-controlled, and HD replay cameras enabled.`
+    };
+    sessionStorage.setItem("confirmBooking", JSON.stringify(confirmData));
+    sessionStorage.removeItem("pendingBooking");
+    router.push("/booking/confirm");
   };
 
   return (
@@ -206,25 +260,13 @@ export default function CheckoutPage() {
                 <span>INCLUDES TAXES</span>
               </div>
 
-              <Link
-                href="/booking/confirm"
+              <button
                 className={styles.payButton}
-                onClick={() => {
-                  const confirmData = {
-                    ref: booking.ref,
-                    badge: `${booking.sport.toUpperCase()} COURT`,
-                    date: booking.date,
-                    time: booking.time,
-                    location: `${booking.sport} - ${booking.location}`,
-                    status: "Fully Paid",
-                    venueTitle: `The Pitch (${booking.sport})`,
-                    venueDesc: `Elite level synthetic turf at ${booking.location}, climate-controlled, and HD replay cameras enabled.`
-                  };
-                  sessionStorage.setItem("confirmBooking", JSON.stringify(confirmData));
-                }}
+                onClick={handleConfirmPay}
+                disabled={isProcessing}
               >
-                CONFIRM & PAY <ArrowRight size={18} />
-              </Link>
+                {isProcessing ? "PROCESSING..." : "CONFIRM & PAY"} <ArrowRight size={18} />
+              </button>
             </div>
           </div>
 
