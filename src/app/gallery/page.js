@@ -379,3 +379,24 @@ function GalleryCard({ item, sizeClass, onClick }) {
     </motion.div>
   );
 }
+
+/* ─── GALLERY CARD COMPONENT ─── */
+function GalleryCard({ item, sizeClass, onClick }) {
+  return (
+    <motion.div
+      className={`${styles.galleryCard} ${sizeClass}`}
+      variants={cardVariant}
+      whileHover={{ y: -6 }}
+      onClick={onClick}
+      layout
+    >
+      <span className={`${styles.cardBadge} ${styles[item.badge]}`}>
+        {item.category}
+      </span>
+      <img src={item.src} alt={item.title} loading="lazy" />
+      <div className={styles.cardInfo}>
+        <span className={styles.cardTitle}>{item.title}</span>
+      </div>
+    </motion.div>
+  );
+}

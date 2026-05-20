@@ -1,0 +1,329 @@
+.container {
+  --primary: #1a4d2e;
+  --primary-light: #2b7044;
+  --accent: #b43e06;
+  --bg: #f7f7f5;
+
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 4rem 7%;
+  overflow-x: hidden;
+  color: #333;
+}
+
+/* HEADER */
+
+.successHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.iconBox {
+  width: 60px;
+  height: 60px;
+  background: var(--primary);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 20px rgba(26, 77, 46, 0.2);
+}
+
+.successTitle {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--primary);
+  margin-bottom: 0.7rem;
+  letter-spacing: -1px;
+}
+
+.successSubtitle {
+  font-size: 0.95rem;
+  color: #666;
+  line-height: 1.7;
+  max-width: 550px;
+}
+
+/* GRID */
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 2.5rem;
+  align-items: start;
+  margin-bottom: 3rem;
+}
+
+/* LEFT CARD */
+
+.leftCard {
+  background: white;
+  border-radius: 8px;
+  padding: 3rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.03);
+}
+
+.referenceTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 2rem;
+  margin-bottom: 3rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.refLabel {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #888;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.5px;
+}
+
+.refNumber {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 900;
+  color: #111;
+}
+
+.badge {
+  background: #f1f1ef;
+  color: #666;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+/* DETAILS */
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  margin-bottom: 4rem;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detailLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+  color: #888;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.detailValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #222;
+}
+
+.statusPaid {
+  color: var(--primary);
+}
+
+/* DOWNLOAD BUTTON */
+
+.downloadBtnWrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.downloadBtn {
+  border: none;
+  background: var(--accent);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+.downloadBtn:hover {
+  background: #983000;
+}
+
+/* RIGHT */
+
+.rightCols {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.venueCard {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.03);
+}
+
+.venueImage {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.venueInfo {
+  padding: 1.5rem;
+}
+
+.venueInfo h3 {
+  margin: 0 0 0.7rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.venueInfo p {
+  font-size: 0.82rem;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 1.2rem;
+}
+
+.linkBtn {
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+/* MANAGE CARD */
+
+.manageCard {
+  background: var(--primary-light);
+  color: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 12px 25px rgba(43, 112, 68, 0.18);
+}
+
+.manageCard h3 {
+  margin: 0 0 0.7rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.manageCard p {
+  margin: 0 0 1.5rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.outlineBtn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  padding: 0.8rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+.outlineBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: white;
+}
+
+/* BOTTOM SECTION */
+
+.infoSection {
+  background: #ececea;
+  border-radius: 8px;
+  padding: 2.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3rem;
+}
+
+.infoBlock svg {
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.infoBlock h4 {
+  margin: 0 0 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.infoBlock p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 992px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 3rem 5%;
+  }
+
+  .successTitle {
+    font-size: 2.1rem;
+  }
+
+  .detailsGrid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .infoSection {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .leftCard {
+    padding: 2rem;
+  }
+
+  .referenceTop {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
