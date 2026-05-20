@@ -22,34 +22,49 @@ try {
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const statuses = [
+  'unread', 'read', 'replied',
+  'pending', 'Pending',
+  'open', 'closed', 'Open', 'Closed',
+  'active', 'resolved', 'Active', 'Resolved',
+  'new', 'New', 'answered', 'Answered',
+  'received', 'Received'
+];
+
 async function runTest() {
-  // Query table columns using a dynamic postgres function or checking properties on a mock select
-  // A simple way in supabase is to select a single row (or limit 0) and look at the keys of the object
-  console.log("\n--- Checking Table Columns ---");
+  console.log("\n--- Testing contact_messages Table Status Check Constraint ---");
   
-  const { data: sports } = await supabase.from('sports').select('*').limit(1);
-  if (sports && sports.length > 0) {
-    console.log("sports columns:", Object.keys(sports[0]));
-  } else {
-    console.log("sports table is empty");
+  for (const status of statuses) {
+    const { data, error } = await supabase
+      .from('contact_messages')
+      .insert([
+        {
+          full_name: 'Test Full Name',
+          email: 'test@example.com',
+          subject: 'Facility Inquiry',
+          message: 'Test message body',
+          phone: '1234567890',
+          location: 'General',
+          reference_code: 'MSG-TEST-' + status.toUpperCase(),
+          status: status,
+          thread_key: 'thread-test-' + status,
+          replies: [],
+        }
+      ])
+      .select();
+      
+    if (error) {
+      if (error.message.includes('violates check constraint')) {
+        // Discard check constraint failures
+      } else {
+        console.log(`Failed for status "${status}" with different error: ${error.message}`);
+      }
+    } else {
+      console.log(`🎉 SUCCESS: Status "${status}" is ALLOWED!`);
+      // Clean up the test row
+      await supabase.from('contact_messages').delete().eq('reference_code', 'MSG-TEST-' + status.toUpperCase());
+    }
   }
-
-  const { data: locations } = await supabase.from('locations').select('*').limit(1);
-  if (locations && locations.length > 0) {
-    console.log("locations columns:", Object.keys(locations[0]));
-  } else {
-    console.log("locations table is empty");
-  }
-
-  // If gallery is empty, we can't see the columns this way.
-  // But we can try to query information_schema if the user's API role has access.
-  // Actually, we can run an RPC or raw SQL if we have a direct client, but we don't.
-  // Let's see if we can guess from what gets fetched or what error we get if we select a non-existent column.
-  // Let's try selecting 'src' vs 'image_url' from gallery
-  const { error: srcErr } = await supabase.from('gallery').select('src').limit(1);
-  const { error: urlErr } = await supabase.from('gallery').select('image_url').limit(1);
-  console.log("gallery has 'src'?:", !srcErr);
-  console.log("gallery has 'image_url'?:", !urlErr);
 }
 
 runTest();

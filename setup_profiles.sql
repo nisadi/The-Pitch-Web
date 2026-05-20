@@ -50,22 +50,29 @@ create trigger on_auth_user_created
 
 
 -- -------------------------------------------------------------
--- 2. SETUP CONTACTS TABLE AND RLS POLICIES
+-- 2. SETUP CONTACT_MESSAGES TABLE AND RLS POLICIES
 -- -------------------------------------------------------------
-create table if not exists public.contacts (
+create table if not exists public.contact_messages (
   id uuid default gen_random_uuid() primary key,
-  name text not null,
+  full_name text not null,
   email text not null,
   subject text not null,
   message text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  phone text,
+  location text,
+  reference_code text,
+  status text default 'new' constraint contact_messages_status_check check (status in ('new', 'resolved', 'closed')),
+  thread_key text,
+  replies jsonb default '[]'::jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
-alter table public.contacts enable row level security;
+alter table public.contact_messages enable row level security;
 
-drop policy if exists "Allow public submissions to contacts" on public.contacts;
-create policy "Allow public submissions to contacts"
-  on public.contacts for insert
+drop policy if exists "Allow public submissions to contact_messages" on public.contact_messages;
+create policy "Allow public submissions to contact_messages"
+  on public.contact_messages for insert
   to anon, authenticated
   with check ( true );
 

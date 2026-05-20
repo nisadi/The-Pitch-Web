@@ -5,18 +5,35 @@ import styles from './contact.module.css';
 import { motion } from 'framer-motion';
 import { getLocations } from '@/services/locations';
 import { submitContactMessage } from '@/services/contact';
+import { getUser } from '@/services/auth';
 
 export default function ContactPage() {
   const [locations, setLocations] = useState([]);
-  const [formData, setFormData] = useState({ name: '', email: '', subject: 'Facility Inquiry', message: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', location: 'General', subject: 'Facility Inquiry', message: '' });
   const [submitStatus, setSubmitStatus] = useState(null);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const fetchLocations = async () => {
       const data = await getLocations();
       setLocations(data);
     };
+    
+    const fetchUserData = async () => {
+      const { user: currentUser } = await getUser();
+      if (currentUser) {
+        setUser(currentUser);
+        setFormData(prev => ({
+          ...prev,
+          name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
+          email: currentUser.email || '',
+          phone: currentUser.user_metadata?.phone_number || ''
+        }));
+      }
+    };
+
     fetchLocations();
+    fetchUserData();
   }, []);
 
   const handleFormChange = (e) => {
@@ -26,10 +43,24 @@ export default function ContactPage() {
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setSubmitStatus('submitting');
-    const res = await submitContactMessage(formData.name, formData.email, formData.subject, formData.message);
+    const res = await submitContactMessage({
+      fullName: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      location: formData.location,
+      subject: formData.subject,
+      message: formData.message
+    });
     if (res.success) {
       setSubmitStatus('success');
-      setFormData({ name: '', email: '', subject: 'Facility Inquiry', message: '' });
+      setFormData({
+        name: user?.user_metadata?.full_name || '',
+        email: user?.email || '',
+        phone: user?.user_metadata?.phone_number || '',
+        location: 'General',
+        subject: 'Facility Inquiry',
+        message: ''
+      });
     } else {
       setSubmitStatus('error');
     }
@@ -185,6 +216,19 @@ export default function ContactPage() {
                 <div className={styles.formGroup}>
                   <label className={styles.formLabel}>Email Address</label>
                   <input type="email" name="email" value={formData.email} onChange={handleFormChange} required className={styles.formInput} placeholder="email@athlete.com" />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>Phone Number</label>
+                  <input type="text" name="phone" value={formData.phone} onChange={handleFormChange} className={styles.formInput} placeholder="e.g. +94 77 123 4567" />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>Select Location</label>
+                  <select name="location" value={formData.location} onChange={handleFormChange} className={styles.formSelect}>
+                    <option value="General">General/Other</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.name}>{loc.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                   <label className={styles.formLabel}>Subject</label>
