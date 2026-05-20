@@ -1,28 +1,42 @@
-const STORAGE_KEY = "pitch_admin_user";
-
-export const defaultAdminUser = {
-  name: "Admin User",
-  email: "admin@thepitch.com",
-  role: "admin",
-};
+const STORAGE_KEY = "pitch_admin_session";
 
 export function getAdminUser() {
-  if (typeof window === "undefined") return defaultAdminUser;
+  if (typeof window === "undefined") return null;
 
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return { ...defaultAdminUser, ...JSON.parse(stored) };
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    if (!parsed?.email || !parsed?.roleId) return null;
+    return parsed;
   } catch {
-    // ignore invalid session data
+    return null;
   }
-
-  return defaultAdminUser;
 }
 
 export function clearAdminSession() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+export function setAdminSession(user) {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      roleId: user.roleId ?? user.role,
+      role: user.roleId ?? user.role,
+      status: user.status,
+    })
+  );
+}
+
+/** @deprecated Use setAdminSession */
 export function setAdminUser(user) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+  setAdminSession(user);
+}
+
+export function isAdminLoggedIn() {
+  return Boolean(getAdminUser());
 }

@@ -48,12 +48,30 @@ export function filterCustomers(customers, { location, status, query }) {
   });
 }
 
-export function filterEnquiries(enquiries, { location, status, query }) {
+/** Build strings that may appear in contact_messages.location for a venue. */
+export function venueLocationAliases(location) {
+  if (!location) return [];
+  const shortName = location.shortName?.trim() ?? "";
+  const name = location.name?.trim() ?? "";
+  const bareName = name.replace(/^The Pitch\s*-\s*/i, "").trim();
+  return [...new Set([shortName, bareName, name].filter(Boolean))];
+}
+
+export function filterEnquiries(
+  enquiries,
+  { location, locationAliases, status, query }
+) {
   const search = query.trim().toLowerCase();
+  const aliases =
+    locationAliases ??
+    (location && location !== "all" ? [location] : []);
 
   return enquiries.filter((enquiry) => {
     if (status !== "all" && enquiry.status !== status) return false;
-    if (location !== "all" && enquiry.location !== location) return false;
+    if (aliases.length > 0 && enquiry.location) {
+      const matchesVenue = aliases.some((alias) => alias === enquiry.location);
+      if (!matchesVenue) return false;
+    }
 
     if (!search) return true;
 
@@ -76,6 +94,7 @@ export function filterEnquiries(enquiries, { location, status, query }) {
 
 export function summarizeCustomers(customers) {
   const active = customers.filter((c) => c.status === "active");
+  const inactive = customers.filter((c) => c.status === "inactive");
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const cutoff = thirtyDaysAgo.toISOString().slice(0, 10);
@@ -85,17 +104,55 @@ export function summarizeCustomers(customers) {
   return {
     total: customers.length,
     active: active.length,
+    inactive: inactive.length,
     recentVisitors: recentVisitors.length,
     totalRevenue: customers.reduce((sum, c) => sum + c.totalSpent, 0),
   };
 }
 
-export function summarizeEnquiries(enquiries) {
+export function filterEnquiryThreads(
+  threads,
+  { locationAliases, status, query }
+) {
+  const search = query.trim().toLowerCase();
+
+  return threads.filter((thread) => {
+    if (status !== "all") {
+      const statusMatch = thread.sourceRows?.some((row) => row.status === status);
+      if (!statusMatch) return false;
+    }
+
+    if (locationAliases?.length > 0) {
+      const locationMatch = thread.sourceRows?.some(
+        (row) => row.location && locationAliases.includes(row.location)
+      );
+      if (!locationMatch) return false;
+    }
+
+    if (!search) return true;
+
+    const haystack = [
+      thread.id,
+      thread.name,
+      thread.phone,
+      thread.email,
+      thread.subject,
+      ...(thread.messages ?? []).map((m) => `${m.author} ${m.message}`),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(search);
+  });
+}
+
+export function summarizeEnquiries(enquiriesOrThreads) {
   return {
-    total: enquiries.length,
-    new: enquiries.filter((e) => e.status === "new").length,
-    inProgress: enquiries.filter((e) => e.status === "in_progress").length,
-    resolved: enquiries.filter((e) => e.status === "resolved").length,
+    total: enquiriesOrThreads.length,
+    new: enquiriesOrThreads.filter((e) => e.status === "new").length,
+    inProgress: enquiriesOrThreads.filter((e) => e.status === "in_progress")
+      .length,
+    resolved: enquiriesOrThreads.filter((e) => e.status === "resolved").length,
   };
 }
 

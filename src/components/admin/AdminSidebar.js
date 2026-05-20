@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
-import { adminNavItems } from "./adminNav";
+import { getNavItemsForRole } from "./adminNav";
+import { getAdminUser } from "./adminSession";
 import { useAdminSidebar } from "./adminSidebarContext";
 import AdminUserFooter from "./AdminUserFooter";
 import styles from "./Admin.module.css";
@@ -11,6 +12,8 @@ import styles from "./Admin.module.css";
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { collapsed, closeMobileMenu } = useAdminSidebar();
+  const sessionUser = getAdminUser();
+  const navItems = getNavItemsForRole(sessionUser?.roleId ?? sessionUser?.role);
 
   const isActive = (href, exact) => {
     if (exact) return pathname === href;
@@ -44,7 +47,7 @@ export default function AdminSidebar() {
       </div>
 
       <nav className={styles.nav}>
-        {adminNavItems.map(({ href, label, icon: Icon, exact }) => (
+        {navItems.map(({ href, label, icon: Icon, exact }) => (
           <Link
             key={href}
             href={href}

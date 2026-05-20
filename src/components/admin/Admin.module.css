@@ -352,6 +352,11 @@
   text-align: right;
 }
 
+.locationTriggerStatic:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 .locationName {
   display: flex;
   flex-direction: column;
@@ -603,4 +608,13 @@
   .mainContent {
     padding: 1rem;
   }
+}
+
+.authLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  color: var(--foreground-muted);
+  font-size: 0.9rem;
 }

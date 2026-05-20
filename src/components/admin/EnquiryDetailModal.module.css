@@ -105,6 +105,32 @@
   margin-bottom: 0.15rem;
 }
 
+.detailFull {
+  grid-column: 1 / -1;
+}
+
+.referenceList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.refChip {
+  display: inline-block;
+  font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+
 .thread {
   display: flex;
   flex-direction: column;
@@ -148,6 +174,11 @@
 .bubbleAuthor {
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.bubbleRef {
+  font-weight: 500;
+  color: var(--foreground-muted);
 }
 
 .bubbleTime {

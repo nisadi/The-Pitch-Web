@@ -1,43 +1,55 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CircleHelp, MailPlus, RotateCcw } from "lucide-react";
+import { CircleHelp, Eye, EyeOff, MailPlus, RotateCcw } from "lucide-react";
 import { getAdminUser } from "./adminSession";
-import { useAdminSettings } from "./settings/adminSettingsContext";
 import { useUsers } from "@/lib/users/usersContext";
 import {
   roleCanInvite,
   roleCanManageUsers,
-  USER_ROLES,
+  OWNER_EMAIL,
   USER_STATUSES,
 } from "@/lib/users/usersDefaults";
 import AdminStatsGrid from "./AdminStatsGrid";
 import InviteUserModal from "./InviteUserModal";
 import styles from "./UserManagement.module.css";
 
-const ROLE_FILTER_OPTIONS = [
-  { id: "all", label: "All roles" },
-  { id: "admin", label: "Admin" },
-  { id: "manager", label: "Manager" },
-  { id: "staff", label: "Staff" },
-];
 
 const STATUS_FILTER_OPTIONS = [
   { id: "all", label: "All statuses" },
   { id: "active", label: "Active" },
-  { id: "invited", label: "Invited" },
   { id: "disabled", label: "Disabled" },
 ];
 
 export default function UserManagement() {
-  const { locations } = useAdminSettings();
-  const { users, inviteUser, updateUser, removeUser, resendInvite } = useUsers();
+  const {
+    ready,
+    syncError,
+    users,
+    roles,
+    rolesById,
+    inviteUser,
+    updateUser,
+    removeUser,
+  } = useUsers();
+
+  const roleFilterOptions = useMemo(
+    () => [
+      { id: "all", label: "All roles" },
+      ...roles.map((role) => ({ id: role.id, label: role.label })),
+    ],
+    [roles]
+  );
 
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [rolesHelpOpen, setRolesHelpOpen] = useState(false);
+  const [passwordDrafts, setPasswordDrafts] = useState({});
+  const [passwordVisible, setPasswordVisible] = useState({});
+  const [passwordEditing, setPasswordEditing] = useState({});
+  const [passwordSavingId, setPasswordSavingId] = useState(null);
   const rolesHelpRef = useRef(null);
 
   useEffect(() => {
@@ -65,48 +77,48 @@ export default function UserManagement() {
   }, [rolesHelpOpen]);
 
   const currentUser = getAdminUser();
-  const currentRole = USER_ROLES[currentUser.role]
-    ? currentUser.role
+  const currentRoleId = rolesById[currentUser.roleId ?? currentUser.role]
+    ? (currentUser.roleId ?? currentUser.role)
     : "admin";
-  const canInvite = roleCanInvite(currentRole);
-  const canManage = roleCanManageUsers(currentRole);
-
-  const activeLocations = useMemo(
-    () => locations.filter((l) => l.status === "active"),
-    [locations]
-  );
+  const canInvite = roleCanInvite(currentRoleId);
+  const canManage = roleCanManageUsers(currentRoleId);
 
   const filteredUsers = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();
 
     return users.filter((user) => {
-      if (roleFilter !== "all" && user.role !== roleFilter) return false;
+      if (roleFilter !== "all" && user.roleId !== roleFilter) return false;
       if (statusFilter !== "all" && user.status !== statusFilter) return false;
 
       if (!search) return true;
 
-      const haystack = [user.name, user.email, user.role, user.locations.join(" ")]
+      const haystack = [
+        user.name,
+        user.email,
+        user.roleId,
+        rolesById[user.roleId]?.label ?? "",
+      ]
         .join(" ")
         .toLowerCase();
 
       return haystack.includes(search);
     });
-  }, [users, roleFilter, statusFilter, searchQuery]);
+  }, [users, roleFilter, statusFilter, searchQuery, rolesById]);
 
   const stats = useMemo(() => {
     const active = users.filter((u) => u.status === "active");
-    const invited = users.filter((u) => u.status === "invited");
-    const admins = users.filter((u) => u.role === "admin");
+    const disabled = users.filter((u) => u.status === "disabled");
+    const admins = users.filter((u) => u.roleId === "admin");
 
     return [
       { label: "Total users", value: String(users.length) },
       { label: "Active", value: String(active.length) },
-      { label: "Pending invites", value: String(invited.length) },
+      { label: "Disabled", value: String(disabled.length) },
       { label: "Admins", value: String(admins.length) },
     ];
   }, [users]);
 
-  const handleInvite = (payload) => inviteUser(payload);
+  const handleInvite = async (payload) => inviteUser(payload);
 
   const handleRoleChange = (user, newRole) => {
     if (!canManage) return;
@@ -114,7 +126,7 @@ export default function UserManagement() {
       window.alert("You cannot remove your own admin access.");
       return;
     }
-    updateUser(user.id, { role: newRole });
+    updateUser(user.id, { roleId: newRole });
   };
 
   const handleStatusToggle = (user) => {
@@ -126,6 +138,58 @@ export default function UserManagement() {
 
     const nextStatus = user.status === "disabled" ? "active" : "disabled";
     updateUser(user.id, { status: nextStatus });
+  };
+
+  const handlePasswordDraft = (userId, value) => {
+    setPasswordDrafts((prev) => ({ ...prev, [userId]: value }));
+  };
+
+  const togglePasswordVisible = (userId) => {
+    setPasswordVisible((prev) => ({ ...prev, [userId]: !prev[userId] }));
+  };
+
+  const startPasswordEdit = (user) => {
+    setPasswordEditing((prev) => ({ ...prev, [user.id]: true }));
+    setPasswordDrafts((prev) => ({
+      ...prev,
+      [user.id]: user.displayPassword ?? "",
+    }));
+    setPasswordVisible((prev) => ({ ...prev, [user.id]: false }));
+  };
+
+  const cancelPasswordEdit = (userId) => {
+    setPasswordEditing((prev) => ({ ...prev, [userId]: false }));
+    setPasswordDrafts((prev) => ({ ...prev, [userId]: "" }));
+    setPasswordVisible((prev) => ({ ...prev, [userId]: false }));
+  };
+
+  const handlePasswordSave = async (user) => {
+    const nextPassword = passwordDrafts[user.id]?.trim() ?? "";
+    if (nextPassword.length < 8) {
+      window.alert("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Update password for ${user.name}? They will need the new password to sign in.`
+      )
+    ) {
+      return;
+    }
+
+    setPasswordSavingId(user.id);
+    try {
+      await updateUser(user.id, {
+        password: nextPassword,
+        displayPassword: nextPassword,
+      });
+      setPasswordEditing((prev) => ({ ...prev, [user.id]: false }));
+      setPasswordDrafts((prev) => ({ ...prev, [user.id]: "" }));
+      setPasswordVisible((prev) => ({ ...prev, [user.id]: false }));
+    } finally {
+      setPasswordSavingId(null);
+    }
   };
 
   const handleDelete = (user) => {
@@ -157,8 +221,8 @@ export default function UserManagement() {
           >
             <p className={styles.rolesHelpTitle}>User roles</p>
             <ul className={styles.rolesHelpList}>
-              {Object.entries(USER_ROLES).map(([id, role]) => (
-                <li key={id} className={styles.rolesHelpItem}>
+              {roles.map((role) => (
+                <li key={role.id} className={styles.rolesHelpItem}>
                   <span
                     className={styles.rolesHelpLabel}
                     style={{ color: role.color }}
@@ -185,7 +249,8 @@ export default function UserManagement() {
 
       {!canInvite && (
         <p className={styles.notice}>
-          You are signed in as <strong>{USER_ROLES[currentRole].label}</strong>.
+          You are signed in as{" "}
+          <strong>{rolesById[currentRoleId]?.label ?? "Staff"}</strong>.
           Only admins can invite new team members.
         </p>
       )}
@@ -204,7 +269,7 @@ export default function UserManagement() {
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
           >
-            {ROLE_FILTER_OPTIONS.map((option) => (
+            {roleFilterOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>
@@ -240,7 +305,7 @@ export default function UserManagement() {
             className={styles.input}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Name, email, location..."
+            placeholder="Name or email..."
           />
         </div>
 
@@ -268,13 +333,19 @@ export default function UserManagement() {
           <div>
             <h3>Team members</h3>
             <p>
-              {filteredUsers.length} user
-              {filteredUsers.length === 1 ? "" : "s"}
+              {!ready
+                ? "Loading from Supabase…"
+                : `${filteredUsers.length} user${filteredUsers.length === 1 ? "" : "s"}`}
             </p>
+            {syncError && (
+              <p className={styles.syncError}>{syncError}</p>
+            )}
           </div>
         </div>
 
-        {filteredUsers.length === 0 ? (
+        {!ready ? (
+          <p className={styles.empty}>Syncing with Supabase…</p>
+        ) : filteredUsers.length === 0 ? (
           <p className={styles.empty}>No users match your filters.</p>
         ) : (
           <div className={styles.tableWrap}>
@@ -284,16 +355,17 @@ export default function UserManagement() {
                   <th>User</th>
                   <th>Email</th>
                   <th>Role</th>
-                  <th>Locations</th>
+                  <th>Password</th>
                   <th>Status</th>
                   {canManage && <th>Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.map((user) => {
-                  const role = USER_ROLES[user.role];
+                  const role = rolesById[user.roleId];
                   const status = USER_STATUSES[user.status];
                   const isSelf = user.email === currentUser.email;
+                  const isOwner = user.email === OWNER_EMAIL;
 
                   return (
                     <tr key={user.id}>
@@ -307,54 +379,147 @@ export default function UserManagement() {
                       <td>
                         <select
                           className={styles.roleSelect}
-                          value={user.role}
+                          value={user.roleId}
                           disabled={!canManage || isSelf}
                           onChange={(e) =>
                             handleRoleChange(user, e.target.value)
                           }
                           style={{
-                            borderColor: `${role.color}55`,
-                            color: role.color,
+                            borderColor: `${role?.color ?? "#6b7280"}55`,
+                            color: role?.color ?? "#6b7280",
                           }}
                         >
-                          {Object.entries(USER_ROLES).map(([id, r]) => (
-                            <option key={id} value={id}>
+                          {roles.map((r) => (
+                            <option key={r.id} value={r.id}>
                               {r.label}
                             </option>
                           ))}
                         </select>
                       </td>
-                      <td className={styles.locations}>
-                        {user.locations.length > 0
-                          ? user.locations.join(", ")
-                          : "All locations"}
+                      <td>
+                        {canManage ? (
+                          (() => {
+                            const isEditing = Boolean(passwordEditing[user.id]);
+                            const stored = user.displayPassword ?? "";
+                            const isVisible = Boolean(passwordVisible[user.id]);
+                            const draft = passwordDrafts[user.id] ?? "";
+
+                            const displayValue = isEditing ? draft : stored;
+
+                            return (
+                              <div className={styles.passwordCell}>
+                                <input
+                                  type="text"
+                                  className={[
+                                    styles.passwordInput,
+                                    !isVisible && displayValue
+                                      ? styles.passwordInputMasked
+                                      : "",
+                                    !isEditing && isVisible && displayValue
+                                      ? styles.passwordInputVisible
+                                      : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                  value={displayValue}
+                                  onChange={(e) =>
+                                    isEditing &&
+                                    handlePasswordDraft(
+                                      user.id,
+                                      e.target.value
+                                    )
+                                  }
+                                  readOnly={!isEditing}
+                                  placeholder={
+                                    isEditing
+                                      ? "Min. 8 characters"
+                                      : stored
+                                        ? ""
+                                        : "••••••••"
+                                  }
+                                  minLength={isEditing ? 8 : undefined}
+                                  autoComplete="new-password"
+                                  spellCheck={false}
+                                />
+                                <button
+                                  type="button"
+                                  className={styles.passwordToggle}
+                                  onClick={() => togglePasswordVisible(user.id)}
+                                  aria-label={
+                                    isVisible
+                                      ? "Hide password"
+                                      : "Show password"
+                                  }
+                                  title={
+                                    isVisible
+                                      ? "Hide password"
+                                      : "Show password"
+                                  }
+                                >
+                                  {isVisible ? (
+                                    <EyeOff size={16} />
+                                  ) : (
+                                    <Eye size={16} />
+                                  )}
+                                </button>
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className={styles.passwordSaveBtn}
+                                      disabled={
+                                        passwordSavingId === user.id ||
+                                        draft.trim().length < 8
+                                      }
+                                      onClick={() => handlePasswordSave(user)}
+                                    >
+                                      {passwordSavingId === user.id
+                                        ? "Saving…"
+                                        : "Save"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={styles.passwordCancelBtn}
+                                      disabled={passwordSavingId === user.id}
+                                      onClick={() =>
+                                        cancelPasswordEdit(user.id)
+                                      }
+                                    >
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className={styles.passwordEditBtn}
+                                    onClick={() => startPasswordEdit(user)}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <span className={styles.passwordMasked}>••••••••</span>
+                        )}
                       </td>
                       <td>
                         <span
                           className={styles.badge}
                           style={{
-                            color: status.color,
-                            background: `${status.color}22`,
+                            color: isOwner ? "var(--primary)" : status.color,
+                            background: isOwner
+                              ? "rgba(163, 255, 0, 0.16)"
+                              : `${status.color}22`,
                           }}
                         >
-                          {status.label}
+                          {isOwner ? "Owner" : status.label}
                         </span>
                       </td>
                       {canManage && (
                         <td>
                           <div className={styles.actions}>
-                            {user.status === "invited" && (
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() => {
-                                  resendInvite(user.id);
-                                  window.alert(`Invite resent to ${user.email}`);
-                                }}
-                              >
-                                Resend
-                              </button>
-                            )}
                             {!isSelf && (
                               <>
                                 <button
@@ -390,7 +555,7 @@ export default function UserManagement() {
       {canInvite && (
         <InviteUserModal
           open={inviteOpen}
-          locations={activeLocations}
+          roles={roles}
           onClose={() => setInviteOpen(false)}
           onInvite={handleInvite}
         />

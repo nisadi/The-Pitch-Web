@@ -94,38 +94,38 @@
   border-color: rgba(163, 255, 0, 0.45);
 }
 
+.passwordWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordWrap .input {
+  padding-right: 2.75rem;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--foreground-muted);
+  background: var(--background);
+}
+
+.passwordToggle:hover {
+  color: var(--foreground);
+  border-color: rgba(163, 255, 0, 0.35);
+}
+
 .roleHint {
   font-size: 0.75rem;
   color: var(--foreground-muted);
   line-height: 1.4;
-}
-
-.locations {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.locationChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  font-size: 0.8rem;
-  color: var(--foreground-muted);
-  cursor: pointer;
-}
-
-.locationChip input {
-  accent-color: var(--primary);
-}
-
-.locationChipActive {
-  border-color: rgba(163, 255, 0, 0.4);
-  color: var(--primary);
-  background: rgba(163, 255, 0, 0.08);
 }
 
 .footer {

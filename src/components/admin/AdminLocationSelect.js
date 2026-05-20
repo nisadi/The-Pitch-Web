@@ -11,6 +11,7 @@ export default function AdminLocationSelect() {
   const { locationId, location, setLocation } = useAdminLocation();
   const { ready, navLocations } = useAdminSettings();
   const locations = ready && navLocations.length > 0 ? navLocations : ADMIN_LOCATIONS;
+  const hasMultipleLocations = locations.length > 1;
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -34,10 +35,13 @@ export default function AdminLocationSelect() {
       <span className={styles.locationLabel}>Location</span>
       <button
         type="button"
-        className={styles.locationTrigger}
-        onClick={() => setOpen((prev) => !prev)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
+        className={`${styles.locationTrigger} ${!hasMultipleLocations ? styles.locationTriggerStatic : ""}`}
+        onClick={() => {
+          if (hasMultipleLocations) setOpen((prev) => !prev);
+        }}
+        aria-haspopup={hasMultipleLocations ? "listbox" : undefined}
+        aria-expanded={hasMultipleLocations ? open : undefined}
+        disabled={!hasMultipleLocations}
       >
         <span className={styles.locationName}>
           {nameParts.length > 1 ? (
@@ -49,13 +53,15 @@ export default function AdminLocationSelect() {
             <span>{location.label}</span>
           )}
         </span>
-        <ChevronDown
-          size={18}
-          className={`${styles.locationChevron} ${open ? styles.locationChevronOpen : ""}`}
-        />
+        {hasMultipleLocations && (
+          <ChevronDown
+            size={18}
+            className={`${styles.locationChevron} ${open ? styles.locationChevronOpen : ""}`}
+          />
+        )}
       </button>
 
-      {open && (
+      {open && hasMultipleLocations && (
         <ul className={styles.locationMenu} role="listbox">
           {locations.map((item) => (
             <li key={item.id}>

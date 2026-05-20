@@ -1,7 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MessageSquare, RotateCcw } from "lucide-react";
+import {
+  applyEnquiryRealtimeEvent,
+  fetchEnquiriesFromSupabase,
+  subscribeToEnquiries,
+} from "@/lib/eventInquiries/enquiryRealtime";
+import { upsertEnquiryClient } from "@/lib/eventInquiries/enquiryMutations";
+import { createAdminReply } from "@/lib/eventInquiries/enquiryMapper";
+import {
+  findThreadById,
+  groupEnquiriesIntoThreads,
+  patchEnquiriesForThread,
+  pickReplyTargetRow,
+  resolveThreadPhone,
+} from "@/lib/eventInquiries/enquiryThreads";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import AdminStatsGrid from "./AdminStatsGrid";
 import EnquiryDetailModal from "./EnquiryDetailModal";
 import { getAdminUser } from "./adminSession";
@@ -12,15 +27,16 @@ import {
   mockCustomers,
   mockEnquiries,
 } from "./customersData";
+import { useAdminSettings } from "./settings/adminSettingsContext";
 import {
   filterCustomers,
-  filterEnquiries,
+  filterEnquiryThreads,
   formatCustomerAmount,
-  formatCustomerDate,
   formatEnquiryDateTime,
   summarizeCustomers,
   summarizeEnquiries,
   truncateText,
+  venueLocationAliases,
 } from "./customersUtils";
 import styles from "./CustomerManagement.module.css";
 
@@ -44,17 +60,111 @@ const ENQUIRY_STATUS_OPTIONS = [
 ];
 
 export default function CustomerManagement() {
-  const { filterValue: locationFilter } = useAdminLocation();
+  const usesSupabase = isSupabaseConfigured();
+  const { filterValue: locationFilter, locationId } = useAdminLocation();
+  const { locations: settingsLocations } = useAdminSettings();
   const [activeTab, setActiveTab] = useState("customers");
   const [customerStatus, setCustomerStatus] = useState("all");
   const [enquiryStatus, setEnquiryStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [enquiries, setEnquiries] = useState(mockEnquiries);
+  const [enquiriesReady, setEnquiriesReady] = useState(!usesSupabase);
+  const [enquiriesSyncError, setEnquiriesSyncError] = useState(null);
   const [selectedEnquiryId, setSelectedEnquiryId] = useState(null);
+  const [replySending, setReplySending] = useState(false);
+
+  const sortEnquiries = useCallback((list) => {
+    return [...list].sort((a, b) => {
+      const aKey = `${a.date}T${a.time}`;
+      const bKey = `${b.date}T${b.time}`;
+      return bKey.localeCompare(aKey);
+    });
+  }, []);
+
+  const enquiryLocationAliases = useMemo(() => {
+    const current = settingsLocations.find((loc) => loc.id === locationId);
+    const aliases = venueLocationAliases(current);
+    return aliases.length > 0 ? aliases : [locationFilter];
+  }, [settingsLocations, locationId, locationFilter]);
+
+  const loadEnquiries = useCallback(async () => {
+    const remote = await fetchEnquiriesFromSupabase();
+    setEnquiries(sortEnquiries(remote));
+    setEnquiriesSyncError(null);
+  }, [sortEnquiries]);
+
+  useEffect(() => {
+    if (!usesSupabase) return undefined;
+
+    let cancelled = false;
+    let unsubscribe = () => {};
+
+    async function init() {
+      try {
+        unsubscribe = await subscribeToEnquiries(
+          (payload) => {
+            if (cancelled) return;
+            setEnquiries((prev) => applyEnquiryRealtimeEvent(prev, payload));
+            setEnquiriesSyncError(null);
+          },
+          () => {
+            if (cancelled) return;
+            void loadEnquiries().catch(() => {});
+          }
+        );
+
+        await loadEnquiries();
+        if (!cancelled) {
+          setEnquiriesReady(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setEnquiries([]);
+          setEnquiriesSyncError(
+            err?.message ?? "Could not sync enquiries from Supabase."
+          );
+          setEnquiriesReady(true);
+        }
+      }
+    }
+
+    void init();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [usesSupabase, loadEnquiries]);
+
+  useEffect(() => {
+    if (!usesSupabase || activeTab !== "enquiries") return undefined;
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void loadEnquiries().catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+
+    const interval = setInterval(() => {
+      void loadEnquiries().catch(() => {});
+    }, 12000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
+  }, [usesSupabase, activeTab, loadEnquiries]);
+
+  const enquiryThreads = useMemo(
+    () => groupEnquiriesIntoThreads(enquiries),
+    [enquiries]
+  );
 
   const selectedEnquiry = useMemo(
-    () => enquiries.find((e) => e.id === selectedEnquiryId) ?? null,
-    [enquiries, selectedEnquiryId]
+    () => findThreadById(enquiryThreads, selectedEnquiryId),
+    [enquiryThreads, selectedEnquiryId]
   );
 
   const filteredCustomers = useMemo(() => {
@@ -64,22 +174,18 @@ export default function CustomerManagement() {
       query: searchQuery,
     });
 
-    return [...list].sort((a, b) => b.lastVisit.localeCompare(a.lastVisit));
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
   }, [locationFilter, customerStatus, searchQuery]);
 
-  const filteredEnquiries = useMemo(() => {
-    const list = filterEnquiries(enquiries, {
-      location: locationFilter,
-      status: enquiryStatus,
-      query: searchQuery,
-    });
-
-    return [...list].sort((a, b) => {
-      const aKey = `${a.date}T${a.time}`;
-      const bKey = `${b.date}T${b.time}`;
-      return bKey.localeCompare(aKey);
-    });
-  }, [enquiries, locationFilter, enquiryStatus, searchQuery]);
+  const filteredEnquiries = useMemo(
+    () =>
+      filterEnquiryThreads(enquiryThreads, {
+        locationAliases: enquiryLocationAliases,
+        status: enquiryStatus,
+        query: searchQuery,
+      }),
+    [enquiryThreads, enquiryLocationAliases, enquiryStatus, searchQuery]
+  );
 
   const customerSummary = useMemo(
     () => summarizeCustomers(filteredCustomers),
@@ -101,8 +207,8 @@ export default function CustomerManagement() {
             value: String(customerSummary.recentVisitors),
           },
           {
-            label: "Lifetime spend",
-            value: formatCustomerAmount(customerSummary.totalRevenue),
+            label: "Inactive",
+            value: String(customerSummary.inactive),
           },
         ]
       : [
@@ -112,41 +218,128 @@ export default function CustomerManagement() {
           { label: "Resolved", value: String(enquirySummary.resolved) },
         ];
 
-  const updateEnquiryStatus = (id, status) => {
-    setEnquiries((prev) =>
-      prev.map((enquiry) =>
-        enquiry.id === id ? { ...enquiry, status } : enquiry
-      )
-    );
+  const persistEnquiry = async (nextEnquiry) => {
+    if (!usesSupabase) return nextEnquiry;
+
+    try {
+      const saved = await upsertEnquiryClient(nextEnquiry);
+      setEnquiriesSyncError(null);
+      return saved;
+    } catch (err) {
+      setEnquiriesSyncError(err?.message ?? "Could not save enquiry.");
+      throw err;
+    }
   };
 
-  const handleSendReply = (id, message) => {
+  const updateEnquiryStatus = async (id, status) => {
+    const thread = findThreadById(enquiryThreads, id);
+    if (!thread) return;
+
+    const snapshot = enquiries;
+    setEnquiries((prev) => patchEnquiriesForThread(prev, thread, { status }));
+
+    if (!usesSupabase) return;
+
+    try {
+      for (const row of thread.sourceRows) {
+        const saved = await persistEnquiry({ ...row, status });
+        setEnquiries((prev) =>
+          prev.map((enquiry) =>
+            enquiry.dbId === saved.dbId ? saved : enquiry
+          )
+        );
+      }
+      setEnquiriesSyncError(null);
+    } catch {
+      setEnquiries(snapshot);
+    }
+  };
+
+  const handleSendReply = async (id, message) => {
     const admin = getAdminUser();
-    const now = new Date();
-    const date = now.toISOString().slice(0, 10);
-    const time = now.toTimeString().slice(0, 5);
+    const thread = findThreadById(enquiryThreads, id);
+    const targetRow = pickReplyTargetRow(thread);
+    if (!targetRow?.dbId) return false;
 
-    setEnquiries((prev) =>
-      prev.map((enquiry) => {
-        if (enquiry.id !== id) return enquiry;
+    const smsPhone = resolveThreadPhone(thread);
+    if (!smsPhone) {
+      window.alert("This enquiry has no phone number. Cannot send SMS.");
+      return false;
+    }
 
-        return {
-          ...enquiry,
-          status:
-            enquiry.status === "new" ? "in_progress" : enquiry.status,
-          replies: [
-            ...(enquiry.replies ?? []),
-            {
-              id: `REP-${Date.now()}`,
-              date,
-              time,
-              author: admin.name,
-              message,
-            },
-          ],
-        };
-      })
-    );
+    setReplySending(true);
+    try {
+      const response = await fetch("/api/admin/enquiries/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: smsPhone,
+          message,
+          referenceCode: targetRow.id,
+          enquiryQuestion: targetRow.message,
+        }),
+      });
+      const smsResult = await response.json();
+      if (!response.ok || !smsResult.success) {
+        const detail = [
+          smsResult.error,
+          smsResult.formattedPhone
+            ? `Number sent as: ${smsResult.formattedPhone}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n");
+        window.alert(
+          detail || "SMS could not be sent. Check ESMS settings in .env.local."
+        );
+        return false;
+      }
+
+      const reply = createAdminReply({
+        message,
+        author: admin?.name ?? "Admin",
+        inReplyTo: targetRow.id,
+        channel: "sms",
+        smsMessageId: smsResult.messageId ?? null,
+      });
+
+      const optimistic = {
+        ...targetRow,
+        status: targetRow.status === "new" ? "in_progress" : targetRow.status,
+        replies: [...(targetRow.replies ?? []), reply],
+      };
+
+      const snapshot = enquiries;
+      setEnquiries((prev) =>
+        prev.map((enquiry) =>
+          enquiry.dbId === targetRow.dbId ? optimistic : enquiry
+        )
+      );
+
+      if (usesSupabase) {
+        try {
+          const saved = await persistEnquiry(optimistic);
+          setEnquiries((prev) =>
+            prev.map((enquiry) =>
+              enquiry.dbId === saved.dbId ? saved : enquiry
+            )
+          );
+          setEnquiriesSyncError(null);
+        } catch {
+          setEnquiries(snapshot);
+          window.alert(
+            "SMS was sent but saving the reply to the database failed."
+          );
+        }
+      }
+
+      return true;
+    } catch (err) {
+      window.alert(err?.message ?? "SMS could not be sent.");
+      return false;
+    } finally {
+      setReplySending(false);
+    }
   };
 
   const handleReset = () => {
@@ -257,11 +450,8 @@ export default function CustomerManagement() {
                   <tr>
                     <th>Customer</th>
                     <th>Email</th>
-                    <th>Location</th>
                     <th>Bookings</th>
                     <th>Total spent</th>
-                    <th>Last visit</th>
-                    <th>Joined</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -275,13 +465,10 @@ export default function CustomerManagement() {
                           <span className={styles.meta}>{customer.phone}</span>
                         </td>
                         <td>{customer.email || "—"}</td>
-                        <td>{customer.location}</td>
                         <td>{customer.bookingsCount}</td>
                         <td className={styles.amount}>
                           {formatCustomerAmount(customer.totalSpent)}
                         </td>
-                        <td>{formatCustomerDate(customer.lastVisit)}</td>
-                        <td>{formatCustomerDate(customer.joinedDate)}</td>
                         <td>
                           <span
                             className={styles.badge}
@@ -307,14 +494,19 @@ export default function CustomerManagement() {
             <div>
               <h3>Enquiries management</h3>
               <p>
-                {filteredEnquiries.length} enquir
-                {filteredEnquiries.length === 1 ? "y" : "ies"}
-                {` · ${locationFilter}`}
+                {!enquiriesReady
+                  ? "Loading from Supabase…"
+                  : `${filteredEnquiries.length} enquir${filteredEnquiries.length === 1 ? "y" : "ies"} · ${locationFilter}`}
               </p>
+              {enquiriesSyncError && (
+                <p className={styles.syncError}>{enquiriesSyncError}</p>
+              )}
             </div>
           </div>
 
-          {filteredEnquiries.length === 0 ? (
+          {!enquiriesReady ? (
+            <p className={styles.empty}>Syncing enquiries with Supabase…</p>
+          ) : filteredEnquiries.length === 0 ? (
             <p className={styles.empty}>
               No enquiries match your filters. Try adjusting status or search.
             </p>
@@ -327,8 +519,6 @@ export default function CustomerManagement() {
                     <th>Contact</th>
                     <th>Subject</th>
                     <th>Message</th>
-                    <th>Location</th>
-                    <th>Sport</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -340,7 +530,12 @@ export default function CustomerManagement() {
                       <tr key={enquiry.id}>
                         <td>
                           {formatEnquiryDateTime(enquiry.date, enquiry.time)}
-                          <span className={styles.meta}>{enquiry.id}</span>
+                          <span className={styles.meta}>
+                            {enquiry.id}
+                            {enquiry.threadCount > 1
+                              ? ` · ${enquiry.threadCount} submissions`
+                              : ""}
+                          </span>
                         </td>
                         <td>
                           {enquiry.name}
@@ -358,15 +553,13 @@ export default function CustomerManagement() {
                           >
                             <MessageSquare size={14} />
                             Read &amp; reply
-                            {(enquiry.replies?.length ?? 0) > 0 && (
+                            {enquiry.messageCount > 1 && (
                               <span className={styles.replyCount}>
-                                {enquiry.replies.length}
+                                {enquiry.messageCount}
                               </span>
                             )}
                           </button>
                         </td>
-                        <td>{enquiry.location}</td>
-                        <td>{enquiry.sport || "—"}</td>
                         <td>
                           <span
                             className={styles.badge}
@@ -431,6 +624,7 @@ export default function CustomerManagement() {
         enquiry={selectedEnquiry}
         onClose={() => setSelectedEnquiryId(null)}
         onSendReply={handleSendReply}
+        sending={replySending}
       />
     </div>
   );

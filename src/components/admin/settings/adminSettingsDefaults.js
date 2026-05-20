@@ -52,18 +52,24 @@ export const DEFAULT_ADMIN_SETTINGS = {
     {
       id: "futsal",
       name: "Futsal",
+      slug: "futsal",
+      icon: "futsal",
       description: "5-a-side indoor futsal courts",
       status: "active",
     },
     {
       id: "cricket",
       name: "Cricket Nets",
+      slug: "cricket",
+      icon: "cricket",
       description: "Practice nets with bowling machine option",
       status: "active",
     },
     {
       id: "badminton",
       name: "Badminton",
+      slug: "badminton",
+      icon: "badminton",
       description: "Indoor badminton courts",
       status: "active",
     },
@@ -110,6 +116,7 @@ export const DEFAULT_OPERATIONAL_END = "21:00";
 export function normalizeLocation(location) {
   return {
     ...location,
+    dbId: location.dbId ?? null,
     description: location.description ?? "",
     image: location.image ?? "",
     peakHourRate: Number(location.peakHourRate) || 0,

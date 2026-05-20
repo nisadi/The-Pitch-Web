@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -10,6 +10,7 @@ import {
   Save,
 } from "lucide-react";
 import { isOperationalRangeValid } from "../bookingsUtils";
+import { uploadLocationImage } from "@/lib/storage/uploadLocationImage";
 import styles from "./LocationFormModal.module.css";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -18,6 +19,8 @@ const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export default function LocationFormModal({
   open,
   mode = "create",
+  locationDbId = null,
+  locationSlug = null,
   form,
   sports = [],
   onChange,
@@ -26,6 +29,9 @@ export default function LocationFormModal({
 }) {
   const fileInputId = useId();
   const fileRef = useRef(null);
+  const previewUrlRef = useRef(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
   const isEdit = mode === "edit";
 
   useEffect(() => {
@@ -45,9 +51,35 @@ export default function LocationFormModal({
     };
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open) {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+      setPreviewUrl("");
+      setUploadingImage(false);
+      return;
+    }
+
+    if (form.image && !form.image.startsWith("data:")) {
+      setPreviewUrl(form.image);
+    }
+  }, [open, form.image]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
+  }, []);
+
   if (!open) return null;
 
-  const handleImageChange = (event) => {
+  const displayImage = previewUrl || (form.image && !form.image.startsWith("data:") ? form.image : "");
+
+  const handleImageChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -61,11 +93,48 @@ export default function LocationFormModal({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      onChange({ image: reader.result });
-    };
-    reader.readAsDataURL(file);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+    const localPreview = URL.createObjectURL(file);
+    previewUrlRef.current = localPreview;
+    setPreviewUrl(localPreview);
+
+    setUploadingImage(true);
+    try {
+      const publicUrl = await uploadLocationImage(file, {
+        locationId: locationDbId,
+        locationSlug,
+        locationName: form.name,
+      });
+      onChange({ image: publicUrl });
+      setPreviewUrl(publicUrl);
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    } catch (err) {
+      window.alert(err?.message ?? "Could not upload image.");
+      onChange({ image: "" });
+      setPreviewUrl("");
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    } finally {
+      setUploadingImage(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleRemoveImage = () => {
+    onChange({ image: "" });
+    setPreviewUrl("");
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const handleSubmit = (event) => {
@@ -103,7 +172,8 @@ export default function LocationFormModal({
     form.operationalStart &&
     form.operationalEnd &&
     isOperationalRangeValid(form.operationalStart, form.operationalEnd) &&
-    (isEdit || Boolean(form.image));
+    (isEdit || Boolean(form.image)) &&
+    !uploadingImage;
 
   return createPortal(
     <div
@@ -199,12 +269,12 @@ export default function LocationFormModal({
                 className={styles.hiddenInput}
                 onChange={handleImageChange}
               />
-              {form.image ? (
+              {displayImage ? (
                 <div
                   className={`${styles.uploadZone} ${styles.uploadZoneHasImage}`}
                 >
                   <img
-                    src={form.image}
+                    src={displayImage}
                     alt="Location preview"
                     className={styles.previewImage}
                   />
@@ -213,22 +283,30 @@ export default function LocationFormModal({
                       type="button"
                       className={styles.textLink}
                       onClick={() => fileRef.current?.click()}
+                      disabled={uploadingImage}
                     >
-                      Change image
+                      {uploadingImage ? "Uploading…" : "Change image"}
                     </button>
                     <button
                       type="button"
                       className={styles.textLink}
-                      onClick={() => onChange({ image: "" })}
+                      onClick={handleRemoveImage}
+                      disabled={uploadingImage}
                     >
                       Remove
                     </button>
                   </div>
                 </div>
               ) : (
-                <label htmlFor={fileInputId} className={styles.uploadZone}>
+                <label
+                  htmlFor={fileInputId}
+                  className={styles.uploadZone}
+                  aria-busy={uploadingImage}
+                >
                   <CloudUpload size={28} className={styles.uploadIcon} />
-                  <span className={styles.uploadTitle}>Upload location image</span>
+                  <span className={styles.uploadTitle}>
+                    {uploadingImage ? "Uploading…" : "Upload location image"}
+                  </span>
                   <span className={styles.uploadHint}>
                     JPG, PNG or WEBP (Max. 5MB)
                   </span>
@@ -368,11 +446,11 @@ export default function LocationFormModal({
                         />
                         <span className={styles.sportOptionText}>
                           <span className={styles.sportOptionName}>{sport.name}</span>
-                          {sport.description && (
+                          {sport.description ? (
                             <span className={styles.sportOptionDesc}>
                               {sport.description}
                             </span>
-                          )}
+                          ) : null}
                         </span>
                       </label>
                     );

@@ -2,35 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { MailPlus, X } from "lucide-react";
-import { USER_ROLES } from "@/lib/users/usersDefaults";
+import { Eye, EyeOff, MailPlus, X } from "lucide-react";
+import emailjs from "@emailjs/browser";
+import { formatEmailJsError } from "@/lib/email/formatEmailJsError";
+import { DEFAULT_ROLE_ID } from "@/lib/users/userRoles";
 import styles from "./InviteUserModal.module.css";
 
 const EMPTY = {
   name: "",
   email: "",
-  role: "staff",
-  locations: [],
+  roleId: DEFAULT_ROLE_ID,
+  password: "",
 };
 
 export default function InviteUserModal({
   open,
-  locations,
+  roles = [],
   onClose,
   onInvite,
 }) {
   const [form, setForm] = useState(EMPTY);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setForm(EMPTY);
+      setPasswordVisible(false);
       return undefined;
     }
-
-    setForm({
-      ...EMPTY,
-      locations: locations.map((loc) => loc.shortName),
-    });
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -44,36 +44,74 @@ export default function InviteUserModal({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, locations, onClose]);
+  }, [open, onClose]);
 
   if (!open) return null;
 
-  const roleMeta = USER_ROLES[form.role];
+  const roleMeta = roles.find((role) => role.id === form.roleId);
+  const canSubmit =
+    form.name.trim() && form.email.trim() && form.password.length >= 8;
 
-  const toggleLocation = (name) => {
-    setForm((prev) => ({
-      ...prev,
-      locations: prev.locations.includes(name)
-        ? prev.locations.filter((loc) => loc !== name)
-        : [...prev.locations, name],
-    }));
-  };
-
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.name.trim() || !form.email.trim()) return;
+    if (!canSubmit) return;
 
-    const sent = onInvite({
+    const sent = await onInvite({
       name: form.name,
       email: form.email,
-      role: form.role,
-      locations: form.locations,
+      roleId: form.roleId,
+      password: form.password,
     });
 
     if (sent) {
-      window.alert(
-        `Invitation sent to ${form.email}. They will receive an email to set up their account.`
-      );
+      setSendingEmail(true);
+      try {
+        const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+        const templateId = process.env.NEXT_PUBLIC_EMAILJS_INVITE_TEMPLATE_ID;
+        const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+
+        if (!serviceId || !templateId || !publicKey) {
+          window.alert(
+            "Invite email is not configured. Set NEXT_PUBLIC_EMAILJS_SERVICE_ID, NEXT_PUBLIC_EMAILJS_INVITE_TEMPLATE_ID, and NEXT_PUBLIC_EMAILJS_PUBLIC_KEY in .env.local."
+          );
+          return;
+        }
+
+        const baseUrl =
+          process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+          window.location.origin;
+
+        try {
+          const result = await emailjs.send(
+            serviceId,
+            templateId,
+            {
+              name: form.name,
+              email: form.email,
+              password: form.password,
+              loginUrl: `${baseUrl}/login`,
+            },
+            { publicKey }
+          );
+
+          if (result.status < 200 || result.status >= 300) {
+            throw result;
+          }
+        } catch (err) {
+          const message = formatEmailJsError(err);
+          console.error("Invite email failed", {
+            status: err?.status,
+            text: err?.text,
+            message,
+          });
+          window.alert(message);
+          return;
+        }
+      } finally {
+        setSendingEmail(false);
+      }
+
+      window.alert(`User ${form.email} was created successfully.`);
       onClose();
     }
   };
@@ -93,11 +131,8 @@ export default function InviteUserModal({
       >
         <header className={styles.header}>
           <div>
-            <h2 id="invite-user-title">Invite team member</h2>
-            <p>
-              Send an invite by email. Only admins can add new users to The
-              Pitch admin.
-            </p>
+            <h2 id="invite-user-title">Add team member</h2>
+            <p>Create an admin account with name, email, role, and password.</p>
           </div>
           <button
             type="button"
@@ -112,7 +147,7 @@ export default function InviteUserModal({
         <form id="invite-user-form" className={styles.body} onSubmit={handleSubmit}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="invite-name">
-              Full name
+              User name
             </label>
             <input
               id="invite-name"
@@ -150,13 +185,13 @@ export default function InviteUserModal({
             <select
               id="invite-role"
               className={styles.select}
-              value={form.role}
+              value={form.roleId}
               onChange={(e) =>
-                setForm((prev) => ({ ...prev, role: e.target.value }))
+                setForm((prev) => ({ ...prev, roleId: e.target.value }))
               }
             >
-              {Object.entries(USER_ROLES).map(([id, role]) => (
-                <option key={id} value={id}>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
                   {role.label}
                 </option>
               ))}
@@ -167,24 +202,33 @@ export default function InviteUserModal({
           </div>
 
           <div className={styles.field}>
-            <span className={styles.label}>Locations</span>
-            <div className={styles.locations}>
-              {locations.map((loc) => {
-                const active = form.locations.includes(loc.shortName);
-                return (
-                  <label
-                    key={loc.id}
-                    className={`${styles.locationChip} ${active ? styles.locationChipActive : ""}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={() => toggleLocation(loc.shortName)}
-                    />
-                    {loc.shortName}
-                  </label>
-                );
-              })}
+            <label className={styles.label} htmlFor="invite-password">
+              Password
+            </label>
+            <div className={styles.passwordWrap}>
+              <input
+                id="invite-password"
+                type={passwordVisible ? "text" : "password"}
+                className={styles.input}
+                value={form.password}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, password: e.target.value }))
+                }
+                placeholder="Minimum 8 characters"
+                minLength={8}
+                required
+                autoComplete="new-password"
+                spellCheck={false}
+              />
+              <button
+                type="button"
+                className={styles.passwordToggle}
+                onClick={() => setPasswordVisible((visible) => !visible)}
+                aria-label={passwordVisible ? "Hide password" : "Show password"}
+                title={passwordVisible ? "Hide password" : "Show password"}
+              >
+                {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
         </form>
@@ -197,10 +241,10 @@ export default function InviteUserModal({
             type="submit"
             form="invite-user-form"
             className={styles.inviteBtn}
-            disabled={!form.name.trim() || !form.email.trim()}
+            disabled={!canSubmit || sendingEmail}
           >
             <MailPlus size={16} />
-            Send invite
+            {sendingEmail ? "Sending email…" : "Create user"}
           </button>
         </footer>
       </div>

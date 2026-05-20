@@ -49,7 +49,8 @@ export default function AdminUserFooter() {
         <div className={styles.userInfo}>
           <strong>{user.name}</strong>
           <span>
-            {USER_ROLES[user.role]?.label ?? user.role} · {user.email}
+            {USER_ROLES[user.roleId ?? user.role]?.label ?? "Staff"} ·{" "}
+            {user.email}
           </span>
         </div>
       </Link>

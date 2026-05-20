@@ -1,1 +1,10 @@
-export default function LoginPage() { return ( <div className='container' style={{ padding: '4rem 0' }}> <h1>Login</h1> <p>Content for login coming soon.</p> </div> ); }
+import { Suspense } from "react";
+import LoginPage from "./LoginPage";
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div style={{ padding: "4rem", textAlign: "center" }}>Loading…</div>}>
+      <LoginPage />
+    </Suspense>
+  );
+}

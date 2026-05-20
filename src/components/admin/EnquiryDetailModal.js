@@ -12,6 +12,7 @@ export default function EnquiryDetailModal({
   enquiry,
   onClose,
   onSendReply,
+  sending = false,
 }) {
   const [replyText, setReplyText] = useState("");
 
@@ -38,16 +39,32 @@ export default function EnquiryDetailModal({
   if (!open || !enquiry) return null;
 
   const status = ENQUIRY_STATUSES[enquiry.status];
-  const replies = enquiry.replies ?? [];
+  const messages =
+    enquiry.messages?.length > 0
+      ? enquiry.messages
+      : [
+          {
+            id: `customer-${enquiry.id}`,
+            role: "customer",
+            author: enquiry.name,
+            message: enquiry.message,
+            date: enquiry.date,
+            time: enquiry.time,
+          },
+          ...(enquiry.replies ?? []).map((reply) => ({
+            ...reply,
+            role: "admin",
+          })),
+        ];
   const canReply = enquiry.status !== "closed";
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const trimmed = replyText.trim();
-    if (!trimmed) return;
+    if (!trimmed || sending) return;
 
-    onSendReply(enquiry.id, trimmed);
-    setReplyText("");
+    const ok = await onSendReply(enquiry.id, trimmed);
+    if (ok) setReplyText("");
   };
 
   return createPortal(
@@ -72,6 +89,12 @@ export default function EnquiryDetailModal({
               <span>
                 {formatEnquiryDateTime(enquiry.date, enquiry.time)}
               </span>
+              {enquiry.threadCount > 1 && (
+                <>
+                  <span>·</span>
+                  <span>{enquiry.threadCount} messages from customer</span>
+                </>
+              )}
               <span
                 className={styles.badge}
                 style={{
@@ -108,46 +131,41 @@ export default function EnquiryDetailModal({
               <dd>{enquiry.email || "—"}</dd>
             </div>
             <div>
-              <dt className={styles.detailLabel}>Location</dt>
-              <dd>{enquiry.location}</dd>
+              <dt className={styles.detailLabel}>Subject</dt>
+              <dd>{enquiry.subject}</dd>
             </div>
-            {enquiry.sport ? (
-              <div>
-                <dt className={styles.detailLabel}>Sport</dt>
-                <dd>{enquiry.sport}</dd>
-              </div>
-            ) : null}
           </dl>
 
           <div className={styles.thread}>
             <p className={styles.threadTitle}>Conversation</p>
 
-            <article
-              className={`${styles.bubble} ${styles.bubbleCustomer}`}
-            >
-              <div className={styles.bubbleHead}>
-                <span className={styles.bubbleAuthor}>{enquiry.name}</span>
-                <time className={styles.bubbleTime}>
-                  {formatEnquiryDateTime(enquiry.date, enquiry.time)}
-                </time>
-              </div>
-              <p className={styles.bubbleText}>{enquiry.message}</p>
-            </article>
-
-            {replies.map((reply) => (
-              <article
-                key={reply.id}
-                className={`${styles.bubble} ${styles.bubbleAdmin}`}
-              >
-                <div className={styles.bubbleHead}>
-                  <span className={styles.bubbleAuthor}>{reply.author}</span>
-                  <time className={styles.bubbleTime}>
-                    {formatEnquiryDateTime(reply.date, reply.time)}
-                  </time>
-                </div>
-                <p className={styles.bubbleText}>{reply.message}</p>
-              </article>
-            ))}
+            {messages.map((entry) => {
+              const isCustomer = entry.role === "customer";
+              return (
+                <article
+                  key={entry.id}
+                  className={`${styles.bubble} ${
+                    isCustomer ? styles.bubbleCustomer : styles.bubbleAdmin
+                  }`}
+                >
+                  <div className={styles.bubbleHead}>
+                    <span className={styles.bubbleAuthor}>
+                      {entry.author}
+                      {entry.enquiryId ? (
+                        <span className={styles.bubbleRef}>
+                          {" "}
+                          · {isCustomer ? entry.enquiryId : `Re: ${entry.inReplyTo ?? entry.enquiryId}`}
+                        </span>
+                      ) : null}
+                    </span>
+                    <time className={styles.bubbleTime}>
+                      {formatEnquiryDateTime(entry.date, entry.time)}
+                    </time>
+                  </div>
+                  <p className={styles.bubbleText}>{entry.message}</p>
+                </article>
+              );
+            })}
           </div>
         </div>
 
@@ -161,7 +179,8 @@ export default function EnquiryDetailModal({
               className={styles.textarea}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Type your reply. The customer will receive this by email or SMS."
+              placeholder="Your reply only — SMS will include the customer's question (e.g. ENQ-2403), your answer, and Pitch contact details."
+              disabled={sending}
               rows={4}
             />
             <div className={styles.footerActions}>
@@ -175,10 +194,10 @@ export default function EnquiryDetailModal({
               <button
                 type="submit"
                 className={styles.sendBtn}
-                disabled={!replyText.trim()}
+                disabled={!replyText.trim() || sending || !enquiry.phone?.trim()}
               >
                 <Send size={16} />
-                Send reply
+                {sending ? "Sending SMS…" : "Send SMS reply"}
               </button>
             </div>
           </form>
@@ -194,4 +213,3 @@ export default function EnquiryDetailModal({
     document.body
   );
 }
-

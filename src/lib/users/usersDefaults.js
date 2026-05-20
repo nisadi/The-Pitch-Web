@@ -1,81 +1,61 @@
-export const USERS_STORAGE_KEY = "the_pitch_admin_users_v1";
+import { DEFAULT_ROLE_ID, resolveRoleId } from "./userRoles";
 
-export const USER_ROLES = {
-  admin: {
-    label: "Admin",
-    color: "#a855f7",
-    description: "Full access. Can invite and manage all users.",
-    canInvite: true,
-    canManageUsers: true,
-  },
-  manager: {
-    label: "Manager",
-    color: "#3b82f6",
-    description: "Manage bookings, customers, and day-to-day operations.",
-    canInvite: false,
-    canManageUsers: false,
-  },
-  staff: {
-    label: "Staff",
-    color: "#22c55e",
-    description: "Front-desk access for bookings and check-ins.",
-    canInvite: false,
-    canManageUsers: false,
-  },
-};
+export const USERS_STORAGE_KEY = "the_pitch_admin_users_v3";
+
+export { DEFAULT_USER_ROLES, USER_ROLES, roleCanInvite, roleCanManageUsers } from "./userRoles";
+
+export const OWNER_EMAIL = "admin@thepitch.com";
 
 export const USER_STATUSES = {
   active: { label: "Active", color: "#22c55e" },
-  invited: { label: "Invited", color: "#eab308" },
   disabled: { label: "Disabled", color: "#6b7280" },
 };
+
+export function compareUsers(a, b) {
+  const aIsOwner = a?.email === OWNER_EMAIL;
+  const bIsOwner = b?.email === OWNER_EMAIL;
+  if (aIsOwner !== bIsOwner) return aIsOwner ? -1 : 1;
+  return (a?.name ?? "").localeCompare(b?.name ?? "");
+}
 
 export const DEFAULT_TEAM_USERS = [
   {
     id: "usr-admin-001",
     name: "Admin User",
     email: "admin@thepitch.com",
-    role: "admin",
+    roleId: "admin",
     status: "active",
-    locations: ["Maharagama", "Attidiya", "Moratuwa"],
-    lastActive: "2026-05-18",
-    invitedAt: "2024-01-01",
   },
   {
     id: "usr-manager-001",
     name: "Jane Fernando",
     email: "jane.manager@thepitch.com",
-    role: "manager",
+    roleId: "manager",
     status: "active",
-    locations: ["Maharagama", "Attidiya"],
-    lastActive: "2026-05-17",
-    invitedAt: "2024-06-15",
   },
   {
     id: "usr-staff-001",
     name: "Kamal Silva",
     email: "kamal.staff@thepitch.com",
-    role: "staff",
+    roleId: "staff",
     status: "active",
-    locations: ["Moratuwa"],
-    lastActive: "2026-05-18",
-    invitedAt: "2025-02-20",
   },
 ];
 
 export function normalizeUser(user) {
-  const role = USER_ROLES[user.role] ? user.role : "staff";
-  const status = USER_STATUSES[user.status] ? user.status : "invited";
+  const roleId = resolveRoleId(user.roleId ?? user.role_id ?? user.role);
+  const rawStatus = user.status === "disabled" ? "disabled" : "active";
+  const status = USER_STATUSES[rawStatus] ? rawStatus : "active";
 
   return {
-    id: user.id,
-    name: user.name?.trim() ?? "",
+    id: String(user.id ?? ""),
+    name: user.name?.trim() ?? user.user_name?.trim() ?? "",
     email: user.email?.trim().toLowerCase() ?? "",
-    role,
+    roleId,
+    role: roleId,
     status,
-    locations: Array.isArray(user.locations) ? user.locations : [],
-    lastActive: user.lastActive ?? "",
-    invitedAt: user.invitedAt ?? new Date().toISOString().slice(0, 10),
+    displayPassword:
+      user.displayPassword ?? user.display_password ?? "",
   };
 }
 
@@ -84,10 +64,37 @@ export function slugifyUserId(email) {
   return `usr-${local.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "")}`;
 }
 
-export function roleCanInvite(role) {
-  return USER_ROLES[role]?.canInvite === true;
+/** Map app user → public.role row (password set separately via RPC) */
+export function userToRoleRow(user) {
+  const normalized = normalizeUser(user);
+  return {
+    id: normalized.id || undefined,
+    user_name: normalized.name,
+    email: normalized.email,
+    role: normalized.roleId,
+    status: normalized.status,
+  };
 }
 
-export function roleCanManageUsers(role) {
-  return USER_ROLES[role]?.canManageUsers === true;
+/** Map public.role row → app user (never includes password) */
+export function userFromRoleRow(row) {
+  if (!row) return null;
+  return normalizeUser({
+    id: row.id,
+    name: row.user_name ?? row.name,
+    email: row.email,
+    roleId: row.role ?? row.role_id ?? row.roleId,
+    status: row.status,
+    display_password: row.display_password,
+  });
+}
+
+/** @deprecated Use userFromRoleRow */
+export function userFromDbRow(row) {
+  return userFromRoleRow(row);
+}
+
+/** @deprecated Use userToRoleRow */
+export function userToDbRow(user) {
+  return userToRoleRow(user);
 }

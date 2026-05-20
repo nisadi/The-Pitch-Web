@@ -12,6 +12,8 @@ import { slugifyId } from "./adminSettingsDefaults";
 import { useAdminSettings } from "./adminSettingsContext";
 import styles from "./AdminSettings.module.css";
 
+const CAN_ADD_LOCATIONS = true;
+
 const EMPTY = {
   name: "",
   shortName: "",
@@ -56,9 +58,17 @@ function isValidRates(peak, nonPeak) {
 }
 
 export default function SettingsLocations() {
-  const { locations, sports, addLocation, updateLocation, removeLocation } =
-    useAdminSettings();
+  const {
+    ready,
+    syncError,
+    locations,
+    sports,
+    addLocation,
+    updateLocation,
+    removeLocation,
+  } = useAdminSettings();
   const [editingId, setEditingId] = useState(null);
+  const [editingDbId, setEditingDbId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [form, setForm] = useState(EMPTY);
@@ -70,11 +80,14 @@ export default function SettingsLocations() {
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    setEditingDbId(null);
     setForm(EMPTY);
   };
 
   const startCreate = () => {
+    if (!CAN_ADD_LOCATIONS) return;
     setEditingId(null);
+    setEditingDbId(null);
     setForm({
       ...EMPTY,
       sportIds: sports
@@ -86,11 +99,12 @@ export default function SettingsLocations() {
 
   const startEdit = (location) => {
     setEditingId(location.id);
+    setEditingDbId(location.dbId ?? null);
     setForm(locationToForm(location));
     setModalOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const peakRate = String(form.peakHourRate).trim();
     const nonPeakRate = String(form.nonPeakHourRate).trim();
 
@@ -128,23 +142,33 @@ export default function SettingsLocations() {
       return;
     }
 
-    if (!editingId && !payload.image) {
+    if (
+      !editingId &&
+      (!payload.image || payload.image.startsWith("data:"))
+    ) {
       window.alert("Please upload a location image.");
       return;
     }
 
-    if (editingId) {
-      updateLocation(editingId, payload);
-    } else {
-      const id = slugifyId(payload.shortName);
-      if (locations.some((loc) => loc.id === id)) {
-        window.alert("A location with this name already exists.");
+    try {
+      if (editingId) {
+        await updateLocation(editingId, payload);
+      } else if (!CAN_ADD_LOCATIONS) {
+        window.alert("Adding new locations is disabled.");
         return;
+      } else {
+        const id = slugifyId(payload.shortName);
+        if (locations.some((loc) => loc.id === id)) {
+          window.alert("A location with this name already exists.");
+          return;
+        }
+        await addLocation({ ...payload, id });
       }
-      addLocation({ ...payload, id });
-    }
 
-    closeModal();
+      closeModal();
+    } catch (err) {
+      window.alert(err?.message ?? "Could not save location.");
+    }
   };
 
   const requestDelete = (location) => {
@@ -155,14 +179,18 @@ export default function SettingsLocations() {
     setDeleteTarget(location);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
 
-    removeLocation(deleteTarget.id);
-    if (editingId === deleteTarget.id) {
-      closeModal();
+    try {
+      await removeLocation(deleteTarget.id);
+      if (editingId === deleteTarget.id) {
+        closeModal();
+      }
+      setDeleteTarget(null);
+    } catch (err) {
+      window.alert(err?.message ?? "Could not delete location.");
     }
-    setDeleteTarget(null);
   };
 
   return (
@@ -171,16 +199,33 @@ export default function SettingsLocations() {
         <div className={styles.panelHeader}>
           <div>
             <h3>Locations</h3>
-            <p>Add venues, addresses, and contact details used across bookings and reports.</p>
+            <p>
+              {!ready
+                ? "Loading from Supabase…"
+                : "Update addresses and contact details for existing venues used across bookings and reports."}
+            </p>
+            {syncError && <p className={styles.syncError}>{syncError}</p>}
           </div>
-          <button type="button" className={styles.primaryBtn} onClick={startCreate}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={startCreate}
+            disabled={!CAN_ADD_LOCATIONS}
+            title={
+              CAN_ADD_LOCATIONS
+                ? "Add a new venue"
+                : "Adding locations is disabled. Edit an existing venue below."
+            }
+          >
             <Plus size={16} />
             Add location
           </button>
         </div>
 
-        {locations.length === 0 ? (
-          <p className={styles.empty}>No locations yet. Add your first venue to get started.</p>
+        {!ready ? (
+          <p className={styles.empty}>Syncing with Supabase…</p>
+        ) : locations.length === 0 ? (
+          <p className={styles.empty}>No locations configured.</p>
         ) : (
           <div className={styles.list}>
             {locations.map((location) => (
@@ -258,6 +303,8 @@ export default function SettingsLocations() {
       <LocationFormModal
         open={modalOpen}
         mode={editingId ? "edit" : "create"}
+        locationDbId={editingDbId}
+        locationSlug={editingId}
         form={form}
         sports={sports}
         onChange={handleChange}

@@ -7,12 +7,14 @@ import { AdminLocationProvider } from "./adminLocationContext";
 import { AdminSettingsProvider } from "./settings/adminSettingsContext";
 import { UsersProvider } from "@/lib/users/usersContext";
 import { AdminSidebarProvider, useAdminSidebar } from "./adminSidebarContext";
+import AdminAuthGate from "./AdminAuthGate";
 import styles from "./Admin.module.css";
 
 function AdminShellInner({ children }) {
   const { collapsed, mobileOpen, closeMobileMenu } = useAdminSidebar();
 
   return (
+    <AdminAuthGate>
     <div
       className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ""} ${mobileOpen ? styles.shellMobileNavOpen : ""}`}
     >
@@ -31,6 +33,7 @@ function AdminShellInner({ children }) {
         <div className={styles.mainContent}>{children}</div>
       </main>
     </div>
+    </AdminAuthGate>
   );
 }
 

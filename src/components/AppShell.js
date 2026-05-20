@@ -9,14 +9,15 @@ import { PackagesProvider } from "@/lib/packages/packagesContext";
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
+  const isLogin = pathname === "/login";
 
   useEffect(() => {
-    document.body.style.paddingTop = isAdmin ? "0" : "80px";
-  }, [isAdmin]);
+    document.body.style.paddingTop = isAdmin || isLogin ? "0" : "80px";
+  }, [isAdmin, isLogin]);
 
   return (
     <PackagesProvider>
-      {isAdmin ? (
+      {isAdmin || isLogin ? (
         children
       ) : (
         <>
