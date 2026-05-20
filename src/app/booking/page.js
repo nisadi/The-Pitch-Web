@@ -238,8 +238,26 @@ const BookingPage = () => {
                 <span className={styles.totalPrice}>Rs. 3500.00</span>
               </div>
             </div>
-
-            <Link href="/checkout" className={styles.checkoutBtn}>
+            <Link
+              href="/checkout"
+              className={styles.checkoutBtn}
+              onClick={() => {
+                const bookingData = {
+                  sport: selectedSport,
+                  location: selectedLocation,
+                  date: selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  }),
+                  time: selectedSlot,
+                  price: "Rs. 3500.00",
+                  ref: `#TP-${Math.floor(10000 + Math.random() * 90000)}-X`
+                };
+                sessionStorage.setItem("currentBooking", JSON.stringify(bookingData));
+              }}
+            >
               PROCEED TO CHECKOUT
             </Link>
 

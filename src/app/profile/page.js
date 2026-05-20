@@ -10,9 +10,7 @@ import {
     Phone,
     Pencil,
     LogOut,
-    Calendar,
     ShieldCheck,
-    BadgeCheck,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -105,24 +103,7 @@ export default function ProfilePage() {
                         LOGOUT
                     </button>
 
-                    {/* STATS */}
-                    <div className={styles.statsCard}>
-                        <span className={styles.statsLabel}>
-                            LIFETIME STATS
-                        </span>
 
-                        <div className={styles.statsGrid}>
-                            <div>
-                                <h3>42</h3>
-                                <p>TOTAL BOOKINGS</p>
-                            </div>
-
-                            <div>
-                                <h3>180h</h3>
-                                <p>PITCH TIME</p>
-                            </div>
-                        </div>
-                    </div>
                 </motion.div>
 
                 {/* RIGHT CONTENT */}
@@ -168,40 +149,7 @@ export default function ProfilePage() {
                         </div>
                     </motion.div>
 
-                    {/* BOTTOM CARDS */}
-                    <div className={styles.bottomCards}>
-                        <motion.div
-                            {...fadeInUp}
-                            className={styles.perksCard}
-                        >
-                            <div className={styles.cardTop}>
-                                <BadgeCheck size={18} />
-                                <span>ACTIVE</span>
-                            </div>
 
-                            <h3>Gold Perks</h3>
-
-                            <ul>
-                                <li>18% Discount on all bookings</li>
-                                <li>24h Early access to field reservations</li>
-                                <li>Free lockers and towels</li>
-                            </ul>
-                        </motion.div>
-
-                        <motion.div
-                            {...fadeInUp}
-                            className={styles.sessionCard}
-                        >
-                            <Calendar size={18} />
-
-                            <h3>Next Session</h3>
-
-                            <p>
-                                You have a session coming up in 2 days at main
-                                arena.
-                            </p>
-                        </motion.div>
-                    </div>
                 </div>
             </div>
         </div>

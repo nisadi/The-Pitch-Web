@@ -144,40 +144,7 @@
     cursor: pointer;
 }
 
-/* STATS */
 
-.statsCard {
-    background: linear-gradient(135deg, #202020, #3a3a3a);
-    border-radius: 6px;
-    padding: 1.7rem;
-    margin-top: 1rem;
-    color: white;
-}
-
-.statsLabel {
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: #8dcf95;
-    letter-spacing: 0.5px;
-}
-
-.statsGrid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin-top: 1.5rem;
-}
-
-.statsGrid h3 {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 900;
-}
-
-.statsGrid p {
-    margin-top: 0.3rem;
-    font-size: 0.62rem;
-    color: #aaa;
-}
 
 /* RIGHT CONTENT */
 
@@ -267,69 +234,7 @@
     white-space: nowrap;
 }
 
-/* BOTTOM CARDS */
 
-.bottomCards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-}
-
-.perksCard {
-    background: var(--primary-light);
-    color: white;
-    border-radius: 6px;
-    padding: 1.5rem;
-}
-
-.cardTop {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.cardTop span {
-    font-size: 0.62rem;
-    background: rgba(255, 255, 255, 0.15);
-    padding: 0.3rem 0.6rem;
-    border-radius: 4px;
-    font-weight: 700;
-}
-
-.perksCard h3 {
-    margin: 0 0 1rem;
-    font-size: 1.2rem;
-}
-
-.perksCard ul {
-    padding-left: 1rem;
-    margin: 0;
-}
-
-.perksCard li {
-    margin-bottom: 0.6rem;
-    font-size: 0.8rem;
-    line-height: 1.5;
-}
-
-.sessionCard {
-    background: #b8c0b4;
-    border-radius: 6px;
-    padding: 1.5rem;
-}
-
-.sessionCard h3 {
-    margin: 1rem 0 0.8rem;
-    font-size: 1.2rem;
-    color: #222;
-}
-
-.sessionCard p {
-    font-size: 0.85rem;
-    line-height: 1.6;
-    color: #444;
-}
 
 /* RESPONSIVE */
 
@@ -348,9 +253,6 @@
         font-size: 2.2rem;
     }
 
-    .bottomCards {
-        grid-template-columns: 1fr;
-    }
 
     .bookingItem {
         flex-direction: column;
