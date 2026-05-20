@@ -3,8 +3,88 @@
 import styles from './events.module.css';
 import { motion } from 'framer-motion';
 import { Calendar, Utensils, ShieldCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getUser } from '@/services/auth';
+import { createEventInquiry } from '@/services/events';
 
 export default function EventsPage() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [submitStatus, setSubmitStatus] = useState(null); // 'submitting' | 'success' | 'error' | null
+  
+  const [formData, setFormData] = useState({
+    organizationName: '',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    eventCategory: 'Corporate Team Building',
+    guestCount: '',
+    preferredDate: '',
+    requirements: ''
+  });
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { user: currentUser } = await getUser();
+      if (currentUser) {
+        setUser(currentUser);
+        setFormData(prev => ({
+          ...prev,
+          contactPerson: currentUser.user_metadata?.full_name || '',
+          email: currentUser.email || '',
+          phone: currentUser.user_metadata?.phone_number || ''
+        }));
+      }
+      setLoadingUser(false);
+    };
+    checkAuth();
+  }, []);
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      router.push('/login?redirect=/events');
+      return;
+    }
+
+    setSubmitStatus('submitting');
+    const res = await createEventInquiry({
+      organizationName: formData.organizationName,
+      contactPerson: formData.contactPerson,
+      email: formData.email,
+      phone: formData.phone,
+      eventCategory: formData.eventCategory,
+      guestCount: formData.guestCount,
+      preferredDate: formData.preferredDate,
+      requirements: formData.requirements
+    });
+
+    if (res.success) {
+      setSubmitStatus('success');
+      setFormData({
+        organizationName: '',
+        contactPerson: user?.user_metadata?.full_name || '',
+        email: user?.email || '',
+        phone: user?.user_metadata?.phone_number || '',
+        eventCategory: 'Corporate Team Building',
+        guestCount: '',
+        preferredDate: '',
+        requirements: ''
+      });
+    } else {
+      setSubmitStatus('error');
+    }
+  };
+
   const fadeInUp = {
     initial: { opacity: 0, y: 50 },
     whileInView: { opacity: 1, y: 0 },
@@ -216,51 +296,87 @@ export default function EventsPage() {
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
           >
-            <form className={styles.formCard} onSubmit={(e) => e.preventDefault()}>
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label>Organization Name</label>
-                  <input type="text" className={styles.formInput} placeholder="e.g. Acme Corp" />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Contact Person</label>
-                  <input type="text" className={styles.formInput} placeholder="Full Name" />
-                </div>
+            {loadingUser ? (
+              <div className={styles.formCard} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                <p>Checking authentication status...</p>
               </div>
-
-              <div className={styles.formGroup} style={{marginBottom: "1.5rem"}}>
-                <label>Event Category</label>
-                <select className={styles.formSelect}>
-                  <option>Corporate Team Building</option>
-                  <option>School Sports Carnival</option>
-                  <option>Private Tournament</option>
-                  <option>Other Event</option>
-                </select>
-              </div>
-
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label>Estimated Guests</label>
-                  <input type="number" className={styles.formInput} placeholder="0" />
+            ) : user ? (
+              <form className={styles.formCard} onSubmit={handleFormSubmit}>
+                {submitStatus === 'success' && <p style={{color: '#00d289', marginBottom: '15px', fontWeight: 'bold'}}>Inquiry submitted successfully! Our team will contact you soon.</p>}
+                {submitStatus === 'error' && <p style={{color: 'red', marginBottom: '15px', fontWeight: 'bold'}}>Failed to submit inquiry. Please try again.</p>}
+                
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label>Organization Name</label>
+                    <input type="text" name="organizationName" required value={formData.organizationName} onChange={handleInputChange} className={styles.formInput} placeholder="e.g. Acme Corp" />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Contact Person</label>
+                    <input type="text" name="contactPerson" required value={formData.contactPerson} onChange={handleInputChange} className={styles.formInput} placeholder="Full Name" />
+                  </div>
                 </div>
-                <div className={styles.formGroup}>
-                  <label>Preferred Date</label>
-                  <input type="date" className={styles.formInput} />
+
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label>Contact Email</label>
+                    <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className={styles.formInput} placeholder="email@organization.com" />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Contact Phone</label>
+                    <input type="text" name="phone" required value={formData.phone} onChange={handleInputChange} className={styles.formInput} placeholder="Phone Number" />
+                  </div>
                 </div>
-              </div>
 
-              <div className={styles.formGroup}>
-                <label>Event Requirements</label>
-                <textarea 
-                  className={styles.formTextarea} 
-                  placeholder="Describe your vision (AV, Catering, Coaching, etc.)"
-                ></textarea>
-              </div>
+                <div className={styles.formGroup} style={{marginBottom: "1.5rem"}}>
+                  <label>Event Category</label>
+                  <select name="eventCategory" value={formData.eventCategory} onChange={handleInputChange} className={styles.formSelect}>
+                    <option>Corporate Team Building</option>
+                    <option>School Sports Carnival</option>
+                    <option>Private Tournament</option>
+                    <option>Other Event</option>
+                  </select>
+                </div>
 
-              <button type="submit" className={styles.submitBtn}>
-                SEND INQUIRY
-              </button>
-            </form>
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label>Estimated Guests</label>
+                    <input type="number" name="guestCount" required value={formData.guestCount} onChange={handleInputChange} className={styles.formInput} placeholder="0" />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Preferred Date</label>
+                    <input type="date" name="preferredDate" required value={formData.preferredDate} onChange={handleInputChange} className={styles.formInput} />
+                  </div>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label>Event Requirements</label>
+                  <textarea 
+                    name="requirements"
+                    required
+                    value={formData.requirements}
+                    onChange={handleInputChange}
+                    className={styles.formTextarea} 
+                    placeholder="Describe your vision (AV, Catering, Coaching, etc.)"
+                  ></textarea>
+                </div>
+
+                <button type="submit" className={styles.submitBtn} disabled={submitStatus === 'submitting'}>
+                  {submitStatus === 'submitting' ? 'SENDING...' : 'SEND INQUIRY'}
+                </button>
+              </form>
+            ) : (
+              <div className={styles.formCard} style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <h3 style={{ color: '#fff', marginBottom: '15px', fontSize: '1.5rem' }}>Secure the Arena</h3>
+                <p style={{ color: '#aaa', marginBottom: '25px' }}>You must be logged in as an athlete to submit event inquiries and request corporate custom quotes.</p>
+                <button 
+                  onClick={() => router.push(`/login?redirect=/events`)}
+                  className={styles.submitBtn} 
+                  style={{ maxWidth: '250px', margin: '0 auto' }}
+                >
+                  LOG IN TO INQUIRE
+                </button>
+              </div>
+            )}
           </motion.div>
         </div>
       </section>

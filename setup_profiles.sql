@@ -78,7 +78,40 @@ create policy "Allow public submissions to contact_messages"
 
 
 -- -------------------------------------------------------------
--- 3. SETUP BOOKINGS RLS POLICIES (FIXING "violates row-level security")
+-- 3. SETUP EVENT_INQUIRIES TABLE AND RLS POLICIES
+-- -------------------------------------------------------------
+create table if not exists public.event_inquiries (
+  id uuid default gen_random_uuid() primary key,
+  organization_name text not null,
+  contact_person text not null,
+  email text,
+  phone text,
+  event_category text,
+  guest_count integer,
+  preferred_date date,
+  requirements text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.event_inquiries enable row level security;
+
+-- Allow authenticated users to insert their inquiries
+drop policy if exists "Allow authenticated users to insert inquiries" on public.event_inquiries;
+create policy "Allow authenticated users to insert inquiries"
+  on public.event_inquiries for insert
+  to authenticated
+  with check ( true );
+
+-- Allow users to read their inquiries (assuming they are matched by email or authenticated)
+drop policy if exists "Allow authenticated users to read inquiries" on public.event_inquiries;
+create policy "Allow authenticated users to read inquiries"
+  on public.event_inquiries for select
+  to authenticated
+  using ( true );
+
+
+-- -------------------------------------------------------------
+-- 4. SETUP BOOKINGS RLS POLICIES (FIXING "violates row-level security")
 -- -------------------------------------------------------------
 alter table public.bookings enable row level security;
 
@@ -96,7 +129,7 @@ create policy "Allow users to read their own bookings"
 
 
 -- -------------------------------------------------------------
--- 4. SEED GALLERY IMAGES (IF EMPTY)
+-- 5. SEED GALLERY IMAGES (IF EMPTY)
 -- -------------------------------------------------------------
 -- This will populate the empty gallery table so photos show up on the frontend
 insert into public.gallery (image_url, title, category, is_active)

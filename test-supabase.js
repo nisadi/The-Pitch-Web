@@ -2,7 +2,7 @@ const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 
 let supabaseUrl = '';
-let supabaseAnonKey = '';
+let serviceRoleKey = '';
 
 try {
   const envContent = fs.readFileSync('.env.local', 'utf8');
@@ -11,8 +11,8 @@ try {
     if (line.startsWith('NEXT_PUBLIC_SUPABASE_URL=')) {
       supabaseUrl = line.split('=')[1].trim();
     }
-    if (line.startsWith('NEXT_PUBLIC_SUPABASE_ANON_KEY=')) {
-      supabaseAnonKey = line.split('=')[1].trim();
+    if (line.startsWith('SUPABASE_SERVICE_ROLE_KEY=')) {
+      serviceRoleKey = line.split('=')[1].trim();
     }
   }
 } catch (e) {
@@ -20,50 +20,38 @@ try {
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+if (!serviceRoleKey) {
+  console.error("SUPABASE_SERVICE_ROLE_KEY is not configured!");
+  process.exit(1);
+}
 
-const statuses = [
-  'unread', 'read', 'replied',
-  'pending', 'Pending',
-  'open', 'closed', 'Open', 'Closed',
-  'active', 'resolved', 'Active', 'Resolved',
-  'new', 'New', 'answered', 'Answered',
-  'received', 'Received'
-];
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 async function runTest() {
-  console.log("\n--- Testing contact_messages Table Status Check Constraint ---");
-  
-  for (const status of statuses) {
-    const { data, error } = await supabase
-      .from('contact_messages')
-      .insert([
-        {
-          full_name: 'Test Full Name',
-          email: 'test@example.com',
-          subject: 'Facility Inquiry',
-          message: 'Test message body',
-          phone: '1234567890',
-          location: 'General',
-          reference_code: 'MSG-TEST-' + status.toUpperCase(),
-          status: status,
-          thread_key: 'thread-test-' + status,
-          replies: [],
-        }
-      ])
-      .select();
-      
-    if (error) {
-      if (error.message.includes('violates check constraint')) {
-        // Discard check constraint failures
-      } else {
-        console.log(`Failed for status "${status}" with different error: ${error.message}`);
+  console.log("\n--- Testing event_inquiries Table Insert with Admin Bypass (service_role) ---");
+  const { data, error } = await supabaseAdmin
+    .from('event_inquiries')
+    .insert([
+      {
+        organization_name: 'Test Admin Bypass Org',
+        contact_person: 'Admin Bypass Person',
+        email: 'admin_bypass@example.com',
+        phone: '1234567890',
+        event_category: 'Corporate Team Building',
+        guest_count: 100,
+        preferred_date: '2026-07-01',
+        requirements: 'Testing admin bypass capability'
       }
-    } else {
-      console.log(`🎉 SUCCESS: Status "${status}" is ALLOWED!`);
-      // Clean up the test row
-      await supabase.from('contact_messages').delete().eq('reference_code', 'MSG-TEST-' + status.toUpperCase());
-    }
+    ])
+    .select();
+
+  if (error) {
+    console.error("Error inserting inquiry with Admin bypass:", JSON.stringify(error, null, 2));
+  } else {
+    console.log("SUCCESS! Inquiry inserted under admin bypass:", data);
+    // Cleanup
+    await supabaseAdmin.from('event_inquiries').delete().eq('email', 'admin_bypass@example.com');
+    console.log("Cleanup complete!");
   }
 }
 
