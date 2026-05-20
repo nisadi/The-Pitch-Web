@@ -17,7 +17,84 @@ import {
   CircleOff,
 } from "lucide-react";
 
+const loadScript = (src) => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      resolve();
+      return;
+    }
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = (err) => reject(err);
+    document.body.appendChild(script);
+  });
+};
+
 export default function BookingConfirmPage() {
+  const [booking, setBooking] = React.useState({
+    ref: "#TP-94821-X",
+    badge: "PREMIUM COURT",
+    date: "Friday, Nov 15, 2024",
+    time: "06:00 PM - 08:00 PM",
+    location: "Indoor Pitch 4 (Futsal Pro)",
+    status: "Fully Paid",
+    venueTitle: "The Pitch 4",
+    venueDesc: "Elite level synthetic turf, climate-controlled, and HD replay cameras enabled."
+  });
+  const [isDownloading, setIsDownloading] = React.useState(false);
+
+  React.useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("confirmBooking");
+      if (stored) {
+        setBooking(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+
+      // Dynamically load html2canvas and jsPDF from CDN to avoid next.js SSR and build issues
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+
+      const element = document.getElementById("receipt-card");
+      if (!element) return;
+
+      const canvas = await window.html2canvas(element, {
+        scale: 2, // High resolution capture
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const { jsPDF } = window.jspdf;
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "px",
+        format: [canvas.width / 2, canvas.height / 2]
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`Receipt-${booking.ref.replace("#", "")}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const fadeInUp = {
     initial: { opacity: 0, y: 30 },
     whileInView: { opacity: 1, y: 0 },
@@ -45,7 +122,7 @@ export default function BookingConfirmPage() {
       {/* MAIN GRID */}
       <div className={styles.mainGrid}>
         {/* LEFT SIDE */}
-        <motion.div {...fadeInUp} className={styles.leftCard}>
+        <motion.div {...fadeInUp} className={styles.leftCard} id="receipt-card">
           {/* TOP */}
           <div className={styles.referenceTop}>
             <div>
@@ -53,10 +130,10 @@ export default function BookingConfirmPage() {
                 BOOKING REFERENCE
               </span>
 
-              <h2 className={styles.refNumber}>#TP-94821-X</h2>
+              <h2 className={styles.refNumber}>{booking.ref}</h2>
             </div>
 
-            <div className={styles.badge}>PREMIUM COURT</div>
+            <div className={styles.badge}>{booking.badge}</div>
           </div>
 
           {/* DETAILS */}
@@ -64,55 +141,59 @@ export default function BookingConfirmPage() {
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
                 <Calendar size={12} />
-                DATE
+                <span>DATE</span>
               </span>
 
               <span className={styles.detailValue}>
-                Friday, Nov 15, 2024
+                {booking.date}
               </span>
             </div>
 
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
                 <Clock size={12} />
-                TIME SLOT
+                <span>TIME SLOT</span>
               </span>
 
               <span className={styles.detailValue}>
-                06:00 PM - 08:00 PM
+                {booking.time}
               </span>
             </div>
 
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
                 <MapPin size={12} />
-                LOCATION
+                <span>LOCATION</span>
               </span>
 
               <span className={styles.detailValue}>
-                Indoor Pitch 4 (Futsal Pro)
+                {booking.location}
               </span>
             </div>
 
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
                 <ShieldCheck size={12} />
-                STATUS
+                <span>STATUS</span>
               </span>
 
               <span
                 className={`${styles.detailValue} ${styles.statusPaid}`}
               >
-                Fully Paid
+                {booking.status}
               </span>
             </div>
           </div>
 
           {/* DOWNLOAD */}
-          <div className={styles.downloadBtnWrapper}>
-            <button className={styles.downloadBtn}>
+          <div className={styles.downloadBtnWrapper} data-html2canvas-ignore="true">
+            <button
+              className={styles.downloadBtn}
+              onClick={handleDownload}
+              disabled={isDownloading}
+            >
               <Download size={16} />
-              Download Receipt
+              {isDownloading ? "Generating PDF..." : "Download Receipt"}
             </button>
           </div>
         </motion.div>
@@ -128,12 +209,9 @@ export default function BookingConfirmPage() {
             />
 
             <div className={styles.venueInfo}>
-              <h3>The Pitch 4</h3>
+              <h3>{booking.venueTitle}</h3>
 
-              <p>
-                Elite level synthetic turf, climate-controlled,
-                and HD replay cameras enabled.
-              </p>
+              <p>{booking.venueDesc}</p>
 
               <button className={styles.linkBtn}>
                 View Venue Rules

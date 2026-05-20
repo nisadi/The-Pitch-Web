@@ -11,9 +11,30 @@ import {
     Pencil,
     LogOut,
     ShieldCheck,
+    User,
 } from "lucide-react";
-
 export default function ProfilePage() {
+    const [profile, setProfile] = React.useState({
+        name: "Alex Harrison",
+        email: "alex.harrison@stadium.club",
+        phone: "+94 77 128 3567",
+        badge: "GOLD MEMBER",
+        avatar: "https://randomuser.me/api/portraits/men/32.jpg"
+    });
+
+    React.useEffect(() => {
+        try {
+            const stored = localStorage.getItem("athleteProfile");
+            if (stored) {
+                setProfile(JSON.parse(stored));
+            } else {
+                localStorage.setItem("athleteProfile", JSON.stringify(profile));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }, []);
+
     const bookings = [
         {
             id: 1,
@@ -65,38 +86,44 @@ export default function ProfilePage() {
                 <motion.div {...fadeInUp} className={styles.profileCard}>
                     <div className={styles.profileTop}>
                         <div className={styles.avatarWrapper}>
-                            <img
-                                src="https://randomuser.me/api/portraits/men/32.jpg"
-                                alt="Profile"
-                                className={styles.avatar}
-                            />
+                            {profile.avatar ? (
+                                <img
+                                    src={profile.avatar}
+                                    alt="Profile"
+                                    className={styles.avatar}
+                                />
+                            ) : (
+                                <div className={styles.avatarPlaceholder}>
+                                    <User size={48} />
+                                </div>
+                            )}
                         </div>
 
-                        <div className={styles.memberBadge}>GOLD MEMBER</div>
+                        <div className={styles.memberBadge}>{profile.badge}</div>
 
-                        <h2>Alex Harrison</h2>
+                        <h2>{profile.name}</h2>
 
                         <p className={styles.username}>
-                            alex.harrison@stadium.club
+                            {profile.email}
                         </p>
                     </div>
 
                     {/* CONTACT */}
                     <div className={styles.contactBox}>
                         <Mail size={16} />
-                        <span>alex.harrison@stadium.club</span>
+                        <span>{profile.email}</span>
                     </div>
 
                     <div className={styles.contactBox}>
                         <Phone size={16} />
-                        <span>+94 77 128 3567</span>
+                        <span>{profile.phone}</span>
                     </div>
 
                     {/* BUTTONS */}
-                    <button className={styles.editBtn}>
+                    <Link href="/profile/edit" className={styles.editBtn} style={{ textDecoration: 'none' }}>
                         <Pencil size={15} />
                         EDIT PROFILE
-                    </button>
+                    </Link>
 
                     <button className={styles.logoutBtn}>
                         <LogOut size={15} />

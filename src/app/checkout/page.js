@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import styles from "./checkout.module.css";
 import { motion } from "framer-motion";
@@ -18,6 +18,42 @@ import {
 
 export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("credit");
+  const [booking, setBooking] = useState({
+    sport: "Indoor Football",
+    location: "Field 1",
+    date: "Friday, Nov 15, 2024",
+    time: "06:00 PM - 08:00 PM",
+    rate: "Peak Hour Rate 5000/hr",
+    basePrice: "Rs. 5000.00",
+    maintenanceFee: "Rs. 500.00",
+    total: "Rs. 5000.00",
+    ref: "#TP-94821-X"
+  });
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("currentBooking");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const totalNum = parseFloat(parsed.price.replace(/[^\d.]/g, '')) || 3500;
+        const feeNum = 500;
+        const baseNum = totalNum - feeNum;
+        setBooking({
+          sport: parsed.sport || "Indoor Football",
+          location: parsed.location || "Field 1",
+          date: parsed.date || "Friday, Nov 15, 2024",
+          time: parsed.time || "06:00 PM - 08:00 PM",
+          rate: "Standard Rate",
+          basePrice: `Rs. ${baseNum.toFixed(2)}`,
+          maintenanceFee: `Rs. ${feeNum.toFixed(2)}`,
+          total: parsed.price || "Rs. 3500.00",
+          ref: parsed.ref || "#TP-94821-X"
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const fadeInUp = {
     initial: { opacity: 0, y: 30 },
@@ -46,19 +82,19 @@ export default function CheckoutPage() {
             <div className={styles.summaryGrid}>
               <div className={styles.summaryItem}>
                 <label><Target size={12} /> SPORT</label>
-                <p>Indoor Football - Field 1</p>
+                <p>{booking.sport} - {booking.location}</p>
               </div>
               <div className={styles.summaryItem}>
                 <label><Clock size={12} /> TIME SLOT</label>
-                <p>06:00 PM - 08:00 PM</p>
+                <p>{booking.time}</p>
               </div>
               <div className={styles.summaryItem}>
                 <label><Calendar size={12} /> DATE</label>
-                <p>Friday, Nov 15, 2024</p>
+                <p>{booking.date}</p>
               </div>
               <div className={styles.summaryItem}>
                 <label><BadgeCent size={12} /> RATE</label>
-                <p>Peak Hour Rate 5000/hr</p>
+                <p>{booking.rate}</p>
               </div>
             </div>
           </div>
@@ -140,13 +176,13 @@ export default function CheckoutPage() {
             <h3 className={styles.orderTitle}>ORDER SUMMARY</h3>
 
             <div className={styles.orderRow}>
-              <span>1 Hour Session</span>
-              <strong>Rs. 5000.00</strong>
+              <span>Session Fee</span>
+              <strong>{booking.basePrice}</strong>
             </div>
 
             <div className={styles.orderRow}>
               <span>Facility Maintenance Fee</span>
-              <strong>Rs. 500.00</strong>
+              <strong>{booking.maintenanceFee}</strong>
             </div>
 
             <div className={styles.promoContainer}>
@@ -166,11 +202,27 @@ export default function CheckoutPage() {
             <div className={styles.totalSection}>
               <span className={styles.totalLabel}>TOTAL AMOUNT DUE</span>
               <div className={styles.totalValue}>
-                <h2>Rs. 5000.00</h2>
+                <h2>{booking.total}</h2>
                 <span>INCLUDES TAXES</span>
               </div>
 
-              <Link href="/booking/confirm" className={styles.payButton}>
+              <Link
+                href="/booking/confirm"
+                className={styles.payButton}
+                onClick={() => {
+                  const confirmData = {
+                    ref: booking.ref,
+                    badge: `${booking.sport.toUpperCase()} COURT`,
+                    date: booking.date,
+                    time: booking.time,
+                    location: `${booking.sport} - ${booking.location}`,
+                    status: "Fully Paid",
+                    venueTitle: `The Pitch (${booking.sport})`,
+                    venueDesc: `Elite level synthetic turf at ${booking.location}, climate-controlled, and HD replay cameras enabled.`
+                  };
+                  sessionStorage.setItem("confirmBooking", JSON.stringify(confirmData));
+                }}
+              >
                 CONFIRM & PAY <ArrowRight size={18} />
               </Link>
             </div>
