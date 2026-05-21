@@ -1,0 +1,158 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem 1.5rem;
+  overflow: visible;
+}
+
+.chartArea {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.chartScroll {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.tooltipAnchor {
+  position: absolute;
+  z-index: 20;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.tooltip {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  min-width: 260px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.tooltipRow {
+  display: grid;
+  grid-template-columns: 20px 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--foreground);
+}
+
+.tooltipRow + .tooltipRow {
+  margin-top: 0.5rem;
+}
+
+.tooltipLine {
+  width: 16px;
+  height: 0;
+  border-top-width: 2.5px;
+  border-top-style: solid;
+}
+
+.tooltipLineDashed {
+  border-top-style: dashed;
+}
+
+.tooltipDate {
+  white-space: nowrap;
+}
+
+.tooltipSpacer {
+  min-width: 2.5rem;
+}
+
+.tooltipValue {
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.tooltipChangeDown {
+  color: #ef4444;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tooltipChangeUp {
+  color: #22c55e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hoverLine {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.hitArea {
+  cursor: pointer;
+}
+
+.chart {
+  width: 100%;
+  min-width: 520px;
+  height: auto;
+}
+
+.gridLine {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.axisLabel {
+  fill: var(--foreground-muted);
+  font-size: 11px;
+}
+
+.line {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lineMuted {
+  stroke: #6b7280;
+  stroke-dasharray: 6 4;
+}
+
+.dot {
+  stroke: var(--background);
+  stroke-width: 2;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--foreground-muted);
+}
+
+.legendLine {
+  width: 20px;
+  height: 0;
+  border-top-width: 2.5px;
+  border-top-style: solid;
+}
+
+.legendLineDashed {
+  border-top-style: dashed;
+}
+

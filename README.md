@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Supabase
+
+This app is wired for [Supabase](https://supabase.com) (project `obgaqcmxhrmslgjaerel`). See **[SUPABASE.md](./SUPABASE.md)** for env vars, pooler vs direct connection, and health check.
+
 ## Getting Started
 
 First, run the development server:
