@@ -38,7 +38,7 @@ export default function LoginPage() {
             setError(signInError.message);
             setLoading(false);
         } else {
-            router.push("/profile");
+            router.push("/");
         }
     };
 

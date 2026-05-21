@@ -116,8 +116,15 @@
 .cardTitle {
   font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
   color: #000000;
+}
+
+.cardDescription {
+  font-size: 0.9rem;
+  color: #666666;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
 }
 
 .cardItem {

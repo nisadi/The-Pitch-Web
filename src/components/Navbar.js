@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { User, Menu, X, LogIn } from 'lucide-react';
-import { getSession } from '@/services/auth';
+import { getSession, signOut } from '@/services/auth';
 import styles from './Navbar.module.css';
 
 const Navbar = () => {
@@ -14,6 +14,15 @@ const Navbar = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // On the very first load in this browser tab, sign out to ensure
+      // the user lands in a logged-out state.
+      if (!sessionStorage.getItem('hasVisited')) {
+        await signOut();
+        sessionStorage.setItem('hasVisited', 'true');
+        setIsAuthenticated(false);
+        return;
+      }
+
       const { session } = await getSession();
       setIsAuthenticated(!!session);
     };

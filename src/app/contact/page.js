@@ -161,6 +161,9 @@ export default function ContactPage() {
               locations.map((loc, idx) => (
                 <motion.div key={loc.id || idx} variants={fadeInUp} className={styles.card}>
                   <h3 className={styles.cardTitle}>{loc.name}</h3>
+                  {loc.description && (
+                    <p className={styles.cardDescription}>{loc.description}</p>
+                  )}
                   
                   <div className={styles.cardItem}>
                     <div className={styles.iconWrapper}>
@@ -169,7 +172,11 @@ export default function ContactPage() {
                     <div className={styles.itemContent}>
                       <span className={styles.itemLabel}>RECEPTION & BOOKINGS</span>
                       <span className={styles.itemValue}>{loc.phone || 'N/A'}</span>
-                      <span className={styles.itemSub}>Mon-Sun: 6:00 AM – 11:00 PM</span>
+                      <span className={styles.itemSub}>
+                        {loc.open_time && loc.close_time
+                          ? `Open: ${loc.open_time} – ${loc.close_time}`
+                          : 'Hours not available'}
+                      </span>
                     </div>
                   </div>
                   
@@ -190,7 +197,9 @@ export default function ContactPage() {
                     </div>
                     <div className={styles.itemContent}>
                       <span className={styles.itemLabel}>STADIUM ADDRESS</span>
-                      <span className={styles.itemValue} style={{ fontSize: '1rem' }}>{loc.address || 'N/A'}</span>
+                      <span className={styles.itemValue} style={{ fontSize: '1rem' }}>
+                        {loc.address || 'N/A'}{loc.city ? `, ${loc.city}` : ''}
+                      </span>
                     </div>
                   </div>
                 </motion.div>

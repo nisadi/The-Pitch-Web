@@ -54,7 +54,7 @@ export default function SignupPage() {
                 setSuccessMsg("Account created and verified! Logging you in...");
                 setLoading(false);
                 setTimeout(() => {
-                    window.location.href = "/profile";
+                    window.location.href = "/";
                 }, 1500);
             } else {
                 setSuccessMsg("Signup successful! Please check your email to confirm your account before logging in.");
