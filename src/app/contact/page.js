@@ -67,19 +67,17 @@ export default function ContactPage() {
   };
   const fadeInUp = {
     initial: { opacity: 0, y: 30 },
-    whileInView: { opacity: 1, y: 0 },
-    viewport: { once: true },
+    animate: { opacity: 1, y: 0 },
     transition: { duration: 0.6, ease: "easeOut" }
   };
 
   const staggerContainer = {
     initial: {},
-    whileInView: {
+    animate: {
       transition: {
         staggerChildren: 0.2
       }
-    },
-    viewport: { once: true }
+    }
   };
 
   return (
@@ -152,8 +150,7 @@ export default function ContactPage() {
           <motion.div 
             variants={staggerContainer}
             initial="initial"
-            whileInView="whileInView"
-            viewport={{ once: true }}
+            animate="animate"
             className={styles.cardsGrid}
           >
             {/* Dynamic Locations Cards */}
