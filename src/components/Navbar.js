@@ -62,8 +62,9 @@ const Navbar = () => {
                 <User size={24} />
               </Link>
             ) : (
-              <Link href="/login" className={styles.profileIcon} onClick={() => setIsMobileMenuOpen(false)}>
-                <LogIn size={24} />
+              <Link href="/login" className={styles.loginButton} onClick={() => setIsMobileMenuOpen(false)}>
+                <LogIn size={18} />
+                <span>LOGIN</span>
               </Link>
             )}
           </div>

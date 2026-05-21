@@ -99,6 +99,29 @@
   background: rgba(163, 255, 0, 0.05);
 }
 
+.loginButton {
+  background: rgba(163, 255, 0, 0.05);
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.loginButton:hover {
+  background: var(--primary);
+  color: #000000;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(163, 255, 0, 0.4);
+}
+
 @media (max-width: 1024px) {
   .mobileMenuButton {
     display: flex;
