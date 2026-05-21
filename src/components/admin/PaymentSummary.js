@@ -1,7 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, RotateCcw } from "lucide-react";
+import {
+  fetchPaymentsFromSupabase,
+  subscribeToPayments,
+} from "@/lib/payments/paymentRealtime";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import AdminStatsGrid from "./AdminStatsGrid";
 import { useAdminLocation } from "./adminLocationContext";
 import {
@@ -17,6 +22,8 @@ import {
   getDateRange,
   summarizePayments,
 } from "./paymentsUtils";
+import { venueLocationAliases } from "./customersUtils";
+import { useAdminSettings } from "./settings/adminSettingsContext";
 import styles from "./PaymentSummary.module.css";
 
 const DATE_PRESETS = [
@@ -36,13 +43,112 @@ const STATUS_OPTIONS = [
   { id: "refunded", label: "Refunded" },
 ];
 
+function defaultCustomRange() {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(from.getDate() - 29);
+  const toKey = (date) => date.toISOString().slice(0, 10);
+  return { from: toKey(from), to: toKey(today) };
+}
+
 export default function PaymentSummary() {
-  const { filterValue: locationFilter } = useAdminLocation();
+  const usesSupabase = isSupabaseConfigured();
+  const { filterValue: locationFilter, locationId } = useAdminLocation();
+  const { locations: settingsLocations } = useAdminSettings();
+  const initialRange = defaultCustomRange();
+  const [payments, setPayments] = useState(
+    usesSupabase ? [] : mockPayments
+  );
+  const [paymentsReady, setPaymentsReady] = useState(!usesSupabase);
+  const [paymentsSyncError, setPaymentsSyncError] = useState(null);
   const [datePreset, setDatePreset] = useState("last30");
-  const [customFrom, setCustomFrom] = useState("2026-05-01");
-  const [customTo, setCustomTo] = useState("2026-05-18");
+  const [customFrom, setCustomFrom] = useState(initialRange.from);
+  const [customTo, setCustomTo] = useState(initialRange.to);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const paymentLocationAliases = useMemo(() => {
+    const current = settingsLocations.find((loc) => loc.id === locationId);
+    const aliases = venueLocationAliases(current);
+    return aliases.length > 0 ? aliases : [locationFilter];
+  }, [settingsLocations, locationId, locationFilter]);
+
+  const sortPayments = useCallback((list) => {
+    return [...list].sort((a, b) => {
+      const aKey = `${a.date}T${a.time}`;
+      const bKey = `${b.date}T${b.time}`;
+      return bKey.localeCompare(aKey);
+    });
+  }, []);
+
+  const loadPayments = useCallback(async () => {
+    const remote = await fetchPaymentsFromSupabase();
+    setPayments(sortPayments(remote));
+    setPaymentsSyncError(null);
+  }, [sortPayments]);
+
+  useEffect(() => {
+    if (!usesSupabase) return undefined;
+
+    let cancelled = false;
+    let unsubscribe = () => {};
+
+    async function init() {
+      try {
+        unsubscribe = await subscribeToPayments(
+          () => {
+            if (cancelled) return;
+            void loadPayments().catch(() => {});
+          },
+          () => {
+            if (cancelled) return;
+            void loadPayments().catch(() => {});
+          }
+        );
+
+        await loadPayments();
+        if (!cancelled) {
+          setPaymentsReady(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setPayments([]);
+          setPaymentsSyncError(
+            err?.message ?? "Could not sync payments from Supabase."
+          );
+          setPaymentsReady(true);
+        }
+      }
+    }
+
+    void init();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [usesSupabase, loadPayments]);
+
+  useEffect(() => {
+    if (!usesSupabase) return undefined;
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void loadPayments().catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+
+    const interval = setInterval(() => {
+      void loadPayments().catch(() => {});
+    }, 60_000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
+  }, [usesSupabase, loadPayments]);
 
   const dateRange = useMemo(
     () =>
@@ -53,19 +159,22 @@ export default function PaymentSummary() {
   );
 
   const filteredPayments = useMemo(() => {
-    const sorted = filterPayments(mockPayments, {
+    const sorted = filterPayments(payments, {
       ...dateRange,
       status: statusFilter,
-      location: locationFilter,
+      locationAliases: paymentLocationAliases,
       query: searchQuery,
     });
 
-    return [...sorted].sort((a, b) => {
-      const aKey = `${a.date}T${a.time}`;
-      const bKey = `${b.date}T${b.time}`;
-      return bKey.localeCompare(aKey);
-    });
-  }, [dateRange, statusFilter, locationFilter, searchQuery]);
+    return sortPayments(sorted);
+  }, [
+    payments,
+    dateRange,
+    statusFilter,
+    paymentLocationAliases,
+    searchQuery,
+    sortPayments,
+  ]);
 
   const summary = useMemo(
     () => summarizePayments(filteredPayments),
@@ -103,9 +212,10 @@ export default function PaymentSummary() {
   };
 
   const handleReset = () => {
+    const range = defaultCustomRange();
     setDatePreset("last30");
-    setCustomFrom("2026-05-01");
-    setCustomTo("2026-05-18");
+    setCustomFrom(range.from);
+    setCustomTo(range.to);
     setStatusFilter("all");
     setSearchQuery("");
   };
@@ -113,6 +223,12 @@ export default function PaymentSummary() {
   return (
     <div className={styles.page}>
       <AdminStatsGrid stats={stats} />
+
+      {usesSupabase && paymentsSyncError && (
+        <p className={styles.syncError} role="alert">
+          {paymentsSyncError}
+        </p>
+      )}
 
       <div className={styles.toolbar}>
         <div className={styles.field}>
@@ -220,19 +336,21 @@ export default function PaymentSummary() {
           <div>
             <h3>Transaction summary</h3>
             <p>
-              {filteredPayments.length} transaction
-              {filteredPayments.length === 1 ? "" : "s"}
-              {` · ${locationFilter}`}
+              {!paymentsReady && usesSupabase
+                ? "Loading transactions…"
+                : `${filteredPayments.length} transaction${
+                    filteredPayments.length === 1 ? "" : "s"
+                  } · ${locationFilter}`}
             </p>
           </div>
         </div>
 
-        {filteredPayments.length === 0 ? (
+        {paymentsReady && filteredPayments.length === 0 ? (
           <p className={styles.empty}>
             No transactions match your filters. Try adjusting the date range or
             search.
           </p>
-        ) : (
+        ) : paymentsReady ? (
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -251,7 +369,7 @@ export default function PaymentSummary() {
                 {filteredPayments.map((payment) => {
                   const status = PAYMENT_STATUSES[payment.status];
                   return (
-                    <tr key={payment.id}>
+                    <tr key={payment.dbId ?? payment.id}>
                       <td>
                         {formatPaymentDate(payment.date, payment.time)}
                         <span className={styles.meta}>{payment.id}</span>
@@ -265,16 +383,23 @@ export default function PaymentSummary() {
                       </td>
                       <td>{payment.location}</td>
                       <td>{payment.description}</td>
-                      <td>{PAYMENT_METHODS[payment.method] ?? "Card"}</td>
+                      <td>
+                        {PAYMENT_METHODS[payment.method] ?? "Card"}
+                        {payment.methodOther ? (
+                          <span className={styles.meta}>
+                            {payment.methodOther}
+                          </span>
+                        ) : null}
+                      </td>
                       <td>
                         <span
                           className={styles.badge}
                           style={{
-                            color: status.color,
-                            background: `${status.color}22`,
+                            color: status?.color ?? "#94a3b8",
+                            background: `${status?.color ?? "#94a3b8"}22`,
                           }}
                         >
-                          {status.label}
+                          {status?.label ?? payment.status}
                         </span>
                       </td>
                       <td className={styles.amount}>
@@ -286,7 +411,7 @@ export default function PaymentSummary() {
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </section>
     </div>
   );

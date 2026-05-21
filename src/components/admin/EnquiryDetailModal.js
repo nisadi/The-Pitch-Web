@@ -179,7 +179,7 @@ export default function EnquiryDetailModal({
               className={styles.textarea}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Your reply only — SMS will include the customer's question (e.g. ENQ-2403), your answer, and Pitch contact details."
+              placeholder="Your reply — sent in full via SMS with the enquiry reference, customer question, and Pitch contact details."
               disabled={sending}
               rows={4}
             />

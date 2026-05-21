@@ -104,9 +104,13 @@ const formatPhoneNumber = (phone) => {
  * @param {string} message - SMS message
  * @returns {string} Validated message
  */
-const validateMessage = (message) => {
+const validateMessage = (message, options = {}) => {
     if (!message || typeof message !== 'string') {
         throw new SMSError('Message cannot be empty', 'EMPTY_MESSAGE');
+    }
+
+    if (options.skipMaxLength) {
+        return message;
     }
     
     if (message.length > CONFIG.SMS_MAX_LENGTH) {
@@ -196,7 +200,7 @@ const getAccessToken = async (forceRefresh = false) => {
  */
 const sendSMSPost = async (phone, message, sourceAddress = ESMS_DEFAULT_MASK, options = {}) => {
     const formattedPhone = formatPhoneNumber(phone);
-    const validatedMessage = validateMessage(message);
+    const validatedMessage = validateMessage(message, options);
     
     const token = await retry(() => getAccessToken());
     
@@ -309,7 +313,7 @@ const sendSMSGet = async (phone, message, sourceAddress = ESMS_DEFAULT_MASK, opt
     }
 
     const formattedPhone = formatPhoneNumber(phone);
-    const validatedMessage = validateMessage(message);
+    const validatedMessage = validateMessage(message, options);
     
     const params = {
         esmsqk: ESMS_GET_KEY,
@@ -397,7 +401,8 @@ const sendSMS = async (phone, message, options = {}) => {
         paymentMethod: options.paymentMethod || 0,
         pushNotificationUrl: options.pushNotificationUrl,
         transactionId: options.transactionId,
-        useGetMethod: options.useGetMethod !== undefined ? options.useGetMethod : !CONFIG.USE_POST_METHOD
+        useGetMethod: options.useGetMethod !== undefined ? options.useGetMethod : !CONFIG.USE_POST_METHOD,
+        skipMaxLength: options.skipMaxLength === true,
     };
     
     try {

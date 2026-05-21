@@ -1,5 +1,3 @@
-const SMS_MAX_LENGTH = 160;
-
 const DEFAULT_CONTACT_PHONE =
   process.env.PITCH_CONTACT_PHONE?.trim() ||
   process.env.NEXT_PUBLIC_PITCH_CONTACT_PHONE?.trim() ||
@@ -11,87 +9,58 @@ function collapseWhitespace(text) {
     .trim();
 }
 
-function truncate(text, maxLen) {
-  const t = collapseWhitespace(text);
-  if (!t || maxLen <= 0) return "";
-  if (t.length <= maxLen) return t;
-  if (maxLen <= 1) return "…";
-  return `${t.slice(0, maxLen - 1)}…`;
-}
-
 /**
- * Composed enquiry reply SMS (Dialog max 160 chars).
- * Keeps footer + reference; trims question/reply as needed.
+ * Composed enquiry reply SMS. Admin reply is never truncated; only the
+ * customer question may be shortened if the full body exceeds maxTotalLength.
  */
 export function buildEnquiryReplySmsBody({
   referenceCode,
   enquiryQuestion,
   reply,
   contactPhone = DEFAULT_CONTACT_PHONE,
+  maxTotalLength = null,
 }) {
   const ref = referenceCode ? `${referenceCode}\n` : "";
   const footer = `\n\nThe Pitch Indoor Stadium — enquiries: ${contactPhone}`;
-
   const replyLabel = "Reply: ";
   const questionLabel = "Q: ";
 
+  const answer = collapseWhitespace(reply);
   let question = collapseWhitespace(enquiryQuestion);
-  let answer = collapseWhitespace(reply);
 
   const build = () =>
     `${ref}${questionLabel}${question}\n${replyLabel}${answer}${footer}`;
 
+  if (!maxTotalLength || maxTotalLength <= 0) {
+    return build();
+  }
+
   let body = build();
-  if (body.length <= SMS_MAX_LENGTH) return body;
+  if (body.length <= maxTotalLength) {
+    return body;
+  }
 
   const fixedLen =
     ref.length +
     questionLabel.length +
     replyLabel.length +
-    1 + // newline between blocks
+    answer.length +
+    1 +
     footer.length;
 
-  let variableBudget = SMS_MAX_LENGTH - fixedLen;
-  if (variableBudget < 20) {
-    return truncate(
-      `${ref}${truncate(answer, 40)}${footer.replace("\n\n", " ")}`,
-      SMS_MAX_LENGTH
-    );
-  }
-
-  const half = Math.floor(variableBudget / 2);
-  let questionBudget = Math.min(question.length, half);
-  let answerBudget = variableBudget - questionBudget;
-
-  if (answer.length < answerBudget) {
-    answerBudget = answer.length;
-    questionBudget = Math.min(question.length, variableBudget - answerBudget);
-  }
-  if (question.length < questionBudget) {
-    questionBudget = question.length;
-    answerBudget = Math.min(answer.length, variableBudget - questionBudget);
-  }
-
-  question = truncate(question, questionBudget);
-  answer = truncate(answer, answerBudget);
-  body = build();
-
-  while (body.length > SMS_MAX_LENGTH && (question.length > 8 || answer.length > 8)) {
-    if (question.length >= answer.length && question.length > 8) {
-      question = truncate(collapseWhitespace(enquiryQuestion), question.length - 6);
-    } else if (answer.length > 8) {
-      answer = truncate(collapseWhitespace(reply), answer.length - 6);
-    } else {
-      break;
-    }
+  const questionBudget = maxTotalLength - fixedLen;
+  if (questionBudget > 8) {
+    question =
+      question.length <= questionBudget
+        ? question
+        : `${question.slice(0, questionBudget - 1)}…`;
     body = build();
+    if (body.length <= maxTotalLength) {
+      return body;
+    }
   }
 
-  if (body.length > SMS_MAX_LENGTH) {
-    return truncate(body, SMS_MAX_LENGTH);
-  }
-
-  return body;
+  return build();
 }
 
 export function getPitchContactPhone() {

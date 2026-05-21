@@ -25,12 +25,24 @@ export function formatEnquiryDateTime(date, time) {
   });
 }
 
-export function filterCustomers(customers, { location, status, query }) {
+export function filterCustomers(
+  customers,
+  { location, locationAliases, status, query }
+) {
   const search = query.trim().toLowerCase();
+  const aliases =
+    locationAliases ??
+    (location && location !== "all" ? [location] : []);
 
   return customers.filter((customer) => {
     if (status !== "all" && customer.status !== status) return false;
-    if (location !== "all" && customer.location !== location) return false;
+    if (aliases.length > 0) {
+      const venueNames = customer.locations ?? [];
+      const matchesVenue =
+        aliases.includes(customer.location) ||
+        venueNames.some((name) => aliases.includes(name));
+      if (!matchesVenue) return false;
+    }
 
     if (!search) return true;
 

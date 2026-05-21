@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MessageSquare, RotateCcw } from "lucide-react";
 import {
+  fetchCustomersFromSupabase,
+  subscribeToCustomers,
+} from "@/lib/customers/customerRealtime";
+import {
   applyEnquiryRealtimeEvent,
   fetchEnquiriesFromSupabase,
   subscribeToEnquiries,
@@ -67,6 +71,11 @@ export default function CustomerManagement() {
   const [customerStatus, setCustomerStatus] = useState("all");
   const [enquiryStatus, setEnquiryStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [customers, setCustomers] = useState(
+    usesSupabase ? [] : mockCustomers
+  );
+  const [customersReady, setCustomersReady] = useState(!usesSupabase);
+  const [customersSyncError, setCustomersSyncError] = useState(null);
   const [enquiries, setEnquiries] = useState(mockEnquiries);
   const [enquiriesReady, setEnquiriesReady] = useState(!usesSupabase);
   const [enquiriesSyncError, setEnquiriesSyncError] = useState(null);
@@ -81,17 +90,86 @@ export default function CustomerManagement() {
     });
   }, []);
 
-  const enquiryLocationAliases = useMemo(() => {
+  const venueLocationAliasesList = useMemo(() => {
     const current = settingsLocations.find((loc) => loc.id === locationId);
     const aliases = venueLocationAliases(current);
     return aliases.length > 0 ? aliases : [locationFilter];
   }, [settingsLocations, locationId, locationFilter]);
+
+  const loadCustomers = useCallback(async () => {
+    const remote = await fetchCustomersFromSupabase();
+    setCustomers(remote);
+    setCustomersSyncError(null);
+  }, []);
 
   const loadEnquiries = useCallback(async () => {
     const remote = await fetchEnquiriesFromSupabase();
     setEnquiries(sortEnquiries(remote));
     setEnquiriesSyncError(null);
   }, [sortEnquiries]);
+
+  useEffect(() => {
+    if (!usesSupabase) return undefined;
+
+    let cancelled = false;
+    let unsubscribe = () => {};
+
+    async function init() {
+      try {
+        unsubscribe = await subscribeToCustomers(
+          () => {
+            if (cancelled) return;
+            void loadCustomers().catch(() => {});
+          },
+          () => {
+            if (cancelled) return;
+            void loadCustomers().catch(() => {});
+          }
+        );
+
+        await loadCustomers();
+        if (!cancelled) {
+          setCustomersReady(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setCustomers([]);
+          setCustomersSyncError(
+            err?.message ?? "Could not sync customers from Supabase."
+          );
+          setCustomersReady(true);
+        }
+      }
+    }
+
+    void init();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [usesSupabase, loadCustomers]);
+
+  useEffect(() => {
+    if (!usesSupabase || activeTab !== "customers") return undefined;
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void loadCustomers().catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+
+    const interval = setInterval(() => {
+      void loadCustomers().catch(() => {});
+    }, 60_000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
+  }, [usesSupabase, activeTab, loadCustomers]);
 
   useEffect(() => {
     if (!usesSupabase) return undefined;
@@ -168,23 +246,23 @@ export default function CustomerManagement() {
   );
 
   const filteredCustomers = useMemo(() => {
-    const list = filterCustomers(mockCustomers, {
-      location: locationFilter,
+    const list = filterCustomers(customers, {
+      locationAliases: venueLocationAliasesList,
       status: customerStatus,
       query: searchQuery,
     });
 
     return [...list].sort((a, b) => a.name.localeCompare(b.name));
-  }, [locationFilter, customerStatus, searchQuery]);
+  }, [customers, venueLocationAliasesList, customerStatus, searchQuery]);
 
   const filteredEnquiries = useMemo(
     () =>
       filterEnquiryThreads(enquiryThreads, {
-        locationAliases: enquiryLocationAliases,
+        locationAliases: venueLocationAliasesList,
         status: enquiryStatus,
         query: searchQuery,
       }),
-    [enquiryThreads, enquiryLocationAliases, enquiryStatus, searchQuery]
+    [enquiryThreads, venueLocationAliasesList, enquiryStatus, searchQuery]
   );
 
   const customerSummary = useMemo(
@@ -432,14 +510,21 @@ export default function CustomerManagement() {
             <div>
               <h3>Customer database</h3>
               <p>
-                {filteredCustomers.length} customer
-                {filteredCustomers.length === 1 ? "" : "s"}
-                {` · ${locationFilter}`}
+                {!customersReady && usesSupabase
+                  ? "Loading from Supabase…"
+                  : `${filteredCustomers.length} customer${
+                      filteredCustomers.length === 1 ? "" : "s"
+                    } · ${locationFilter}`}
               </p>
+              {customersSyncError && (
+                <p className={styles.syncError}>{customersSyncError}</p>
+              )}
             </div>
           </div>
 
-          {filteredCustomers.length === 0 ? (
+          {!customersReady && usesSupabase ? (
+            <p className={styles.empty}>Syncing customers with Supabase…</p>
+          ) : filteredCustomers.length === 0 ? (
             <p className={styles.empty}>
               No customers match your filters. Try adjusting status or search.
             </p>
@@ -459,7 +544,7 @@ export default function CustomerManagement() {
                   {filteredCustomers.map((customer) => {
                     const status = CUSTOMER_STATUSES[customer.status];
                     return (
-                      <tr key={customer.id}>
+                      <tr key={customer.dbId ?? customer.id}>
                         <td>
                           {customer.name}
                           <span className={styles.meta}>{customer.phone}</span>

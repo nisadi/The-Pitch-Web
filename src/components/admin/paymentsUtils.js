@@ -56,14 +56,23 @@ export function getDateRange(preset, customFrom, customTo) {
   return { from: "", to: "" };
 }
 
-export function filterPayments(payments, { from, to, status, location, query }) {
+export function filterPayments(
+  payments,
+  { from, to, status, location, locationAliases, query }
+) {
   const search = query.trim().toLowerCase();
+  const aliases =
+    locationAliases ??
+    (location && location !== "all" ? [location] : []);
 
   return payments.filter((payment) => {
     if (from && payment.date < from) return false;
     if (to && payment.date > to) return false;
     if (status !== "all" && payment.status !== status) return false;
-    if (location !== "all" && payment.location !== location) return false;
+    if (aliases.length > 0 && payment.location) {
+      const matchesVenue = aliases.some((alias) => alias === payment.location);
+      if (!matchesVenue) return false;
+    }
 
     if (!search) return true;
 
@@ -114,6 +123,7 @@ export function exportPaymentsCsv(payments, filename = "payment-summary.csv") {
     "Location",
     "Description",
     "Method",
+    "Method (other)",
     "Status",
     "Amount (LKR)",
   ];
@@ -124,10 +134,11 @@ export function exportPaymentsCsv(payments, filename = "payment-summary.csv") {
     payment.time,
     payment.reference,
     payment.customerName,
-    payment.customerPhone,
+    payment.customerEmail ?? payment.customerPhone,
     payment.location,
     payment.description,
     payment.method,
+    payment.methodOther ?? "",
     payment.status,
     payment.amount,
   ]);

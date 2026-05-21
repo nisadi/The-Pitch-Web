@@ -63,6 +63,7 @@ export async function sendEnquiryReplySms({
     const result = await sendSMS(sanitizedPhone, smsBody, {
       sourceAddress: process.env.ESMS_DEFAULT_MASK,
       useGetMethod,
+      skipMaxLength: true,
     });
 
     if (!result?.success) {
