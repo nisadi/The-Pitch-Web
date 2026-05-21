@@ -97,7 +97,9 @@ export const getSession = async () => {
 export const getUser = async () => {
   const { data, error } = await supabase.auth.getUser();
   if (error) {
-    console.error('Error getting user:', error.message);
+    if (error.message !== 'Auth session missing!') {
+      console.error('Error getting user:', error.message);
+    }
     return { user: null, error };
   }
   return { user: data.user, error: null };
