@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { loginRoleUser } from '@/lib/auth/loginRoleUser';
 
 export const signUp = async (email, password, fullName, phone) => {
   try {
@@ -114,4 +115,27 @@ export const updateProfile = async (updates) => {
     return { user: null, error };
   }
   return { user: data.user, error: null };
+};
+
+export const loginUser = async (email, password) => {
+  // p-1 Try admin / role-based login (RPC)
+  try {
+    const adminUser = await loginRoleUser(email, password);
+    // user is admin/manager/staff
+    return { user: adminUser, isAdmin: true, roleId: adminUser.roleId, error: null };
+  } catch {
+    // Not an admin user
+  }
+
+  // p-2 standard Supabase customer signInWithPassword
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    return { user: null, isAdmin: false, roleId: null, error };
+  }
+
+  return { user: data.user, isAdmin: false, roleId: null, error: null };
 };

@@ -1,120 +1,183 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LogIn } from "lucide-react";
-import { loginRoleUser } from "@/lib/auth/loginRoleUser";
+import { motion } from "framer-motion";
+import { loginUser } from "@/services/auth";
 import {
-  canAccessAdminPath,
-  getDefaultAdminRoute,
+    canAccessAdminPath,
+    getDefaultAdminRoute,
 } from "@/components/admin/adminNav";
 import { setAdminSession } from "@/components/admin/adminSession";
-import { USER_ROLES } from "@/lib/users/userRoles";
 import styles from "./login.module.css";
 
+import {
+    Mail,
+    Lock,
+    Eye,
+    EyeOff,
+    ArrowRight,
+    ShieldCheck,
+} from "lucide-react";
+
 export default function LoginPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(
-    searchParams.get("error") === "disabled"
-      ? "Your account has been disabled. Contact an administrator."
-      : ""
-  );
-  const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [formData, setFormData] = useState({ email: "", password: "" });
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
+    const searchParams = useSearchParams();
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
+    const [error, setError] = useState(
+        searchParams.get("error") === "disabled"
+            ? "Your account has been disabled. Contact an administrator."
+            : ""
+    );
 
-    try {
-      const user = await loginRoleUser(email, password);
-      setAdminSession(user);
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
-      const next = searchParams.get("next");
-      let destination = getDefaultAdminRoute(user.roleId);
-      if (
-        next &&
-        next.startsWith("/admin") &&
-        canAccessAdminPath(user.roleId, next)
-      ) {
-        destination = next;
-      }
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
 
-      router.replace(destination);
-    } catch (err) {
-      setError(err?.message ?? "Could not sign in.");
-    } finally {
-      setLoading(false);
-    }
-  };
+        try {
+            const result = await loginUser(formData.email, formData.password);
 
-  return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <img
-          src="/images/the-pitch-logo.png"
-          alt="The Pitch Indoor Stadium"
-          className={styles.logo}
-        />
-        <h1>Admin sign in</h1>
-        <p className={styles.subtitle}>
-          Sign in with your team account. Your role controls which areas you
-          can access.
-        </p>
+            if (result.error) {
+                setError(result.error.message || "Could not sign in.");
+                setLoading(false);
+                return;
+            }
 
-        <ul className={styles.roleList}>
-          {Object.values(USER_ROLES).map((role) => (
-            <li key={role.id}>
-              <strong style={{ color: role.color }}>{role.label}</strong>
-              <span>{role.description}</span>
-            </li>
-          ))}
-        </ul>
+            if (result.isAdmin) {
+                // Admin / Manager / Staff — store session, route to admin
+                setAdminSession(result.user);
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          {error && <p className={styles.error}>{error}</p>}
+                const next = searchParams.get("next");
+                let destination = getDefaultAdminRoute(result.roleId);
+                if (
+                    next &&
+                    next.startsWith("/admin") &&
+                    canAccessAdminPath(result.roleId, next)
+                ) {
+                    destination = next;
+                }
 
-          <label className={styles.label} htmlFor="login-email">
-            Email
-          </label>
-          <input
-            id="login-email"
-            type="email"
-            className={styles.input}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@thepitch.com"
-            required
-            autoComplete="email"
-          />
+                router.replace(destination);
+            } else {
+                // Regular customer
+                router.push("/");
+            }
+        } catch (err) {
+            setError(err?.message ?? "Could not sign in.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-          <label className={styles.label} htmlFor="login-password">
-            Password
-          </label>
-          <input
-            id="login-password"
-            type="password"
-            className={styles.input}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Your password"
-            required
-            autoComplete="current-password"
-          />
+    const fadeInUp = {
+        initial: { opacity: 0, y: 30 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.6 },
+    };
 
-          <button type="submit" className={styles.submitBtn} disabled={loading}>
-            <LogIn size={18} />
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
+    return (
+        <div className={styles.container}>
+            <motion.div {...fadeInUp} className={styles.card}>
+                {/* LEFT SIDE — Branding */}
+                <div className={styles.leftSide}>
+                    <div className={styles.brand}>THE PITCH</div>
 
-        <p className={styles.hint}>
-          Demo: admin@thepitch.com / changeme (if using seed data)
-        </p>
-      </div>
-    </div>
-  );
+                    <h1>WELCOME BACK</h1>
+
+                    <p>
+                        Access your bookings, memberships and training sessions.
+                    </p>
+
+                    <div className={styles.featureBox}>
+                        <ShieldCheck size={18} />
+                        Secure athlete login experience
+                    </div>
+                </div>
+
+                {/* RIGHT SIDE — Form */}
+                <form className={styles.rightSide} onSubmit={handleSubmit}>
+                    <h2>LOGIN</h2>
+
+                    {error && (
+                        <p className={styles.errorMsg}>{error}</p>
+                    )}
+
+                    <div className={styles.formGroup}>
+                        <label>EMAIL ADDRESS</label>
+
+                        <div className={styles.inputWrapper}>
+                            <Mail size={18} />
+
+                            <input
+                                type="email"
+                                name="email"
+                                placeholder="Enter your email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                required
+                                autoComplete="email"
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>PASSWORD</label>
+
+                        <div className={styles.inputWrapper}>
+                            <Lock size={18} />
+
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                placeholder="Enter your password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
+                                autoComplete="current-password"
+                            />
+
+                            <button
+                                type="button"
+                                className={styles.eyeBtn}
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? (
+                                    <EyeOff size={18} />
+                                ) : (
+                                    <Eye size={18} />
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className={styles.rowBetween}>
+                        <label className={styles.checkbox}>
+                            <input type="checkbox" />
+                            Remember me
+                        </label>
+                        <Link href="#">Forgot Password?</Link>
+                    </div>
+
+                    <button type="submit" className={styles.loginBtn} disabled={loading}>
+                        {loading ? "LOGGING IN..." : "LOGIN"}
+                        <ArrowRight size={18} />
+                    </button>
+
+                    <p className={styles.bottomText}>
+                        Don&apos;t have an account?
+                        <Link href="/signup"> Sign Up</Link>
+                    </p>
+                </form>
+            </motion.div>
+        </div>
+    );
 }

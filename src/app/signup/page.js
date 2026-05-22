@@ -89,8 +89,8 @@ export default function SignupPage() {
                 <form className={styles.rightSide} onSubmit={handleSubmit}>
                     <h2>SIGN UP</h2>
 
-                    {error && <p className={styles.errorMsg} style={{color: 'red', fontSize: '14px', marginBottom: '10px'}}>{error}</p>}
-                    {successMsg && <p className={styles.successMsg} style={{color: '#00d289', fontSize: '14px', marginBottom: '10px'}}>{successMsg}</p>}
+                    {error && <p className={styles.errorMsg}>{error}</p>}
+                    {successMsg && <p className={styles.successMsg}>{successMsg}</p>}
 
                     <div className={styles.formGroup}>
                         <label>FULL NAME</label>
