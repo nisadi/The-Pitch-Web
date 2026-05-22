@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./checkout.module.css";
 import { motion } from "framer-motion";
 import { getSession } from "@/services/auth";
-import { createBooking } from "@/services/bookings";
+
 import {
   ClipboardList,
   CreditCard,
@@ -15,13 +15,24 @@ import {
   Calendar,
   Clock,
   Target,
-  BadgeCent
+  BadgeCent,
+  Lock,
+  Loader2,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [paymentMethod, setPaymentMethod] = useState("credit");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [generalError, setGeneralError] = useState("");
+  const [saveCard, setSaveCard] = useState(false);
+  const [overlayState, setOverlayState] = useState(null); // null | "verifying" | "success" | "failed"
+  const [overlayMessage, setOverlayMessage] = useState("");
+
   const [booking, setBooking] = useState({
     sport: "Indoor Football",
     location: "Field 1",
@@ -31,18 +42,23 @@ export default function CheckoutPage() {
     basePrice: "Rs. 5000.00",
     maintenanceFee: "Rs. 500.00",
     total: "Rs. 5000.00",
-    ref: "#TP-94821-X"
+    ref: "#TP-94821-X",
   });
 
+  const generateSessionRef = useRef(null);
+  const isInitialized = useRef(false);
+  const verificationStarted = useRef(false);
+
+  // ─── Load booking from sessionStorage ───────────────────────────────────────
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem("pendingBooking");
       if (stored) {
         const parsed = JSON.parse(stored);
-        const sportPrice = 3000; // Mock rate based on sport
+        const sportPrice = 3000;
         const feeNum = 500;
         const totalNum = sportPrice + feeNum;
-        
+
         setBooking({
           sportId: parsed.sport?.id,
           locationId: parsed.location?.id,
@@ -53,10 +69,12 @@ export default function CheckoutPage() {
           time: parsed.slot || "06:00 PM - 08:00 PM",
           rate: "Standard Rate",
           basePrice: `Rs. ${sportPrice.toFixed(2)}`,
+          basePriceNum: sportPrice,
           maintenanceFee: `Rs. ${feeNum.toFixed(2)}`,
+          maintenanceFeeNum: feeNum,
           totalAmountNum: totalNum,
           total: `Rs. ${totalNum.toFixed(2)}`,
-          ref: `#TP-${Math.floor(10000 + Math.random() * 90000)}-X`
+          ref: `#TP-${Math.floor(10000 + Math.random() * 90000)}-X`,
         });
       }
     } catch (e) {
@@ -64,60 +82,367 @@ export default function CheckoutPage() {
     }
   }, []);
 
-  const fadeInUp = {
-    initial: { opacity: 0, y: 30 },
-    whileInView: { opacity: 1, y: 0 },
-    viewport: { once: false, amount: 0.1 },
-    transition: { duration: 0.6, ease: "easeOut" }
+  // ─── Load WebXPay Hosted Session scripts ─────────────────────────────────────
+  useEffect(() => {
+    if (isInitialized.current) return;
+
+    const loadScript = (src) =>
+      new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject();
+        document.body.appendChild(script);
+      });
+
+    const init = async () => {
+      try {
+        await loadScript(
+          "https://seylan.gateway.mastercard.com/form/version/82/merchant/MPGS00000251/session.js"
+        );
+        await loadScript("/webxpay.hostedsession.js");
+
+        window.WebxpayTokenizeInit({
+          card: {
+            number: "#card-number",
+            securityCode: "#security-code",
+            expiryMonth: "#expiry-month",
+            expiryYear: "#expiry-year",
+            nameOnCard: "#cardholder-name",
+          },
+          ready: (GenerateSession) => {
+            generateSessionRef.current = GenerateSession;
+            isInitialized.current = true;
+          },
+        });
+      } catch {
+        setGeneralError("Failed to load payment gateway.");
+      }
+    };
+
+    init();
+  }, []);
+
+  // ─── Handle 3DS redirect-back (result3ds in URL) ─────────────────────────────
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const result3ds = urlParams.get("result3ds");
+
+    if (!result3ds || verificationStarted.current) return;
+    verificationStarted.current = true;
+
+    // Clean the URL immediately so a page refresh won't re-trigger
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    const verify = async () => {
+      setOverlayState("verifying");
+      setOverlayMessage("Verifying your payment…");
+
+      try {
+        // Gather booking details from sessionStorage (saved before 3DS redirect)
+        const stored = sessionStorage.getItem("pendingBooking");
+        const parsed = stored ? JSON.parse(stored) : {};
+
+        const timeParts = (parsed.slot || booking.time).split(" - ");
+        const startTime = timeParts[0];
+        const endTime = timeParts[1];
+
+        // Send verify + booking details in one call
+        const res = await fetch("/api/payments/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            result3ds,
+            booking: {
+              user_id: parsed.userId || booking.userId,
+              sport_id: parsed.sport?.id || booking.sportId,
+              location_id: parsed.location?.id || booking.locationId,
+              pitch_id: null,
+              booking_date: parsed.originalDate || booking.originalDate,
+              start_time: startTime,
+              end_time: endTime,
+              total_amount: booking.totalAmountNum || 3500,
+            },
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.verified) {
+          if (data.bookingError) {
+            setOverlayState("failed");
+            setOverlayMessage(`Payment verified but booking failed: ${data.bookingError}. Please contact support.`);
+            return;
+          }
+
+          // Build confirmation data
+          const confirmData = {
+            ref: booking.ref,
+            badge: `${(parsed.sport?.name || booking.sport).toUpperCase()} COURT`,
+            date: parsed.date || booking.date,
+            time: parsed.slot || booking.time,
+            location: `${parsed.sport?.name || booking.sport} - ${parsed.location?.name || booking.location}`,
+            status: "Fully Paid",
+            venueTitle: `The Pitch (${parsed.sport?.name || booking.sport})`,
+            venueDesc: `Elite level synthetic turf at ${parsed.location?.name || booking.location}, climate-controlled, and HD replay cameras enabled.`,
+          };
+
+          sessionStorage.setItem("confirmBooking", JSON.stringify(confirmData));
+          sessionStorage.removeItem("pendingBooking");
+
+          setOverlayState("success");
+          setOverlayMessage("Booking confirmed! Redirecting…");
+
+          setTimeout(() => {
+            router.push("/booking/confirm");
+          }, 1500);
+        } else {
+          setOverlayState("failed");
+          setOverlayMessage(
+            data.explanation || "Payment could not be verified. Please try again."
+          );
+        }
+      } catch (err) {
+        setOverlayState("failed");
+        setOverlayMessage(err.message || "An unexpected error occurred.");
+      }
+    };
+
+    verify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Error display helper ────────────────────────────────────────────────────
+  const handleErrors = (error) => {
+    const newErrors = {};
+    if (error.type === "fields_in_error") {
+      if (error.details.cardNumber) newErrors.cardNumber = "Invalid card number";
+      if (error.details.expiryMonth || error.details.expiryYear)
+        newErrors.expiry = "Invalid expiry";
+      if (error.details.securityCode) newErrors.cvv = "Invalid CVV";
+    } else {
+      setGeneralError(error.details || "System error");
+    }
+    setErrors(newErrors);
   };
 
-  const handleConfirmPay = async () => {
-    setIsProcessing(true);
+  // ─── Tokenize → call session-pay API → redirect to 3DS ───────────────────────
+  const handlePayment = async () => {
+    // Check auth before doing anything
     const { session } = await getSession();
     if (!session) {
-      alert("Please login first.");
+      setGeneralError("You must be logged in to make a payment.");
       router.push("/login");
       return;
     }
 
-    const timeParts = booking.time.split(" - ");
-    const startTime = timeParts[0];
-    const endTime = timeParts[1];
-
-    const result = await createBooking({
-      user_id: session.user.id,
-      sport_id: booking.sportId,
-      location_id: booking.locationId,
-      pitch_id: null,
-      booking_date: booking.originalDate,
-      start_time: startTime,
-      end_time: endTime,
-      total_amount: booking.totalAmountNum
-    });
-
-    if (!result) {
-      alert("Error creating booking. Please try again.");
-      setIsProcessing(false);
+    if (!generateSessionRef.current) {
+      setGeneralError("Payment system not ready. Please wait a moment and try again.");
       return;
     }
 
-    const confirmData = {
-      ref: booking.ref,
-      badge: `${booking.sport.toUpperCase()} COURT`,
-      date: booking.date,
-      time: booking.time,
-      location: `${booking.sport} - ${booking.location}`,
-      status: "Fully Paid",
-      venueTitle: `The Pitch (${booking.sport})`,
-      venueDesc: `Elite level synthetic turf at ${booking.location}, climate-controlled, and HD replay cameras enabled.`
-    };
-    sessionStorage.setItem("confirmBooking", JSON.stringify(confirmData));
-    sessionStorage.removeItem("pendingBooking");
-    router.push("/booking/confirm");
+    setIsSaving(true);
+    setErrors({});
+    setGeneralError("");
+
+    generateSessionRef.current(
+      async (sessionId) => {
+        try {
+          // Fetch the logged-in user to build the customer payload
+          const { session } = await getSession();
+          if (!session) {
+            router.push("/login");
+            return;
+          }
+
+          const user = session.user;
+          const fullName = user.user_metadata?.full_name || "";
+          const nameParts = fullName.trim().split(" ");
+
+          const customer = {
+            id: user.id,
+            email: user.email,
+            firstName: nameParts[0] || "",
+            lastName: nameParts.slice(1).join(" ") || "User",
+            contactNumber: user.user_metadata?.phone_number || "",
+            addressLineOne: "",
+            city: "",
+            postalCode: "",
+            country: "Sri Lanka",
+          };
+
+          // Call our Next.js backend to initiate WebXPay Session Pay
+          const res = await fetch("/api/payments/session-pay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              session: sessionId,
+              amount: booking.totalAmountNum,
+              currency: "LKR",
+              customer,
+              bookingRef: booking.ref,
+            }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok || (data.error && data.type !== "3ds")) {
+            throw new Error(data.explanation || "Payment initiation failed.");
+          }
+
+          if (data.html3ds_url) {
+            // Save user ID to sessionStorage before leaving for 3DS (auth cookies will be lost)
+            const pending = JSON.parse(sessionStorage.getItem("pendingBooking") || "{}");
+            pending.userId = user.id;
+            sessionStorage.setItem("pendingBooking", JSON.stringify(pending));
+
+            // Redirect to bank 3DS OTP page
+            window.location.href = data.html3ds_url;
+          } else if (data.html3ds) {
+            // Save user ID to sessionStorage before leaving for 3DS (auth cookies will be lost)
+            const pending = JSON.parse(sessionStorage.getItem("pendingBooking") || "{}");
+            pending.userId = user.id;
+            sessionStorage.setItem("pendingBooking", JSON.stringify(pending));
+
+            // Render the HTML form returned by the gateway, which will auto-submit to the bank's 3DS page
+            document.open();
+            document.write(data.html3ds);
+            document.close();
+          } else {
+            throw new Error("No 3DS redirect URL or HTML form received from payment gateway.");
+          }
+        } catch (err) {
+          setGeneralError(err.message || "An error occurred during payment.");
+          setIsSaving(false);
+        }
+      },
+      (error) => {
+        setIsSaving(false);
+        handleErrors(error);
+      }
+    );
+  };
+
+  // ─── Create the booking in Supabase after payment verification ──────────────
+  const processBooking = async () => {
+    setIsProcessing(true);
+
+    try {
+      const { session } = await getSession();
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      const stored = sessionStorage.getItem("pendingBooking");
+      const parsed = stored ? JSON.parse(stored) : {};
+
+      const timeParts = (parsed.slot || booking.time).split(" - ");
+      const startTime = timeParts[0];
+      const endTime = timeParts[1];
+
+      const bookingRes = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sport_id: parsed.sport?.id || booking.sportId,
+          location_id: parsed.location?.id || booking.locationId,
+          pitch_id: null,
+          booking_date: parsed.originalDate || booking.originalDate,
+          start_time: startTime,
+          end_time: endTime,
+          total_amount: booking.totalAmountNum || 3500,
+        }),
+      });
+
+      const bookingData = await bookingRes.json();
+
+      if (!bookingRes.ok || bookingData.error) {
+        console.error("Booking creation error:", bookingData);
+        setOverlayState("failed");
+        setOverlayMessage(bookingData.explanation || "Payment was successful but booking creation failed. Please contact support.");
+        return;
+      }
+
+      const result = bookingData.booking;
+
+      const confirmData = {
+        ref: booking.ref,
+        badge: `${(parsed.sport?.name || booking.sport).toUpperCase()} COURT`,
+        date: parsed.date || booking.date,
+        time: parsed.slot || booking.time,
+        location: `${parsed.sport?.name || booking.sport} - ${parsed.location?.name || booking.location}`,
+        status: "Fully Paid",
+        venueTitle: `The Pitch (${parsed.sport?.name || booking.sport})`,
+        venueDesc: `Elite level synthetic turf at ${parsed.location?.name || booking.location}, climate-controlled, and HD replay cameras enabled.`,
+      };
+
+      sessionStorage.setItem("confirmBooking", JSON.stringify(confirmData));
+      sessionStorage.removeItem("pendingBooking");
+
+      setOverlayState("success");
+      setOverlayMessage("Booking confirmed! Redirecting…");
+
+      setTimeout(() => {
+        router.push("/booking/confirm");
+      }, 1500);
+    } catch (err) {
+      setOverlayState("failed");
+      setOverlayMessage(err.message || "An error occurred while confirming your booking.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const fadeInUp = {
+    initial: { opacity: 0, y: 30 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: false, amount: 0.1 },
+    transition: { duration: 0.6, ease: "easeOut" },
   };
 
   return (
     <div className={styles.container}>
+      {/* ── Processing / Verification Overlay ───────────────────────────── */}
+      {overlayState && (
+        <div className={styles.overlay}>
+          <div className={styles.overlayCard}>
+            {overlayState === "verifying" && (
+              <>
+                <Loader2 className={styles.overlayIconSpin} size={48} />
+                <h2 className={styles.overlayTitle}>Processing Payment</h2>
+                <p className={styles.overlayMsg}>{overlayMessage}</p>
+              </>
+            )}
+            {overlayState === "success" && (
+              <>
+                <CheckCircle2 className={styles.overlayIconSuccess} size={48} />
+                <h2 className={styles.overlayTitle}>Payment Successful!</h2>
+                <p className={styles.overlayMsg}>{overlayMessage}</p>
+              </>
+            )}
+            {overlayState === "failed" && (
+              <>
+                <XCircle className={styles.overlayIconFailed} size={48} />
+                <h2 className={styles.overlayTitle}>Payment Failed</h2>
+                <p className={styles.overlayMsg}>{overlayMessage}</p>
+                <button
+                  className={styles.overlayRetryBtn}
+                  onClick={() => {
+                    setOverlayState(null);
+                    setOverlayMessage("");
+                    verificationStarted.current = false;
+                  }}
+                >
+                  Try Again
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <motion.header {...fadeInUp} className={styles.header}>
         <h1 className={styles.title}>SECURE CHECKOUT</h1>
         <p className={styles.subtitle}>Finalize your high-performance arena reservation.</p>
@@ -126,7 +451,7 @@ export default function CheckoutPage() {
       <div className={styles.grid}>
         {/* LEFT COLUMN */}
         <motion.div {...fadeInUp} className={styles.leftCol}>
-          {/* BOOKING SUMMARY SECTION */}
+          {/* BOOKING SUMMARY */}
           <div className={styles.sectionTitle}>
             <ClipboardList size={20} />
             <span>BOOKING SUMMARY</span>
@@ -153,7 +478,7 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* PAYMENT METHOD SECTION */}
+          {/* PAYMENT METHOD */}
           <div className={styles.sectionTitle}>
             <CreditCard size={20} />
             <span>PAYMENT METHOD</span>
@@ -182,36 +507,85 @@ export default function CheckoutPage() {
                 <div className={styles.formGroup}>
                   <label>CARDHOLDER NAME</label>
                   <div className={styles.inputWrapper}>
-                    <input type="text" className={styles.input} placeholder="Enter name on card" />
+                    <input
+                      id="cardholder-name"
+                      type="text"
+                      className={styles.input}
+                      placeholder="Enter name on card"
+                      readOnly
+                    />
                   </div>
                 </div>
 
                 <div className={styles.formGroup}>
                   <label>CARD NUMBER</label>
                   <div className={styles.inputWrapper}>
-                    <input type="text" className={styles.input} placeholder="0000 0000 0000 0000" />
+                    <input
+                      id="card-number"
+                      type="text"
+                      className={styles.input}
+                      placeholder="0000 0000 0000 0000"
+                      readOnly
+                    />
                     <CreditCard size={20} className={styles.inputIcon} />
                   </div>
+                  {errors.cardNumber && (
+                    <span className={styles.errorText}>{errors.cardNumber}</span>
+                  )}
                 </div>
 
                 <div className={styles.row}>
                   <div className={styles.formGroup}>
                     <label>EXPIRY DATE</label>
                     <div className={styles.inputWrapper}>
-                      <input type="text" className={styles.input} placeholder="MM/YY" />
+                      <input
+                        id="expiry-month"
+                        type="text"
+                        className={styles.input}
+                        placeholder="MM"
+                        readOnly
+                        style={{ width: "48%", marginRight: "4%" }}
+                      />
+                      <input
+                        id="expiry-year"
+                        type="text"
+                        className={styles.input}
+                        placeholder="YY"
+                        readOnly
+                        style={{ width: "48%" }}
+                      />
                     </div>
+                    {errors.expiry && (
+                      <span className={styles.errorText}>{errors.expiry}</span>
+                    )}
                   </div>
                   <div className={styles.formGroup}>
                     <label>CVV</label>
                     <div className={styles.inputWrapper}>
-                      <input type="password" className={styles.input} placeholder="123" />
+                      <input
+                        id="security-code"
+                        type="password"
+                        className={styles.input}
+                        placeholder="123"
+                        readOnly
+                      />
                     </div>
+                    {errors.cvv && (
+                      <span className={styles.errorText}>{errors.cvv}</span>
+                    )}
                   </div>
                 </div>
 
-                <div className={styles.checkboxRow}>
-                  <input type="checkbox" id="saveCard" />
-                  <label htmlFor="saveCard">Save card details for faster future bookings</label>
+                {generalError && (
+                  <div className={styles.errorMessage}>
+                    <p>{generalError}</p>
+                  </div>
+                )}
+
+                {/* Security Note */}
+                <div className={styles.securityNote}>
+                  <Lock size={14} />
+                  <span>Your card information is encrypted and secure. We never store full card details.</span>
                 </div>
               </div>
             )}
@@ -262,10 +636,16 @@ export default function CheckoutPage() {
 
               <button
                 className={styles.payButton}
-                onClick={handleConfirmPay}
-                disabled={isProcessing}
+                onClick={handlePayment}
+                disabled={isProcessing || isSaving}
               >
-                {isProcessing ? "PROCESSING..." : "CONFIRM & PAY"} <ArrowRight size={18} />
+                {isSaving ? (
+                  <>
+                    <Loader2 size={18} className={styles.spinIcon} /> PROCESSING…
+                  </>
+                ) : (
+                  <>CONFIRM &amp; PAY <ArrowRight size={18} /></>
+                )}
               </button>
             </div>
           </div>
@@ -281,6 +661,17 @@ export default function CheckoutPage() {
           </div>
         </motion.div>
       </div>
+
+      <style jsx global>{`
+        input[readonly] {
+          background-color: #f9fafb;
+          cursor: text;
+        }
+        input[readonly] iframe {
+          width: 100% !important;
+          height: 100% !important;
+        }
+      `}</style>
     </div>
   );
 }
