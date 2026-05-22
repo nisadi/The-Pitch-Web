@@ -51,12 +51,28 @@ export default function SignupPage() {
             setLoading(false);
         } else {
             if (adminCreated) {
+                // Admin-created users are auto-verified, send welcome email now
+                try {
+                    await fetch('/api/send-welcome-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: formData.email,
+                            fullName: formData.fullName,
+                        }),
+                    });
+                } catch (err) {
+                    console.error("Failed to send welcome email:", err);
+                }
+
                 setSuccessMsg("Account created and verified! Logging you in...");
                 setLoading(false);
                 setTimeout(() => {
                     window.location.href = "/";
                 }, 1500);
             } else {
+                // For regular signup, the welcome email is sent via /auth/callback
+                // after the user confirms their email
                 setSuccessMsg("Signup successful! Please check your email to confirm your account before logging in.");
                 setLoading(false);
                 setTimeout(() => {

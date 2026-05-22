@@ -22,6 +22,7 @@ export const signUp = async (email, password, fullName, phone) => {
 
     // If the service_role key is not configured, fall back to standard client signup
     if (result.error === 'NO_SERVICE_ROLE_KEY') {
+      const siteUrl = window.location.origin;
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -30,6 +31,7 @@ export const signUp = async (email, password, fullName, phone) => {
             full_name: fullName,
             phone_number: phone,
           },
+          emailRedirectTo: `${siteUrl}/auth/callback`,
         },
       });
 
@@ -45,6 +47,7 @@ export const signUp = async (email, password, fullName, phone) => {
   } catch (err) {
     console.error('Admin signup error, falling back:', err);
     // Ultimate fallback to client-side signup
+    const siteUrl = window.location.origin;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -53,6 +56,7 @@ export const signUp = async (email, password, fullName, phone) => {
           full_name: fullName,
           phone_number: phone,
         },
+        emailRedirectTo: `${siteUrl}/auth/callback`,
       },
     });
 
@@ -135,6 +139,29 @@ export const loginUser = async (email, password) => {
 
   if (error) {
     return { user: null, isAdmin: false, roleId: null, error };
+  }
+
+  // Send welcome email on first login (after email confirmation)
+  const user = data.user;
+  if (user) {
+    const createdAt = new Date(user.created_at).getTime();
+    const lastSignIn = user.last_sign_in_at ? new Date(user.last_sign_in_at).getTime() : null;
+
+    // First login: last_sign_in_at is null, or within 2 minutes of created_at
+    const isFirstLogin = !lastSignIn || Math.abs(lastSignIn - createdAt) < 120000;
+
+    if (isFirstLogin) {
+      const fullName = user.user_metadata?.full_name || email.split('@')[0];
+      try {
+        fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email, fullName }),
+        });
+      } catch (err) {
+        console.error('Failed to send welcome email:', err);
+      }
+    }
   }
 
   return { user: data.user, isAdmin: false, roleId: null, error: null };
