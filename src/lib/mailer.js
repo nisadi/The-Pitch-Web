@@ -336,11 +336,6 @@ export const sendPaymentConfirmationEmail = async (toEmail, fullName, payment) =
                 </tr>
               </table>
 
-              <!-- Status badge -->
-              <div style="display:inline-block;background:rgba(163,255,0,0.08);border:1px solid rgba(163,255,0,0.2);border-radius:10px;padding:12px 16px;font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:28px;">
-                ✔ &nbsp; Payment verified &amp; receipt generated
-              </div>
-
               <div style="border-top:1px solid rgba(255,255,255,0.08);margin-bottom:24px;"></div>
 
               <p style="margin:0;font-size:13px;line-height:1.7;color:rgba(161,161,170,0.7);">
