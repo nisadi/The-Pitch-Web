@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquare, RotateCcw } from "lucide-react";
 import {
   fetchCustomersFromSupabase,
@@ -13,6 +13,12 @@ import {
 } from "@/lib/eventInquiries/enquiryRealtime";
 import { upsertEnquiryClient } from "@/lib/eventInquiries/enquiryMutations";
 import { createAdminReply } from "@/lib/eventInquiries/enquiryMapper";
+import {
+  fetchEventInquiriesFromSupabase,
+  subscribeToEventInquiries,
+} from "@/lib/eventInquiries/stadiumEventRealtime";
+import { upsertEventInquiryClient } from "@/lib/eventInquiries/stadiumEventMutations";
+import { normalizeStadiumEventInquiry } from "@/lib/eventInquiries/stadiumEventMapper";
 import {
   findThreadById,
   groupEnquiriesIntoThreads,
@@ -30,6 +36,7 @@ import {
   ENQUIRY_STATUSES,
   mockCustomers,
   mockEnquiries,
+  mockEventInquiries,
 } from "./customersData";
 import { useAdminSettings } from "./settings/adminSettingsContext";
 import {
@@ -47,6 +54,7 @@ import styles from "./CustomerManagement.module.css";
 const TABS = [
   { id: "customers", label: "Customer database" },
   { id: "enquiries", label: "Enquiries" },
+  { id: "events", label: "Events" },
 ];
 
 const CUSTOMER_STATUS_OPTIONS = [
@@ -70,6 +78,7 @@ export default function CustomerManagement() {
   const [activeTab, setActiveTab] = useState("customers");
   const [customerStatus, setCustomerStatus] = useState("all");
   const [enquiryStatus, setEnquiryStatus] = useState("all");
+  const [eventInquiryStatus, setEventInquiryStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [customers, setCustomers] = useState(
     usesSupabase ? [] : mockCustomers
@@ -80,7 +89,13 @@ export default function CustomerManagement() {
   const [enquiriesReady, setEnquiriesReady] = useState(!usesSupabase);
   const [enquiriesSyncError, setEnquiriesSyncError] = useState(null);
   const [selectedEnquiryId, setSelectedEnquiryId] = useState(null);
+  const [eventInquiries, setEventInquiries] = useState(mockEventInquiries);
+  const [eventInquiriesReady, setEventInquiriesReady] = useState(!usesSupabase);
+  const [eventInquiriesSyncError, setEventInquiriesSyncError] = useState(null);
+  const [selectedEventInquiryId, setSelectedEventInquiryId] = useState(null);
   const [replySending, setReplySending] = useState(false);
+  const [eventReplySending, setEventReplySending] = useState(false);
+  const enquiriesLoadedRef = useRef(false);
 
   const sortEnquiries = useCallback((list) => {
     return [...list].sort((a, b) => {
@@ -106,6 +121,12 @@ export default function CustomerManagement() {
     const remote = await fetchEnquiriesFromSupabase();
     setEnquiries(sortEnquiries(remote));
     setEnquiriesSyncError(null);
+  }, [sortEnquiries]);
+
+  const loadEventInquiries = useCallback(async () => {
+    const remote = await fetchEventInquiriesFromSupabase();
+    setEventInquiries(sortEnquiries(remote));
+    setEventInquiriesSyncError(null);
   }, [sortEnquiries]);
 
   useEffect(() => {
@@ -172,29 +193,36 @@ export default function CustomerManagement() {
   }, [usesSupabase, activeTab, loadCustomers]);
 
   useEffect(() => {
-    if (!usesSupabase) return undefined;
+    if (!usesSupabase || activeTab !== "enquiries") return undefined;
 
     let cancelled = false;
-    let unsubscribe = () => {};
+    let unsubscribe = null;
 
-    async function init() {
+    void (async () => {
       try {
-        unsubscribe = await subscribeToEnquiries(
-          (payload) => {
-            if (cancelled) return;
-            setEnquiries((prev) => applyEnquiryRealtimeEvent(prev, payload));
+        if (!enquiriesLoadedRef.current) {
+          await loadEnquiries();
+          enquiriesLoadedRef.current = true;
+          if (!cancelled) {
+            setEnquiriesReady(true);
             setEnquiriesSyncError(null);
-          },
-          () => {
-            if (cancelled) return;
-            void loadEnquiries().catch(() => {});
           }
-        );
-
-        await loadEnquiries();
-        if (!cancelled) {
+        } else if (!cancelled) {
           setEnquiriesReady(true);
         }
+
+        const cleanup = await subscribeToEnquiries((payload) => {
+          if (cancelled) return;
+          setEnquiries((prev) => applyEnquiryRealtimeEvent(prev, payload));
+          setEnquiriesSyncError(null);
+        });
+
+        if (cancelled) {
+          await cleanup();
+          return;
+        }
+
+        unsubscribe = cleanup;
       } catch (err) {
         if (!cancelled) {
           setEnquiries([]);
@@ -204,15 +232,13 @@ export default function CustomerManagement() {
           setEnquiriesReady(true);
         }
       }
-    }
-
-    void init();
+    })();
 
     return () => {
       cancelled = true;
-      unsubscribe();
+      void unsubscribe?.();
     };
-  }, [usesSupabase, loadEnquiries]);
+  }, [usesSupabase, activeTab, loadEnquiries]);
 
   useEffect(() => {
     if (!usesSupabase || activeTab !== "enquiries") return undefined;
@@ -225,15 +251,83 @@ export default function CustomerManagement() {
 
     document.addEventListener("visibilitychange", onVisible);
 
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [usesSupabase, activeTab, loadEnquiries]);
+
+  useEffect(() => {
+    if (!usesSupabase || activeTab !== "events") return undefined;
+
+    let cancelled = false;
+    let unsubscribe = null;
+
+    setEventInquiriesReady(false);
+
+    void (async () => {
+      try {
+        const cleanup = await subscribeToEventInquiries(
+          () => {
+            if (cancelled) return;
+            void loadEventInquiries()
+              .then(() => setEventInquiriesSyncError(null))
+              .catch(() => {});
+          },
+          () => {
+            if (cancelled) return;
+            void loadEventInquiries().catch(() => {});
+          }
+        );
+
+        if (cancelled) {
+          await cleanup();
+          return;
+        }
+
+        unsubscribe = cleanup;
+
+        await loadEventInquiries();
+        if (!cancelled) {
+          setEventInquiriesSyncError(null);
+          setEventInquiriesReady(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setEventInquiries([]);
+          setEventInquiriesSyncError(
+            err?.message ?? "Could not sync event inquiries from Supabase."
+          );
+          setEventInquiriesReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      void unsubscribe?.();
+    };
+  }, [usesSupabase, activeTab, loadEventInquiries]);
+
+  useEffect(() => {
+    if (!usesSupabase || activeTab !== "events") return undefined;
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void loadEventInquiries().catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+
     const interval = setInterval(() => {
-      void loadEnquiries().catch(() => {});
+      void loadEventInquiries().catch(() => {});
     }, 12000);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(interval);
     };
-  }, [usesSupabase, activeTab, loadEnquiries]);
+  }, [usesSupabase, activeTab, loadEventInquiries]);
 
   const enquiryThreads = useMemo(
     () => groupEnquiriesIntoThreads(enquiries),
@@ -243,6 +337,16 @@ export default function CustomerManagement() {
   const selectedEnquiry = useMemo(
     () => findThreadById(enquiryThreads, selectedEnquiryId),
     [enquiryThreads, selectedEnquiryId]
+  );
+
+  const eventInquiryThreads = useMemo(
+    () => groupEnquiriesIntoThreads(eventInquiries),
+    [eventInquiries]
+  );
+
+  const selectedEventInquiry = useMemo(
+    () => findThreadById(eventInquiryThreads, selectedEventInquiryId),
+    [eventInquiryThreads, selectedEventInquiryId]
   );
 
   const filteredCustomers = useMemo(() => {
@@ -270,9 +374,29 @@ export default function CustomerManagement() {
     [filteredCustomers]
   );
 
+  const filteredEventInquiries = useMemo(
+    () =>
+      filterEnquiryThreads(eventInquiryThreads, {
+        locationAliases: venueLocationAliasesList,
+        status: eventInquiryStatus,
+        query: searchQuery,
+      }),
+    [
+      eventInquiryThreads,
+      venueLocationAliasesList,
+      eventInquiryStatus,
+      searchQuery,
+    ]
+  );
+
   const enquirySummary = useMemo(
     () => summarizeEnquiries(filteredEnquiries),
     [filteredEnquiries]
+  );
+
+  const eventInquirySummary = useMemo(
+    () => summarizeEnquiries(filteredEventInquiries),
+    [filteredEventInquiries]
   );
 
   const stats =
@@ -289,12 +413,22 @@ export default function CustomerManagement() {
             value: String(customerSummary.inactive),
           },
         ]
-      : [
-          { label: "Total enquiries", value: String(enquirySummary.total) },
-          { label: "New", value: String(enquirySummary.new) },
-          { label: "In progress", value: String(enquirySummary.inProgress) },
-          { label: "Resolved", value: String(enquirySummary.resolved) },
-        ];
+      : activeTab === "enquiries"
+        ? [
+            { label: "Total enquiries", value: String(enquirySummary.total) },
+            { label: "New", value: String(enquirySummary.new) },
+            { label: "In progress", value: String(enquirySummary.inProgress) },
+            { label: "Resolved", value: String(enquirySummary.resolved) },
+          ]
+        : [
+            { label: "Total events", value: String(eventInquirySummary.total) },
+            { label: "New", value: String(eventInquirySummary.new) },
+            {
+              label: "In progress",
+              value: String(eventInquirySummary.inProgress),
+            },
+            { label: "Resolved", value: String(eventInquirySummary.resolved) },
+          ];
 
   const persistEnquiry = async (nextEnquiry) => {
     if (!usesSupabase) return nextEnquiry;
@@ -330,6 +464,134 @@ export default function CustomerManagement() {
       setEnquiriesSyncError(null);
     } catch {
       setEnquiries(snapshot);
+    }
+  };
+
+  const persistEventInquiry = async (nextInquiry) => {
+    if (!usesSupabase) return nextInquiry;
+
+    try {
+      const saved = await upsertEventInquiryClient(nextInquiry);
+      setEventInquiriesSyncError(null);
+      return saved;
+    } catch (err) {
+      setEventInquiriesSyncError(
+        err?.message ?? "Could not save event inquiry."
+      );
+      throw err;
+    }
+  };
+
+  const updateEventInquiryStatus = async (id, status) => {
+    const thread = findThreadById(eventInquiryThreads, id);
+    if (!thread) return;
+
+    const snapshot = eventInquiries;
+    setEventInquiries((prev) =>
+      patchEnquiriesForThread(prev, thread, { status }, normalizeStadiumEventInquiry)
+    );
+
+    if (!usesSupabase) return;
+
+    try {
+      for (const row of thread.sourceRows) {
+        const saved = await persistEventInquiry({ ...row, status });
+        setEventInquiries((prev) =>
+          prev.map((inquiry) =>
+            inquiry.dbId === saved.dbId ? saved : inquiry
+          )
+        );
+      }
+      setEventInquiriesSyncError(null);
+    } catch {
+      setEventInquiries(snapshot);
+    }
+  };
+
+  const handleSendEventReply = async (id, message) => {
+    const admin = getAdminUser();
+    const thread = findThreadById(eventInquiryThreads, id);
+    const targetRow = pickReplyTargetRow(thread);
+    if (!targetRow?.dbId) return false;
+
+    const smsPhone = resolveThreadPhone(thread);
+    if (!smsPhone) {
+      window.alert("This event inquiry has no phone number. Cannot send SMS.");
+      return false;
+    }
+
+    setEventReplySending(true);
+    try {
+      const response = await fetch("/api/admin/enquiries/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: smsPhone,
+          message,
+          referenceCode: targetRow.id,
+          enquiryQuestion: targetRow.message,
+        }),
+      });
+      const smsResult = await response.json();
+      if (!response.ok || !smsResult.success) {
+        const detail = [
+          smsResult.error,
+          smsResult.formattedPhone
+            ? `Number sent as: ${smsResult.formattedPhone}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n");
+        window.alert(
+          detail || "SMS could not be sent. Check ESMS settings in .env.local."
+        );
+        return false;
+      }
+
+      const reply = createAdminReply({
+        message,
+        author: admin?.name ?? "Admin",
+        inReplyTo: targetRow.id,
+        channel: "sms",
+        smsMessageId: smsResult.messageId ?? null,
+      });
+
+      const optimistic = {
+        ...targetRow,
+        status: targetRow.status === "new" ? "in_progress" : targetRow.status,
+        replies: [...(targetRow.replies ?? []), reply],
+      };
+
+      const snapshot = eventInquiries;
+      setEventInquiries((prev) =>
+        prev.map((inquiry) =>
+          inquiry.dbId === targetRow.dbId ? optimistic : inquiry
+        )
+      );
+
+      if (usesSupabase) {
+        try {
+          const saved = await persistEventInquiry(optimistic);
+          setEventInquiries((prev) =>
+            prev.map((inquiry) =>
+              inquiry.dbId === saved.dbId ? saved : inquiry
+            )
+          );
+          setEventInquiriesSyncError(null);
+        } catch {
+          setEventInquiries(snapshot);
+          window.alert(
+            "SMS was sent but saving the reply to the database failed."
+          );
+        }
+      }
+
+      return true;
+    } catch (err) {
+      window.alert(err?.message ?? "SMS could not be sent.");
+      return false;
+    } finally {
+      setEventReplySending(false);
     }
   };
 
@@ -423,6 +685,7 @@ export default function CustomerManagement() {
   const handleReset = () => {
     setCustomerStatus("all");
     setEnquiryStatus("all");
+    setEventInquiryStatus("all");
     setSearchQuery("");
   };
 
@@ -431,7 +694,28 @@ export default function CustomerManagement() {
     setSearchQuery("");
     setCustomerStatus("all");
     setEnquiryStatus("all");
+    setEventInquiryStatus("all");
   };
+
+  const activeStatus =
+    activeTab === "customers"
+      ? customerStatus
+      : activeTab === "enquiries"
+        ? enquiryStatus
+        : eventInquiryStatus;
+
+  const setActiveStatus = (value) => {
+    if (activeTab === "customers") setCustomerStatus(value);
+    else if (activeTab === "enquiries") setEnquiryStatus(value);
+    else setEventInquiryStatus(value);
+  };
+
+  const searchPlaceholder =
+    activeTab === "customers"
+      ? "Name, mobile, email, ID..."
+      : activeTab === "enquiries"
+        ? "Name, subject, message, ID..."
+        : "Organization, category, requirements, ID...";
 
   return (
     <div className={styles.page}>
@@ -460,12 +744,8 @@ export default function CustomerManagement() {
           <select
             id="cust-status"
             className={styles.select}
-            value={activeTab === "customers" ? customerStatus : enquiryStatus}
-            onChange={(e) =>
-              activeTab === "customers"
-                ? setCustomerStatus(e.target.value)
-                : setEnquiryStatus(e.target.value)
-            }
+            value={activeStatus}
+            onChange={(e) => setActiveStatus(e.target.value)}
           >
             {(activeTab === "customers"
               ? CUSTOMER_STATUS_OPTIONS
@@ -488,11 +768,7 @@ export default function CustomerManagement() {
             className={styles.input}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={
-              activeTab === "customers"
-                ? "Name, mobile, email, ID..."
-                : "Name, subject, message, ID..."
-            }
+            placeholder={searchPlaceholder}
           />
         </div>
 
@@ -573,7 +849,7 @@ export default function CustomerManagement() {
             </div>
           )}
         </section>
-      ) : (
+      ) : activeTab === "enquiries" ? (
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
@@ -702,6 +978,148 @@ export default function CustomerManagement() {
             </div>
           )}
         </section>
+      ) : (
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <h3>Event inquiries</h3>
+              <p>
+                {!eventInquiriesReady
+                  ? "Loading from Supabase…"
+                  : `${filteredEventInquiries.length} event inquir${filteredEventInquiries.length === 1 ? "y" : "ies"} · ${locationFilter}`}
+              </p>
+              {eventInquiriesSyncError && (
+                <p className={styles.syncError}>{eventInquiriesSyncError}</p>
+              )}
+            </div>
+          </div>
+
+          {!eventInquiriesReady ? (
+            <p className={styles.empty}>Syncing event inquiries with Supabase…</p>
+          ) : filteredEventInquiries.length === 0 ? (
+            <p className={styles.empty}>
+              No event inquiries match your filters. Try adjusting status or search.
+            </p>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Received</th>
+                    <th>Contact</th>
+                    <th>Category</th>
+                    <th>Requirements</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEventInquiries.map((inquiry) => {
+                    const status = ENQUIRY_STATUSES[inquiry.status];
+                    return (
+                      <tr key={inquiry.id}>
+                        <td>
+                          {formatEnquiryDateTime(inquiry.date, inquiry.time)}
+                          <span className={styles.meta}>
+                            {inquiry.id}
+                            {inquiry.threadCount > 1
+                              ? ` · ${inquiry.threadCount} submissions`
+                              : ""}
+                          </span>
+                        </td>
+                        <td>
+                          {inquiry.name}
+                          <span className={styles.meta}>
+                            {inquiry.organizationName
+                              ? `${inquiry.organizationName} · `
+                              : ""}
+                            {inquiry.phone}
+                          </span>
+                        </td>
+                        <td>{inquiry.eventCategory || inquiry.subject}</td>
+                        <td className={styles.message}>
+                          <p className={styles.messagePreview}>
+                            {truncateText(inquiry.message, 48)}
+                          </p>
+                          <button
+                            type="button"
+                            className={styles.viewMsgBtn}
+                            onClick={() =>
+                              setSelectedEventInquiryId(inquiry.id)
+                            }
+                          >
+                            <MessageSquare size={14} />
+                            Read &amp; reply
+                            {inquiry.messageCount > 1 && (
+                              <span className={styles.replyCount}>
+                                {inquiry.messageCount}
+                              </span>
+                            )}
+                          </button>
+                        </td>
+                        <td>
+                          <span
+                            className={styles.badge}
+                            style={{
+                              color: status.color,
+                              background: `${status.color}22`,
+                            }}
+                          >
+                            {status.label}
+                          </span>
+                        </td>
+                        <td>
+                          <div className={styles.actions}>
+                            {inquiry.status === "new" && (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                                onClick={() =>
+                                  updateEventInquiryStatus(
+                                    inquiry.id,
+                                    "in_progress"
+                                  )
+                                }
+                              >
+                                Start
+                              </button>
+                            )}
+                            {(inquiry.status === "new" ||
+                              inquiry.status === "in_progress") && (
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() =>
+                                  updateEventInquiryStatus(
+                                    inquiry.id,
+                                    "resolved"
+                                  )
+                                }
+                              >
+                                Resolve
+                              </button>
+                            )}
+                            {inquiry.status !== "closed" && (
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() =>
+                                  updateEventInquiryStatus(inquiry.id, "closed")
+                                }
+                              >
+                                Close
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
       <EnquiryDetailModal
@@ -710,6 +1128,14 @@ export default function CustomerManagement() {
         onClose={() => setSelectedEnquiryId(null)}
         onSendReply={handleSendReply}
         sending={replySending}
+      />
+
+      <EnquiryDetailModal
+        open={Boolean(selectedEventInquiry)}
+        enquiry={selectedEventInquiry}
+        onClose={() => setSelectedEventInquiryId(null)}
+        onSendReply={handleSendEventReply}
+        sending={eventReplySending}
       />
     </div>
   );

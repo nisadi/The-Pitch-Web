@@ -134,6 +134,36 @@ export default function EnquiryDetailModal({
               <dt className={styles.detailLabel}>Subject</dt>
               <dd>{enquiry.subject}</dd>
             </div>
+            {enquiry.organizationName ? (
+              <div>
+                <dt className={styles.detailLabel}>Organization</dt>
+                <dd>{enquiry.organizationName}</dd>
+              </div>
+            ) : null}
+            {enquiry.eventCategory ? (
+              <div>
+                <dt className={styles.detailLabel}>Event category</dt>
+                <dd>{enquiry.eventCategory}</dd>
+              </div>
+            ) : null}
+            {enquiry.guestCount != null && enquiry.guestCount !== "" ? (
+              <div>
+                <dt className={styles.detailLabel}>Estimated guests</dt>
+                <dd>{enquiry.guestCount}</dd>
+              </div>
+            ) : null}
+            {enquiry.preferredDate ? (
+              <div>
+                <dt className={styles.detailLabel}>Preferred date</dt>
+                <dd>{enquiry.preferredDate}</dd>
+              </div>
+            ) : null}
+            {enquiry.location ? (
+              <div>
+                <dt className={styles.detailLabel}>Location</dt>
+                <dd>{enquiry.location}</dd>
+              </div>
+            ) : null}
           </dl>
 
           <div className={styles.thread}>

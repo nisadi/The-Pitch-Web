@@ -22,6 +22,7 @@ import {
 import { useAdminLocation } from "./adminLocationContext";
 import { useAdminSettings } from "./settings/adminSettingsContext";
 import PackageFormModal from "./PackageFormModal";
+import EventCardsManagement from "./EventCardsManagement";
 import styles from "./PackageManagement.module.css";
 
 const TEMPLATE_ICONS = {
@@ -109,6 +110,8 @@ export default function PackageManagement() {
 
   return (
     <div className={styles.page}>
+      <EventCardsManagement />
+
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <h3>Package templates</h3>

@@ -9,7 +9,6 @@ import { getSession } from "@/services/auth";
 import {
   ClipboardList,
   CreditCard,
-  Wallet,
   ArrowRight,
   ShieldCheck,
   Calendar,
@@ -22,6 +21,40 @@ import {
   XCircle,
 } from "lucide-react";
 
+function formatRs(amount) {
+  return `Rs. ${Number(amount).toFixed(2)}`;
+}
+
+function computeTotals(basePriceNum, discountAmount = 0) {
+  const subtotalNum = Number(basePriceNum) || 0;
+  const discountNum = Number(discountAmount) || 0;
+  const totalAmountNum = Math.max(0, subtotalNum - discountNum);
+
+  return {
+    subtotalNum,
+    discountNum,
+    totalAmountNum,
+    subtotal: formatRs(subtotalNum),
+    total: formatRs(totalAmountNum),
+    discountFormatted: formatRs(discountNum),
+  };
+}
+
+function buildBookingApiPayload(parsed, booking) {
+  const timeParts = (parsed.slot || booking.time).split(" - ");
+  return {
+    sport_id: parsed.sport?.id || booking.sportId,
+    location_id: parsed.location?.id || booking.locationId,
+    pitch_id: null,
+    booking_date: parsed.originalDate || booking.originalDate,
+    start_time: timeParts[0],
+    end_time: timeParts[1],
+    subtotal_amount: booking.subtotalNum,
+    total_amount: booking.totalAmountNum,
+    promo_id: booking.promoId ?? null,
+  };
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [paymentMethod, setPaymentMethod] = useState("credit");
@@ -32,6 +65,10 @@ export default function CheckoutPage() {
   const [saveCard, setSaveCard] = useState(false);
   const [overlayState, setOverlayState] = useState(null); // null | "verifying" | "success" | "failed"
   const [overlayMessage, setOverlayMessage] = useState("");
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState("");
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
 
   const [booking, setBooking] = useState({
     sport: "Indoor Football",
@@ -40,7 +77,6 @@ export default function CheckoutPage() {
     time: "06:00 PM - 08:00 PM",
     rate: "Peak Hour Rate 5000/hr",
     basePrice: "Rs. 5000.00",
-    maintenanceFee: "Rs. 500.00",
     total: "Rs. 5000.00",
     ref: "#TP-94821-X",
   });
@@ -56,8 +92,8 @@ export default function CheckoutPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         const sportPrice = 3000;
-        const feeNum = 500;
-        const totalNum = sportPrice + feeNum;
+        const discountNum = parsed.appliedPromo?.discountAmount ?? 0;
+        const totals = computeTotals(sportPrice, discountNum);
 
         setBooking({
           sportId: parsed.sport?.id,
@@ -68,14 +104,23 @@ export default function CheckoutPage() {
           originalDate: parsed.originalDate,
           time: parsed.slot || "06:00 PM - 08:00 PM",
           rate: "Standard Rate",
-          basePrice: `Rs. ${sportPrice.toFixed(2)}`,
+          basePrice: formatRs(sportPrice),
           basePriceNum: sportPrice,
-          maintenanceFee: `Rs. ${feeNum.toFixed(2)}`,
-          maintenanceFeeNum: feeNum,
-          totalAmountNum: totalNum,
-          total: `Rs. ${totalNum.toFixed(2)}`,
+          subtotalNum: totals.subtotalNum,
+          subtotal: totals.subtotal,
+          discountNum: totals.discountNum,
+          discountFormatted: totals.discountFormatted,
+          totalAmountNum: totals.totalAmountNum,
+          total: totals.total,
+          promoId: parsed.appliedPromo?.id ?? null,
+          promoCode: parsed.appliedPromo?.code ?? null,
           ref: `#TP-${Math.floor(10000 + Math.random() * 90000)}-X`,
         });
+
+        if (parsed.appliedPromo) {
+          setAppliedPromo(parsed.appliedPromo);
+          setPromoInput(parsed.appliedPromo.code);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -144,26 +189,22 @@ export default function CheckoutPage() {
         const stored = sessionStorage.getItem("pendingBooking");
         const parsed = stored ? JSON.parse(stored) : {};
 
-        const timeParts = (parsed.slot || booking.time).split(" - ");
-        const startTime = timeParts[0];
-        const endTime = timeParts[1];
+        const bookingPayload = {
+          user_id: parsed.userId || booking.userId,
+          ...buildBookingApiPayload(parsed, {
+            ...booking,
+            subtotalNum: booking.subtotalNum ?? booking.basePriceNum ?? 0,
+            totalAmountNum: booking.totalAmountNum || 3500,
+            promoId: parsed.appliedPromo?.id ?? booking.promoId ?? null,
+          }),
+        };
 
-        // Send verify + booking details in one call
         const res = await fetch("/api/payments/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             result3ds,
-            booking: {
-              user_id: parsed.userId || booking.userId,
-              sport_id: parsed.sport?.id || booking.sportId,
-              location_id: parsed.location?.id || booking.locationId,
-              pitch_id: null,
-              booking_date: parsed.originalDate || booking.originalDate,
-              start_time: startTime,
-              end_time: endTime,
-              total_amount: booking.totalAmountNum || 3500,
-            },
+            booking: bookingPayload,
           }),
         });
 
@@ -212,6 +253,102 @@ export default function CheckoutPage() {
     verify();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const persistPromoToPending = (promo) => {
+    try {
+      const pending = JSON.parse(sessionStorage.getItem("pendingBooking") || "{}");
+      if (promo) {
+        pending.appliedPromo = promo;
+      } else {
+        delete pending.appliedPromo;
+      }
+      sessionStorage.setItem("pendingBooking", JSON.stringify(pending));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleApplyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code) {
+      setPromoError("Please enter a promo code.");
+      return;
+    }
+
+    if (!booking.locationId) {
+      setPromoError("Location is missing from this booking.");
+      return;
+    }
+
+    setIsApplyingPromo(true);
+    setPromoError("");
+
+    try {
+      const subtotal = booking.basePriceNum || 0;
+
+      const { session } = await getSession();
+      const headers = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch("/api/promos/validate", {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({
+          code,
+          location_id: booking.locationId,
+          booking_date: booking.originalDate,
+          subtotal,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.valid) {
+        setPromoError(data.error || "Invalid promo code.");
+        return;
+      }
+
+      const promo = {
+        id: data.promo.id,
+        code: data.promo.code,
+        title: data.promo.title,
+        discountAmount: data.discountAmount,
+        discountType: data.promo.discountType,
+        discountValue: data.promo.discountValue,
+      };
+
+      const totals = computeTotals(booking.basePriceNum, data.discountAmount);
+
+      setAppliedPromo(promo);
+      setBooking((prev) => ({
+        ...prev,
+        ...totals,
+        promoId: promo.id,
+        promoCode: promo.code,
+      }));
+      persistPromoToPending(promo);
+    } catch (err) {
+      setPromoError(err.message || "Could not apply promo code.");
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    const totals = computeTotals(booking.basePriceNum, 0);
+    setAppliedPromo(null);
+    setPromoError("");
+    setBooking((prev) => ({
+      ...prev,
+      ...totals,
+      promoId: null,
+      promoCode: null,
+    }));
+    persistPromoToPending(null);
+  };
 
   // ─── Error display helper ────────────────────────────────────────────────────
   const handleErrors = (error) => {
@@ -292,17 +429,17 @@ export default function CheckoutPage() {
           }
 
           if (data.html3ds_url) {
-            // Save user ID to sessionStorage before leaving for 3DS (auth cookies will be lost)
             const pending = JSON.parse(sessionStorage.getItem("pendingBooking") || "{}");
             pending.userId = user.id;
+            if (appliedPromo) pending.appliedPromo = appliedPromo;
             sessionStorage.setItem("pendingBooking", JSON.stringify(pending));
 
             // Redirect to bank 3DS OTP page
             window.location.href = data.html3ds_url;
           } else if (data.html3ds) {
-            // Save user ID to sessionStorage before leaving for 3DS (auth cookies will be lost)
             const pending = JSON.parse(sessionStorage.getItem("pendingBooking") || "{}");
             pending.userId = user.id;
+            if (appliedPromo) pending.appliedPromo = appliedPromo;
             sessionStorage.setItem("pendingBooking", JSON.stringify(pending));
 
             // Render the HTML form returned by the gateway, which will auto-submit to the bank's 3DS page
@@ -338,22 +475,17 @@ export default function CheckoutPage() {
       const stored = sessionStorage.getItem("pendingBooking");
       const parsed = stored ? JSON.parse(stored) : {};
 
-      const timeParts = (parsed.slot || booking.time).split(" - ");
-      const startTime = timeParts[0];
-      const endTime = timeParts[1];
-
       const bookingRes = await fetch("/api/bookings/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sport_id: parsed.sport?.id || booking.sportId,
-          location_id: parsed.location?.id || booking.locationId,
-          pitch_id: null,
-          booking_date: parsed.originalDate || booking.originalDate,
-          start_time: startTime,
-          end_time: endTime,
-          total_amount: booking.totalAmountNum || 3500,
-        }),
+        body: JSON.stringify(
+          buildBookingApiPayload(parsed, {
+            ...booking,
+            subtotalNum: booking.subtotalNum ?? booking.basePriceNum ?? 0,
+            totalAmountNum: booking.totalAmountNum || 3500,
+            promoId: parsed.appliedPromo?.id ?? booking.promoId ?? null,
+          })
+        ),
       });
 
       const bookingData = await bookingRes.json();
@@ -493,6 +625,7 @@ export default function CheckoutPage() {
                 <CreditCard size={18} />
                 Credit/Debit
               </button>
+              {/* Digital Wallet — disabled for now
               <button
                 className={`${styles.tab} ${paymentMethod === "wallet" ? styles.active : ""}`}
                 onClick={() => setPaymentMethod("wallet")}
@@ -500,6 +633,7 @@ export default function CheckoutPage() {
                 <Wallet size={18} />
                 Digital Wallet
               </button>
+              */}
             </div>
 
             {paymentMethod === "credit" && (
@@ -590,11 +724,11 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {paymentMethod === "wallet" && (
+            {/* {paymentMethod === "wallet" && (
               <div className={styles.walletMessage}>
                 <p>You will be redirected to your digital wallet provider to complete this payment.</p>
               </div>
-            )}
+            )} */}
           </div>
         </motion.div>
 
@@ -608,21 +742,41 @@ export default function CheckoutPage() {
               <strong>{booking.basePrice}</strong>
             </div>
 
-            <div className={styles.orderRow}>
-              <span>Facility Maintenance Fee</span>
-              <strong>{booking.maintenanceFee}</strong>
-            </div>
-
             <div className={styles.promoContainer}>
               <span className={styles.promoLabel}>PROMO CODE</span>
               <div className={styles.promoInputGroup}>
-                <input type="text" placeholder="Enter code" />
-                <button>APPLY</button>
+                <input
+                  type="text"
+                  placeholder="Enter code"
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                  disabled={Boolean(appliedPromo) || isApplyingPromo}
+                />
+                {appliedPromo ? (
+                  <button type="button" onClick={handleRemovePromo}>
+                    REMOVE
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    disabled={isApplyingPromo}
+                  >
+                    {isApplyingPromo ? "…" : "APPLY"}
+                  </button>
+                )}
               </div>
-              <div className={styles.discountRow}>
-                <span>DISCOUNT APPLIED (FIRSTGAME)</span>
-                <span>-Rs.500.00</span>
-              </div>
+              {promoError && (
+                <p className={styles.promoError}>{promoError}</p>
+              )}
+              {appliedPromo && (
+                <div className={styles.discountRow}>
+                  <span>
+                    DISCOUNT APPLIED ({appliedPromo.code})
+                  </span>
+                  <span>-{booking.discountFormatted}</span>
+                </div>
+              )}
             </div>
 
             <div className={styles.divider}></div>

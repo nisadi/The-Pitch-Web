@@ -170,7 +170,12 @@ export function threadLocationLabel(thread) {
 }
 
 /** Update flat enquiry rows that belong to a thread (e.g. status sync). */
-export function patchEnquiriesForThread(enquiries, thread, patch) {
+export function patchEnquiriesForThread(
+  enquiries,
+  thread,
+  patch,
+  normalize = normalizeEnquiry
+) {
   const dbIds = new Set(
     thread.sourceRows.map((row) => row.dbId).filter(Boolean)
   );
@@ -181,7 +186,7 @@ export function patchEnquiriesForThread(enquiries, thread, patch) {
       (enquiry.dbId && dbIds.has(enquiry.dbId)) ||
       refs.has(enquiry.id)
     ) {
-      return normalizeEnquiry({ ...enquiry, ...patch });
+      return normalize({ ...enquiry, ...patch });
     }
     return enquiry;
   });

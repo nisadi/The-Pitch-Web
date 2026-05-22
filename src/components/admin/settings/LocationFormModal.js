@@ -9,7 +9,10 @@ import {
   Lightbulb,
   Save,
 } from "lucide-react";
-import { isOperationalRangeValid } from "../bookingsUtils";
+import {
+  isOperationalRangeValid,
+  isPeriodWithinOperational,
+} from "../bookingsUtils";
 import { uploadLocationImage } from "@/lib/storage/uploadLocationImage";
 import styles from "./LocationFormModal.module.css";
 
@@ -152,26 +155,29 @@ export default function LocationFormModal({
     onChange({ sportIds: next });
   };
 
-  const peakRate = String(form.peakHourRate ?? "").trim();
-  const nonPeakRate = String(form.nonPeakHourRate ?? "").trim();
-  const ratesValid =
-    peakRate !== "" &&
-    nonPeakRate !== "" &&
-    !Number.isNaN(Number(peakRate)) &&
-    !Number.isNaN(Number(nonPeakRate)) &&
-    Number(peakRate) >= 0 &&
-    Number(nonPeakRate) >= 0;
-
   const canSave =
     form.name.trim() &&
     form.shortName.trim() &&
     form.address.trim() &&
     form.phone.trim() &&
-    ratesValid &&
     selectedSportIds.length > 0 &&
     form.operationalStart &&
     form.operationalEnd &&
     isOperationalRangeValid(form.operationalStart, form.operationalEnd) &&
+    isOperationalRangeValid(form.nonPeakStart, form.nonPeakEnd) &&
+    isOperationalRangeValid(form.peakStart, form.peakEnd) &&
+    isPeriodWithinOperational(
+      form.nonPeakStart,
+      form.nonPeakEnd,
+      form.operationalStart,
+      form.operationalEnd
+    ) &&
+    isPeriodWithinOperational(
+      form.peakStart,
+      form.peakEnd,
+      form.operationalStart,
+      form.operationalEnd
+    ) &&
     (isEdit || Boolean(form.image)) &&
     !uploadingImage;
 
@@ -366,50 +372,73 @@ export default function LocationFormModal({
                 />
               </div>
             </div>
-          </section>
 
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Pricing details</h3>
+            <h4 className={styles.subsectionTitle}>Peak &amp; non-peak periods</h4>
+            <p className={styles.hint} style={{ marginBottom: "0.75rem" }}>
+              Define when off-peak and peak pricing apply (set rates per pitch under
+              Settings → Pitches). Each period must fall within the venue open hours
+              above.
+            </p>
 
+            <p className={styles.periodLabel}>Non-peak hours</p>
             <div className={styles.formRow}>
               <div className={styles.field}>
-                <label className={styles.label} htmlFor="loc-modal-peak">
-                  Peak hour rate <span className={styles.required}>*</span>
+                <label className={styles.label} htmlFor="loc-modal-np-start">
+                  Starts at <span className={styles.required}>*</span>
                 </label>
-                <p className={styles.hint}>
-                  Price during peak hours (evenings and weekends).
-                </p>
                 <input
-                  id="loc-modal-peak"
-                  type="number"
-                  min="0"
-                  step="1"
+                  id="loc-modal-np-start"
+                  type="time"
                   className={styles.input}
-                  value={form.peakHourRate}
-                  onChange={(e) => onChange({ peakHourRate: e.target.value })}
-                  placeholder="Enter peak hour rate"
+                  value={form.nonPeakStart ?? "06:00"}
+                  onChange={(e) =>
+                    onChange({ nonPeakStart: e.target.value })
+                  }
                   required
                 />
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label} htmlFor="loc-modal-offpeak">
-                  Non-peak hour rate <span className={styles.required}>*</span>
+                <label className={styles.label} htmlFor="loc-modal-np-end">
+                  Ends at <span className={styles.required}>*</span>
                 </label>
-                <p className={styles.hint}>
-                  Price during non-peak hours (daytime and weekdays).
-                </p>
                 <input
-                  id="loc-modal-offpeak"
-                  type="number"
-                  min="0"
-                  step="1"
+                  id="loc-modal-np-end"
+                  type="time"
                   className={styles.input}
-                  value={form.nonPeakHourRate}
-                  onChange={(e) =>
-                    onChange({ nonPeakHourRate: e.target.value })
-                  }
-                  placeholder="Enter non-peak hour rate"
+                  value={form.nonPeakEnd ?? "12:00"}
+                  onChange={(e) => onChange({ nonPeakEnd: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <p className={styles.periodLabel}>Peak hours</p>
+            <div className={styles.formRow}>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="loc-modal-peak-start">
+                  Starts at <span className={styles.required}>*</span>
+                </label>
+                <input
+                  id="loc-modal-peak-start"
+                  type="time"
+                  className={styles.input}
+                  value={form.peakStart ?? "18:00"}
+                  onChange={(e) => onChange({ peakStart: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="loc-modal-peak-end">
+                  Ends at <span className={styles.required}>*</span>
+                </label>
+                <input
+                  id="loc-modal-peak-end"
+                  type="time"
+                  className={styles.input}
+                  value={form.peakEnd ?? "22:00"}
+                  onChange={(e) => onChange({ peakEnd: e.target.value })}
                   required
                 />
               </div>

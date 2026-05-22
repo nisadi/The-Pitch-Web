@@ -345,3 +345,77 @@ export const mockEnquiries = [
     replies: [],
   },
 ];
+
+/** Offline fallback for admin Events tab (event_inquiries). */
+export const mockEventInquiries = [
+  {
+    id: "ENQ-2401",
+    date: "2026-05-18",
+    time: "08:42",
+    name: "Tharindu Bandara",
+    organizationName: "Tharindu Bandara",
+    contactPerson: "Tharindu Bandara",
+    phone: "+94 778901234",
+    email: "tharindu.b@email.com",
+    subject: "Corporate booking",
+    eventCategory: "Corporate Team Building",
+    guestCount: 40,
+    preferredDate: "2026-05-18",
+    message:
+      "Looking to book 3 futsal courts every Saturday morning for our office league. Need pricing for 3 months.",
+    requirements:
+      "Looking to book 3 futsal courts every Saturday morning for our office league. Need pricing for 3 months.",
+    location: "Maharagama",
+    status: "new",
+    replies: [],
+  },
+  {
+    id: "ENQ-2402",
+    date: "2026-05-18",
+    time: "10:15",
+    name: "Menaka Dias",
+    organizationName: "Menaka Dias",
+    contactPerson: "Menaka Dias",
+    phone: "+94 763456789",
+    email: "menaka.d@email.com",
+    subject: "Membership enquiry",
+    eventCategory: "School Sports Carnival",
+    preferredDate: "2026-05-18",
+    message:
+      "Do you offer monthly badminton memberships at Attidiya? What are the peak vs non-peak rates?",
+    requirements:
+      "Do you offer monthly badminton memberships at Attidiya? What are the peak vs non-peak rates?",
+    location: "Attidiya",
+    status: "in_progress",
+    replies: [
+      {
+        id: "REP-2402-1",
+        date: "2026-05-18",
+        time: "11:30",
+        author: "Admin User",
+        message:
+          "Yes, we offer monthly memberships at Attidiya. Peak is LKR 4,500/month and non-peak is LKR 3,200/month.",
+      },
+    ],
+  },
+  {
+    id: "ENQ-2403",
+    date: "2026-05-17",
+    time: "14:30",
+    name: "Chanuka Wijesinghe",
+    organizationName: "Chanuka Wijesinghe",
+    contactPerson: "Chanuka Wijesinghe",
+    phone: "+94 766789012",
+    email: "chanuka.w@email.com",
+    subject: "Court availability",
+    eventCategory: "Private Tournament",
+    preferredDate: "2026-05-17",
+    message:
+      "Is Pitch 2 available this Friday 7–9 PM? Want to confirm before paying online.",
+    requirements:
+      "Is Pitch 2 available this Friday 7–9 PM? Want to confirm before paying online.",
+    location: "Attidiya",
+    status: "new",
+    replies: [],
+  },
+];

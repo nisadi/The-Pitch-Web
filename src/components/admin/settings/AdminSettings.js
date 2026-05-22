@@ -5,6 +5,7 @@ import SettingsGeneral from "./SettingsGeneral";
 import SettingsLocations from "./SettingsLocations";
 import SettingsOffers from "./SettingsOffers";
 import SettingsSports from "./SettingsSports";
+import SettingsPitches from "./SettingsPitches";
 import styles from "./AdminSettings.module.css";
 
 const TABS = [
@@ -17,6 +18,11 @@ const TABS = [
     id: "sports",
     label: "Sports",
     hint: "Bookable activities",
+  },
+  {
+    id: "pitches",
+    label: "Pitches",
+    hint: "Courts & pricing",
   },
   {
     id: "offers",
@@ -33,6 +39,7 @@ const TABS = [
 const PANELS = {
   locations: SettingsLocations,
   sports: SettingsSports,
+  pitches: SettingsPitches,
   offers: SettingsOffers,
   general: SettingsGeneral,
 };

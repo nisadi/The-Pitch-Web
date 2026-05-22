@@ -64,6 +64,28 @@
   gap: 0.75rem;
 }
 
+.addBookingBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #0a0a0a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: var(--transition);
+}
+
+.addBookingBtn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.addBookingBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .calendarHeader h2 {
   font-size: 1.15rem;
   font-weight: 600;
@@ -202,6 +224,11 @@
   opacity: 0.35;
 }
 
+.dayCellPast {
+  opacity: 0.45;
+  color: var(--foreground-muted);
+}
+
 .dayCellToday {
   border-color: rgba(163, 255, 0, 0.4);
 }
@@ -318,6 +345,17 @@
   position: relative;
 }
 
+.weekCellEmpty {
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.weekCellEmpty:hover,
+.weekCellEmpty:focus-visible {
+  background: rgba(163, 255, 0, 0.08);
+  outline: none;
+}
+
 .weekCell:last-child {
   border-right: none;
 }
@@ -362,6 +400,7 @@
   grid-template-columns: 108px 1fr;
   border-bottom: 1px solid var(--border);
   min-height: 56px;
+  align-items: stretch;
 }
 
 .dayRow:last-child {
@@ -374,6 +413,8 @@
   color: var(--foreground-muted);
   border-right: 1px solid var(--border);
   background: var(--background);
+  display: flex;
+  align-items: flex-start;
 }
 
 .daySlot {
@@ -381,6 +422,64 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+.daySlotEmpty {
+  cursor: pointer;
+  transition: var(--transition);
+  align-items: center;
+  justify-content: center;
+}
+
+.daySlotEmpty:hover,
+.daySlotEmpty:focus-visible {
+  background: rgba(163, 255, 0, 0.08);
+  outline: none;
+}
+
+.daySlotCovered {
+  background: rgba(163, 255, 0, 0.04);
+  pointer-events: none;
+}
+
+.daySlotBooked {
+  justify-content: flex-start;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.slotPlaceholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0;
+  font-size: 0.78rem;
+  color: var(--foreground-muted);
+  font-weight: 600;
+}
+
+.slotPlaceholderShort {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--foreground-muted);
+}
+
+.daySlotEmpty:hover .slotPlaceholderShort,
+.daySlotEmpty:focus-visible .slotPlaceholderShort {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.weekCellCovered {
+  background: rgba(163, 255, 0, 0.04);
+  pointer-events: none;
 }
 
 /* Agenda view */
@@ -441,6 +540,7 @@
   border: 1px solid var(--border);
   background: var(--background);
   transition: var(--transition);
+  cursor: pointer;
 }
 
 .agendaRow:hover {
@@ -592,6 +692,17 @@
   border: 1px solid var(--border);
   border-left-width: 3px;
   background: var(--surface);
+  cursor: pointer;
+  transition: var(--transition);
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.inlineBooking:hover,
+.inlineBooking:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
 }
 
 .inlineBookingTop {
@@ -609,6 +720,32 @@
 .inlineBookingMeta {
   font-size: 0.75rem;
   color: var(--foreground-muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+/* Day view: compact card so rows do not overlap */
+.inlineBookingDay {
+  padding: 0.5rem 0.75rem;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.inlineBookingDay .inlineBookingTop {
+  margin-bottom: 0.2rem;
+}
+
+.inlineBookingDay .inlineBookingTop strong {
+  font-size: 0.82rem;
+}
+
+.inlineBookingDay .inlineBookingMeta {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 1100px) {

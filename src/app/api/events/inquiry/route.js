@@ -33,11 +33,23 @@ export async function POST(request) {
       }
     });
 
+    const emailKey = email?.trim().toLowerCase();
+    const phoneKey = phone?.replace(/\D/g, "");
+    const threadKey = emailKey
+      ? `email:${emailKey}`
+      : phoneKey
+        ? `phone:${phoneKey}`
+        : null;
+
+    const referenceCode = `EVT-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+
     // Insert directly using Admin client to bypass RLS policies
     const { data, error } = await supabaseAdmin
       .from('event_inquiries')
       .insert([
         {
+          reference_code: referenceCode,
+          thread_key: threadKey,
           organization_name: organizationName,
           contact_person: contactPerson,
           email,
@@ -45,7 +57,10 @@ export async function POST(request) {
           event_category: eventCategory,
           guest_count: guestCount ? parseInt(guestCount, 10) : null,
           preferred_date: preferredDate || null,
-          requirements
+          requirements,
+          subject: eventCategory || organizationName || 'Event inquiry',
+          status: 'new',
+          replies: [],
         }
       ])
       .select()

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import styles from './booking.module.css';
@@ -15,6 +15,14 @@ import {
 
 import { getSports } from '@/services/sports';
 import { getLocations } from '@/services/locations';
+import {
+  isPastDate,
+  isSelectableSlot,
+} from '@/lib/booking/bookingSlots';
+import {
+  buildSlotsWithAvailability,
+  subscribeToAvailability,
+} from '@/lib/booking/bookingAvailability';
 
 export default function BookingPage() {
   const router = useRouter();
@@ -24,9 +32,8 @@ export default function BookingPage() {
   const [selectedSport, setSelectedSport] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
 
-  const [selectedSlot, setSelectedSlot] = useState(
-    '10:00 AM - 11:00 AM'
-  );
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [timeSlots, setTimeSlots] = useState([]);
 
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -67,6 +74,15 @@ export default function BookingPage() {
       alert("Please select all details");
       return;
     }
+    if (isPastDate(selectedDate)) {
+      alert("Please choose a date from today onwards.");
+      return;
+    }
+    const slot = timeSlots.find((s) => s.time === selectedSlot);
+    if (!slot || !isSelectableSlot(slot, selectedDate)) {
+      alert("Please choose a future time slot.");
+      return;
+    }
     const bookingDetails = {
       sport: selectedSport,
       location: selectedLocation,
@@ -78,14 +94,56 @@ export default function BookingPage() {
     router.push('/checkout');
   };
 
-  const timeSlots = [
-    { time: '08:00 AM - 09:00 AM', status: 'taken' },
-    { time: '09:00 AM - 10:00 AM', status: 'taken' },
-    { time: '10:00 AM - 11:00 AM', status: 'available' },
-    { time: '11:00 AM - 12:00 PM', status: 'available' },
-    { time: '12:00 PM - 01:00 PM', status: 'available' },
-    { time: '01:00 PM - 02:00 PM', status: 'available' },
-  ];
+  const dateKey = useMemo(() => {
+    const d = selectedDate;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, [selectedDate]);
+
+  const loadAvailability = useCallback(async () => {
+    if (!selectedLocation?.id) {
+      setTimeSlots([]);
+      return;
+    }
+    const slots = await buildSlotsWithAvailability(
+      selectedLocation,
+      selectedDate,
+      selectedLocation.id
+    );
+    setTimeSlots(slots);
+  }, [selectedLocation, selectedDate]);
+
+  useEffect(() => {
+    loadAvailability();
+  }, [loadAvailability]);
+
+  useEffect(() => {
+    if (!selectedLocation?.id || !dateKey) return undefined;
+    return subscribeToAvailability(
+      selectedLocation.id,
+      dateKey,
+      loadAvailability
+    );
+  }, [selectedLocation?.id, dateKey, loadAvailability]);
+
+  useEffect(() => {
+    if (isPastDate(selectedDate)) {
+      setSelectedDate(new Date());
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const selectable = timeSlots.filter((s) =>
+      isSelectableSlot(s, selectedDate)
+    );
+    if (selectable.length === 0) {
+      setSelectedSlot(null);
+      return;
+    }
+    const stillValid = selectable.some((s) => s.time === selectedSlot);
+    if (!stillValid) {
+      setSelectedSlot(selectable[0].time);
+    }
+  }, [timeSlots, selectedSlot, selectedDate]);
 
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();
@@ -215,20 +273,27 @@ export default function BookingPage() {
 
                 {[...Array(daysInMonth)].map((_, i) => {
                   const day = i + 1;
+                  const cellDate = new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth(),
+                    day
+                  );
+                  const isPast = isPastDate(cellDate);
+                  const isSelected =
+                    !isPast &&
+                    selectedDate.getDate() === day &&
+                    selectedDate.getMonth() === currentMonth.getMonth() &&
+                    selectedDate.getFullYear() === currentMonth.getFullYear();
 
                   return (
                     <div
                       key={day}
-                      className={styles.day}
-                      onClick={() =>
-                        setSelectedDate(
-                          new Date(
-                            currentMonth.getFullYear(),
-                            currentMonth.getMonth(),
-                            day
-                          )
-                        )
-                      }
+                      className={`${styles.day} ${
+                        isPast ? styles.dimmedDay : ''
+                      } ${isSelected ? styles.selectedDay : ''}`}
+                      onClick={() => {
+                        if (!isPast) setSelectedDate(cellDate);
+                      }}
                     >
                       {day}
                     </div>
@@ -274,18 +339,32 @@ export default function BookingPage() {
             </h2>
 
             <div className={styles.slotGrid}>
-              {timeSlots.map((slot, i) => (
-                <div
-                  key={i}
-                  className={`${styles.slot} ${styles[slot.status]}`}
-                  onClick={() =>
-                    slot.status !== 'taken' &&
-                    setSelectedSlot(slot.time)
-                  }
-                >
-                  {slot.time}
-                </div>
-              ))}
+              {timeSlots.length === 0 && (
+                <p className={styles.slotEmpty}>
+                  No slots available for this location. Set operational hours in
+                  Admin → Settings → Locations.
+                </p>
+              )}
+              {timeSlots.map((slot, i) => {
+                const selectable = isSelectableSlot(slot, selectedDate);
+                return (
+                  <div
+                    key={i}
+                    className={`${styles.slot} ${
+                      !selectable
+                        ? styles.taken
+                        : selectedSlot === slot.time
+                          ? styles.selected
+                          : styles.available
+                    }`}
+                    onClick={() => {
+                      if (selectable) setSelectedSlot(slot.time);
+                    }}
+                  >
+                    {slot.time}
+                  </div>
+                );
+              })}
             </div>
           </section>
         </div>
@@ -311,7 +390,7 @@ export default function BookingPage() {
 
             <div className={styles.infoGroup}>
               <label>SLOT</label>
-              <p>{selectedSlot}</p>
+              <p>{selectedSlot ?? '—'}</p>
             </div>
 
             <button

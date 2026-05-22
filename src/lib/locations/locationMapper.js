@@ -2,7 +2,7 @@ import { normalizeLocation } from "@/components/admin/settings/adminSettingsDefa
 
 /** Columns that map 1:1 to LocationFormModal fields (+ slug for stable ids). */
 export const LOCATION_COLUMNS =
-  "id, slug, name, short_name, address, phone, description, image_url, open_time, close_time, peak_hour_rate, non_peak_hour_rate, sport_ids, is_active, created_at, updated_at";
+  "id, slug, name, short_name, address, phone, description, image_url, open_time, close_time, non_peak_start, non_peak_end, peak_start, peak_end, sport_ids, is_active, created_at, updated_at";
 
 /** Normalize DB times (e.g. \"06:00 AM\") to 24h HH:mm for forms and booking grids. */
 export function normalizeDbTime(value, fallback = "08:00") {
@@ -44,11 +44,13 @@ export function locationFromRow(row) {
     phone: row.phone ?? "",
     description: row.description ?? "",
     image: row.image_url ?? "",
-    peakHourRate: Number(row.peak_hour_rate) || 0,
-    nonPeakHourRate: Number(row.non_peak_hour_rate) || 0,
     sportIds: Array.isArray(row.sport_ids) ? row.sport_ids : [],
     operationalStart: normalizeDbTime(row.open_time, "08:00"),
     operationalEnd: normalizeDbTime(row.close_time, "21:00"),
+    nonPeakStart: normalizeDbTime(row.non_peak_start, "06:00"),
+    nonPeakEnd: normalizeDbTime(row.non_peak_end, "12:00"),
+    peakStart: normalizeDbTime(row.peak_start, "18:00"),
+    peakEnd: normalizeDbTime(row.peak_end, "22:00"),
     status: row.is_active === false ? "inactive" : "active",
   });
 }
@@ -71,11 +73,13 @@ export function locationToRow(location) {
     phone: location.phone?.trim() || null,
     description: location.description?.trim() || null,
     image_url: imageUrlForDb(location.image),
-    peak_hour_rate: Number(location.peakHourRate) || 0,
-    non_peak_hour_rate: Number(location.nonPeakHourRate) || 0,
     sport_ids: Array.isArray(location.sportIds) ? location.sportIds : [],
     open_time: location.operationalStart ?? "08:00",
     close_time: location.operationalEnd ?? "21:00",
+    non_peak_start: location.nonPeakStart ?? "06:00",
+    non_peak_end: location.nonPeakEnd ?? "12:00",
+    peak_start: location.peakStart ?? "18:00",
+    peak_end: location.peakEnd ?? "22:00",
     is_active: location.status !== "inactive",
     updated_at: new Date().toISOString(),
   };
