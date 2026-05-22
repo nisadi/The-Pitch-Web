@@ -237,7 +237,7 @@ export const sendBookingConfirmationEmail = async (toEmail, fullName, booking) =
     const mailOptions = {
       from: process.env.SMTP_FROM_EMAIL || '"The Pitch" <noreply@thepitch.com>',
       to: toEmail,
-      subject: `Booking Confirmed — ${ref} ⚽`,
+      subject: `Booking Confirmed — ${ref}`,
       html: htmlContent,
     };
 
@@ -367,7 +367,7 @@ export const sendPaymentConfirmationEmail = async (toEmail, fullName, payment) =
     const mailOptions = {
       from: process.env.SMTP_FROM_EMAIL || '"The Pitch" <noreply@thepitch.com>',
       to: toEmail,
-      subject: `Payment Confirmed — ${ref} 💳`,
+      subject: `Payment Confirmed — ${ref}`,
       html: htmlContent,
     };
 

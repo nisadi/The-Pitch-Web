@@ -8,6 +8,9 @@
  * atomic server-side call using the admin client (avoids cookie-loss after
  * the external 3DS redirect).
  *
+ * After a successful payment + booking, sends both a payment confirmation
+ * email and a booking confirmation email (fire-and-forget).
+ *
  * Request body:
  *   { result3ds: string, booking?: { user_id, sport_id, location_id, ... } }
  *
@@ -19,6 +22,7 @@
  */
 
 import { createAdminClient, isAdminClientConfigured } from "@/lib/supabase/admin";
+import { sendPaymentConfirmationEmail, sendBookingConfirmationEmail } from "@/lib/mailer";
 
 /** Convert Base64url → standard Base64 and decode to a UTF-8 string. */
 function base64UrlDecode(str) {
@@ -26,6 +30,48 @@ function base64UrlDecode(str) {
   let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
   while (base64.length % 4) base64 += '=';
   return Buffer.from(base64, 'base64').toString('utf-8');
+}
+
+/**
+ * Look up user profile, sport name, and location name from Supabase.
+ * Returns { email, fullName, sportName, locationName }.
+ */
+async function resolveEmailContext(supabaseAdmin, bookingDetails) {
+  let email = '';
+  let fullName = 'there';
+  let sportName = 'Sport';
+  let locationName = 'Location';
+
+  // Fetch user profile
+  if (bookingDetails.user_id) {
+    const { data: userData } = await supabaseAdmin.auth.admin.getUserById(bookingDetails.user_id);
+    if (userData?.user) {
+      email = userData.user.email || '';
+      fullName = userData.user.user_metadata?.full_name || email.split('@')[0] || 'there';
+    }
+  }
+
+  // Fetch sport name
+  if (bookingDetails.sport_id) {
+    const { data: sportData } = await supabaseAdmin
+      .from('sports')
+      .select('name')
+      .eq('id', bookingDetails.sport_id)
+      .single();
+    if (sportData) sportName = sportData.name;
+  }
+
+  // Fetch location name
+  if (bookingDetails.location_id) {
+    const { data: locData } = await supabaseAdmin
+      .from('locations')
+      .select('name')
+      .eq('id', bookingDetails.location_id)
+      .single();
+    if (locData) locationName = locData.name;
+  }
+
+  return { email, fullName, sportName, locationName };
 }
 
 export async function POST(request) {
@@ -142,6 +188,52 @@ export async function POST(request) {
             result.bookingError = bookingError.message;
           } else {
             result.booking = bookingData;
+
+            // 5. Send confirmation emails (fire-and-forget — don't block the response)
+            try {
+              const { email, fullName, sportName, locationName } =
+                await resolveEmailContext(supabaseAdmin, bookingDetails);
+
+              if (email) {
+                const orderRef = result.decoded.orderNumber
+                  || result.decoded.webxOrderReference
+                  || `#TP-${bookingData.id || Math.floor(10000 + Math.random() * 90000)}-X`;
+                const bookingRef = `#TP-${bookingData.id || Math.floor(10000 + Math.random() * 90000)}-X`;
+                const timeSlot = `${bookingDetails.start_time} - ${bookingDetails.end_time}`;
+
+                // Send payment confirmation email
+                sendPaymentConfirmationEmail(email, fullName, {
+                  ref: orderRef,
+                  amount: bookingDetails.total_amount,
+                  method: 'Credit/Debit Card',
+                  date: new Date().toLocaleDateString('en-US', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                  }),
+                  bookingRef,
+                }).catch((err) => {
+                  console.error('[verify] Failed to send payment confirmation email:', err);
+                });
+
+                // Send booking confirmation email
+                sendBookingConfirmationEmail(email, fullName, {
+                  ref: bookingRef,
+                  sport: sportName,
+                  location: locationName,
+                  date: bookingDetails.booking_date,
+                  time: timeSlot,
+                  amount: bookingDetails.total_amount,
+                }).catch((err) => {
+                  console.error('[verify] Failed to send booking confirmation email:', err);
+                });
+
+                console.log(`[verify] Confirmation emails queued for ${email}`);
+              } else {
+                console.warn('[verify] No user email found — skipping confirmation emails.');
+              }
+            } catch (emailErr) {
+              console.error('[verify] Error resolving email context:', emailErr);
+              // Don't fail the payment/booking response if email lookup fails
+            }
           }
         } catch (bookingErr) {
           console.error('[verify] Booking creation error:', bookingErr);

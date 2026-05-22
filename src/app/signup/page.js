@@ -71,8 +71,6 @@ export default function SignupPage() {
                     window.location.href = "/";
                 }, 1500);
             } else {
-                // For regular signup, the welcome email is sent via /auth/callback
-                // after the user confirms their email
                 setSuccessMsg("Signup successful! Please check your email to confirm your account before logging in.");
                 setLoading(false);
                 setTimeout(() => {
