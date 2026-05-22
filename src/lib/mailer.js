@@ -37,8 +37,8 @@ export const sendWelcomeEmail = async (toEmail, fullName) => {
       <td align="center">
 
         <!-- Card -->
-        <table width="600" cellpadding="0" cellspacing="0" border="0"
-          style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+        <table width="800" cellpadding="0" cellspacing="0" border="0"
+          style="max-width:800px;width:100%;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);box-shadow:0 25px 60px rgba(0,0,0,0.5);">
 
           <!-- RIGHT PANEL - Content -->
           <tr>
@@ -136,8 +136,8 @@ export const sendBookingConfirmationEmail = async (toEmail, fullName, booking) =
     <tr>
       <td align="center">
 
-        <table width="600" cellpadding="0" cellspacing="0" border="0"
-          style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+        <table width="800" cellpadding="0" cellspacing="0" border="0"
+          style="max-width:800px;width:100%;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);box-shadow:0 25px 60px rgba(0,0,0,0.5);">
 
           <!-- Header Banner -->
           <tr>
@@ -205,11 +205,6 @@ export const sendBookingConfirmationEmail = async (toEmail, fullName, booking) =
                   </td>
                 </tr>
               </table>
-
-              <!-- Status badge -->
-              <div style="display:inline-block;background:rgba(163,255,0,0.08);border:1px solid rgba(163,255,0,0.2);border-radius:10px;padding:12px 16px;font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:28px;">
-                ✔ &nbsp; Booking confirmed &amp; field reserved
-              </div>
 
               <div style="border-top:1px solid rgba(255,255,255,0.08);margin-bottom:24px;"></div>
 
@@ -281,8 +276,8 @@ export const sendPaymentConfirmationEmail = async (toEmail, fullName, payment) =
     <tr>
       <td align="center">
 
-        <table width="600" cellpadding="0" cellspacing="0" border="0"
-          style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+        <table width="800" cellpadding="0" cellspacing="0" border="0"
+          style="max-width:800px;width:100%;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);box-shadow:0 25px 60px rgba(0,0,0,0.5);">
 
           <!-- Header Banner -->
           <tr>
