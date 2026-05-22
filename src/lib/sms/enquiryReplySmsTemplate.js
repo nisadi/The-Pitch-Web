@@ -1,7 +1,7 @@
 const DEFAULT_CONTACT_PHONE =
   process.env.PITCH_CONTACT_PHONE?.trim() ||
   process.env.NEXT_PUBLIC_PITCH_CONTACT_PHONE?.trim() ||
-  "+94 11 456 7890";
+  "+94 77 748 1786";
 
 function collapseWhitespace(text) {
   return String(text ?? "")

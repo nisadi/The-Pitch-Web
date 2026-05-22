@@ -1,7 +1,5 @@
-import {
-  isEsmsConfigured,
-  sanitizePhoneInput,
-} from "./enquiryReplySms";
+import { isEsmsConfigured } from "./enquiryReplySms";
+import { formatPhoneForEsms, normalizePhoneForSms } from "./phoneFormat";
 import { getPitchContactPhone } from "./enquiryReplySmsTemplate";
 
 function formatBookingDate(dateKey) {
@@ -87,8 +85,8 @@ async function deliverBookingSms(phone, smsBody) {
     };
   }
 
-  const sanitizedPhone = sanitizePhoneInput(phone);
-  if (!sanitizedPhone) {
+  const normalizedPhone = normalizePhoneForSms(phone);
+  if (!normalizedPhone) {
     return { success: false, skipped: true, error: "No phone number provided." };
   }
 
@@ -98,19 +96,19 @@ async function deliverBookingSms(phone, smsBody) {
     (hasGetKey && process.env.ESMS_USE_GET !== "false");
 
   try {
-    const { sendSMS, formatPhoneNumber } = await import("../../../messenger.js");
+    const { sendSMS } = await import("../../../messenger.js");
     let formattedPhone;
     try {
-      formattedPhone = formatPhoneNumber(sanitizedPhone);
+      formattedPhone = await formatPhoneForEsms(phone);
     } catch (formatErr) {
       return {
         success: false,
         error: formatErr?.message ?? "Invalid phone number format.",
-        phone: sanitizedPhone,
+        phone: normalizedPhone,
       };
     }
 
-    const result = await sendSMS(sanitizedPhone, smsBody, {
+    const result = await sendSMS(normalizedPhone, smsBody, {
       sourceAddress: process.env.ESMS_DEFAULT_MASK,
       useGetMethod,
       skipMaxLength: true,
@@ -120,14 +118,14 @@ async function deliverBookingSms(phone, smsBody) {
       return {
         success: false,
         error: result?.error ?? "SMS gateway rejected the message.",
-        phone: sanitizedPhone,
+        phone: normalizedPhone,
         formattedPhone,
       };
     }
 
     return {
       success: true,
-      phone: sanitizedPhone,
+      phone: normalizedPhone,
       formattedPhone,
       messageId: result.messageId ?? null,
     };
@@ -135,7 +133,7 @@ async function deliverBookingSms(phone, smsBody) {
     return {
       success: false,
       error: err?.message ?? "Failed to send SMS.",
-      phone: sanitizedPhone,
+      phone: normalizedPhone,
     };
   }
 }

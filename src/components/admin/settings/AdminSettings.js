@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import SettingsGeneral from "./SettingsGeneral";
+import SettingsGallery from "./SettingsGallery";
 import SettingsLocations from "./SettingsLocations";
 import SettingsOffers from "./SettingsOffers";
 import SettingsSports from "./SettingsSports";
@@ -30,6 +31,11 @@ const TABS = [
     hint: "Promotions & discounts",
   },
   {
+    id: "gallery",
+    label: "Gallery",
+    hint: "Website photos & layout",
+  },
+  {
     id: "general",
     label: "General",
     hint: "Business & booking rules",
@@ -41,6 +47,7 @@ const PANELS = {
   sports: SettingsSports,
   pitches: SettingsPitches,
   offers: SettingsOffers,
+  gallery: SettingsGallery,
   general: SettingsGeneral,
 };
 

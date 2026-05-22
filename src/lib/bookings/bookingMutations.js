@@ -170,8 +170,23 @@ export async function insertCalendarBooking(supabase, payload) {
 
   const { start_time, end_time } = hoursToDbRange(start, end);
 
+  const resolvedPitchId = await resolvePitchId(supabase, {
+    location_id,
+    sport_id,
+    pitch_id,
+  });
+
+  if (!resolvedPitchId) {
+    return {
+      error:
+        "No active court for this location. Add a pitch in Admin → Settings.",
+      status: 400,
+    };
+  }
+
   const conflict = await findBookingRangeConflict(supabase, {
     location_id,
+    pitch_id: resolvedPitchId,
     booking_date,
     start_time,
     end_time,
@@ -192,20 +207,6 @@ export async function insertCalendarBooking(supabase, payload) {
       error:
         "No user record available to attach the booking. Add a customer in Admin or set ADMIN_BOOKING_USER_ID.",
       status: 500,
-    };
-  }
-
-  const resolvedPitchId = await resolvePitchId(supabase, {
-    location_id,
-    sport_id,
-    pitch_id,
-  });
-
-  if (!resolvedPitchId) {
-    return {
-      error:
-        "No active court for this location. Add a pitch in Admin → Settings.",
-      status: 400,
     };
   }
 

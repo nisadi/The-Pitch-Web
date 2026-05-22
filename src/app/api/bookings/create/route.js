@@ -93,9 +93,27 @@ export async function POST(request) {
 
     const dateKey = formatBookingDate(booking_date) || booking_date;
 
+    const resolvedPitchId = await resolvePitchId(supabase, {
+      location_id,
+      sport_id,
+      pitch_id,
+    });
+
+    if (!resolvedPitchId) {
+      return Response.json(
+        {
+          error: "NO_PITCH",
+          explanation:
+            "No active court is configured for this location and sport.",
+        },
+        { status: 400 }
+      );
+    }
+
     if (start_time && end_time && location_id) {
       const conflict = await findBookingRangeConflict(supabase, {
         location_id,
+        pitch_id: resolvedPitchId,
         booking_date: dateKey,
         start_time,
         end_time,
@@ -113,23 +131,6 @@ export async function POST(request) {
           { status: 409 }
         );
       }
-    }
-
-    const resolvedPitchId = await resolvePitchId(supabase, {
-      location_id,
-      sport_id,
-      pitch_id,
-    });
-
-    if (!resolvedPitchId) {
-      return Response.json(
-        {
-          error: "NO_PITCH",
-          explanation:
-            "No active court is configured for this location and sport.",
-        },
-        { status: 400 }
-      );
     }
 
     const { data, error } = await supabase

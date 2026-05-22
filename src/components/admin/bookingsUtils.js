@@ -169,6 +169,11 @@ export function formatHourLabel(hour) {
     return `${start.text} - ${end.text} ${start.period}`;
   }
 
+  // AM → PM (e.g. 11.00 - 12.00 PM): one line in the narrow day-view label column
+  if (start.period === "AM" && end.period === "PM") {
+    return `${start.text} - ${end.text} ${end.period}`;
+  }
+
   return `${start.text} ${start.period} - ${end.text} ${end.period}`;
 }
 

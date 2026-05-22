@@ -456,6 +456,12 @@
   font-size: 0.95rem;
 }
 
+.syncError {
+  color: #f87171;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

@@ -74,6 +74,17 @@ export function pitchMatchesLocation(pitch, location) {
   return false;
 }
 
+/** All active pitches at a location (calendar pitch picker). */
+export function getActivePitchesForLocation(pitches, location) {
+  if (!location) return [];
+  return (pitches ?? [])
+    .filter(
+      (pitch) =>
+        pitchMatchesLocation(pitch, location) && pitch.status !== "inactive"
+    )
+    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+}
+
 /** Pitches at a location that support the given sport (active only). */
 export function filterPitchesForBooking(
   pitches,

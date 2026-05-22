@@ -95,29 +95,7 @@ export async function PATCH(request, { params }) {
 
       const { start_time, end_time } = hoursToDbRange(start_hour, end_hour);
 
-      const conflict = await findBookingRangeConflict(supabase, {
-        location_id: existing.location_id,
-        booking_date,
-        start_time,
-        end_time,
-        excludeId: id,
-      });
-
-      if (conflict) {
-        return NextResponse.json(
-          { error: "One or more hours in this range are already booked or blocked." },
-          { status: 409 }
-        );
-      }
-
-      const updates = {
-        booking_date,
-        start_time,
-        end_time,
-      };
-
       const sportId = body.sport_id ?? existing.sport_id;
-      if (body.sport_id) updates.sport_id = body.sport_id;
 
       const resolvedPitchId = await resolvePitchId(supabase, {
         location_id: existing.location_id,
@@ -135,7 +113,30 @@ export async function PATCH(request, { params }) {
         );
       }
 
-      updates.pitch_id = resolvedPitchId;
+      const conflict = await findBookingRangeConflict(supabase, {
+        location_id: existing.location_id,
+        pitch_id: resolvedPitchId,
+        booking_date,
+        start_time,
+        end_time,
+        excludeId: id,
+      });
+
+      if (conflict) {
+        return NextResponse.json(
+          { error: "One or more hours in this range are already booked or blocked." },
+          { status: 409 }
+        );
+      }
+
+      const updates = {
+        booking_date,
+        start_time,
+        end_time,
+        pitch_id: resolvedPitchId,
+      };
+
+      if (body.sport_id) updates.sport_id = body.sport_id;
 
       const { data, error } = await supabase
         .from("bookings")

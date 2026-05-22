@@ -19,7 +19,10 @@ import {
   isAdminRangeBookable,
 } from "@/lib/bookings/bookingRange";
 import { enrichLocationWithDefaults } from "@/lib/locations/resolveAdminLocation";
-import { filterPitchesForBooking } from "@/lib/pitches/pitchMapper";
+import {
+  filterPitchesForBooking,
+  getActivePitchesForLocation,
+} from "@/lib/pitches/pitchMapper";
 import { useAdminSettings } from "./settings/adminSettingsContext";
 import { getBookingsForDate } from "./bookingsData";
 import { formatHourLabel } from "./bookingsUtils";
@@ -61,6 +64,7 @@ export default function AddBookingModal({
   bookingsForCalendar = [],
   initialDateKey = "",
   initialStartHour = null,
+  initialPitchId = "",
 }) {
   const formId = useId();
   const formDomId = `${formId}-form`;
@@ -290,19 +294,55 @@ export default function AddBookingModal({
 
     const defaultEnd = ends[0] ?? fallbackEnd;
 
+    const locationPitches = getActivePitchesForLocation(
+      settingsPitches,
+      bookingLocation
+    );
+    const calendarPitch =
+      initialPitchId &&
+      locationPitches.find(
+        (p) =>
+          String(p.id) === String(initialPitchId) ||
+          String(p.dbId) === String(initialPitchId)
+      );
+
+    const defaultPitchId = calendarPitch
+      ? String(calendarPitch.dbId ?? calendarPitch.id)
+      : "";
+
+    const sportFromPitch =
+      calendarPitch?.sportId && isUuid(String(calendarPitch.sportId))
+        ? String(calendarPitch.sportId)
+        : calendarPitch?.sportIds?.[0] && isUuid(String(calendarPitch.sportIds[0]))
+          ? String(calendarPitch.sportIds[0])
+          : "";
+
     setForm({
       type: "booking",
       booking_date: resolvedDate,
       start_hour: Number.isFinite(defaultStart) ? String(defaultStart) : "",
       end_hour: defaultEnd != null ? String(defaultEnd) : "",
-      sport_id: firstSport?.dbId ? String(firstSport.dbId) : "",
-      pitch_id: "",
+      sport_id:
+        sportFromPitch ||
+        (firstSport?.dbId ? String(firstSport.dbId) : ""),
+      pitch_id: defaultPitchId,
       customer_name: "",
       customer_email: "",
       customer_phone: "",
       total_amount: "",
     });
-  }, [open, initialDateKey, initialStartHour, locationSports, slotHours, minDate]);
+  }, [
+    open,
+    initialDateKey,
+    initialStartHour,
+    initialPitchId,
+    locationSports,
+    slotHours,
+    minDate,
+    initialPitchId,
+    settingsPitches,
+    bookingLocation,
+  ]);
 
   useEffect(() => {
     if (!open || !isSupabaseConfigured()) return undefined;

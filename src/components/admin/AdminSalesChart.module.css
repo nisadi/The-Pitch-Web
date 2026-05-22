@@ -6,6 +6,13 @@
   overflow: visible;
 }
 
+.chartLoading {
+  color: var(--foreground-muted);
+  font-size: 0.9rem;
+  padding: 2rem 0;
+  text-align: center;
+}
+
 .chartArea {
   position: relative;
   width: 100%;

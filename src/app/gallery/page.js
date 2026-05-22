@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, X, ChevronLeft, ChevronRight } from "lucide-react";
 import styles from "./gallery.module.css";
+import { galleryBadgeClass } from "@/lib/gallery/galleryMapper";
 import { getGallery } from "@/services/gallery";
 
 const CATEGORIES = ["All Access", "Ground", "Cafe", "Kids Area", "Events"];
@@ -42,17 +43,27 @@ export default function GalleryPage() {
     const fetchGallery = async () => {
       const data = await getGallery();
       if (data && data.length > 0) {
-        // Map database fields to what the component expects if necessary
-        setGalleryItems(data.map((item, index) => {
-          // Provide some default positions for the masonry layout if not defined in DB
-          const positions = ["row1", "row1", "midLeft", "midTall", "midLeft", "bottom", "bottom", "bottom"];
-          return {
-            ...item,
-            src: item.image_url || "/images/placeholder.png", // Map database image_url to src
-            position: item.position || positions[index % positions.length],
-            badge: item.badge || `badge${item.category?.replace(/\s+/g, '') || 'Ground'}`
-          };
-        }));
+        const defaultPositions = [
+          "row1",
+          "row1",
+          "midLeft",
+          "midTall",
+          "midLeft",
+          "bottom",
+          "bottom",
+          "bottom",
+        ];
+        setGalleryItems(
+          data.map((item, index) => ({
+            id: item.id,
+            title: item.title,
+            category: item.category,
+            src: item.imageUrl || "/images/placeholder.png",
+            position:
+              item.position || defaultPositions[index % defaultPositions.length],
+            badge: galleryBadgeClass(item.category),
+          }))
+        );
       }
     };
     fetchGallery();
@@ -151,6 +162,12 @@ export default function GalleryPage() {
 
       {/* ─── GALLERY GRID ─── */}
       <div className={styles.gallerySection}>
+        {galleryItems.length === 0 ? (
+          <p className={styles.galleryEmpty}>
+            Gallery photos will appear here once added in Admin → Settings →
+            Gallery.
+          </p>
+        ) : null}
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -159,6 +176,11 @@ export default function GalleryPage() {
             animate="animate"
             exit="exit"
           >
+            {filteredItems.length === 0 && galleryItems.length > 0 ? (
+              <p className={styles.galleryEmpty}>
+                No photos in this category yet.
+              </p>
+            ) : null}
             {isFiltered ? (
               /* Filtered view — simple 3-col grid */
               <div className={styles.gridRow4}>

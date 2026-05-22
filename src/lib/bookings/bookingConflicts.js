@@ -1,11 +1,12 @@
 import { dbTimesOverlap } from "./bookingRange";
 
 /**
- * Returns first booking row that overlaps [start_time, end_time) on the same day/location.
+ * Returns first booking row that overlaps [start_time, end_time) on the same day.
+ * When pitch_id is set, only that court/pitch is checked (calendar availability is per pitch).
  */
 export async function findBookingRangeConflict(
   supabase,
-  { location_id, booking_date, start_time, end_time, excludeId }
+  { location_id, pitch_id, booking_date, start_time, end_time, excludeId }
 ) {
   let query = supabase
     .from("bookings")
@@ -13,6 +14,10 @@ export async function findBookingRangeConflict(
     .eq("location_id", location_id)
     .eq("booking_date", booking_date)
     .not("booking_status", "eq", "cancelled");
+
+  if (pitch_id) {
+    query = query.eq("pitch_id", pitch_id);
+  }
 
   if (excludeId) {
     query = query.neq("id", excludeId);

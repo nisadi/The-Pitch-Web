@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   formatLkr,
   formatPercentChange,
-  salesOverviewData,
+  salesOverviewData as fallbackSalesOverview,
 } from "./adminSalesChartData";
 import styles from "./AdminSalesChart.module.css";
 
@@ -134,7 +134,13 @@ function ChartTooltip({ series, index, showComparison }) {
   );
 }
 
-function SalesLineChart({ series, maxY = 2500, showComparison = false }) {
+function SalesLineChart({
+  series,
+  maxY = 2500,
+  yTicks = Y_TICKS,
+  showComparison = false,
+  loading = false,
+}) {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [tooltipPos, setTooltipPos] = useState(null);
   const chartScrollRef = useRef(null);
@@ -185,6 +191,14 @@ function SalesLineChart({ series, maxY = 2500, showComparison = false }) {
     };
   }, [hoveredIndex, anchorX, anchorY, series, showComparison]);
 
+  if (loading) {
+    return (
+      <div className={styles.chartArea}>
+        <p className={styles.chartLoading}>Loading sales data…</p>
+      </div>
+    );
+  }
+
   return (
     <div
       className={styles.chartArea}
@@ -215,7 +229,7 @@ function SalesLineChart({ series, maxY = 2500, showComparison = false }) {
         role="img"
         aria-label="Sales chart for the past week"
       >
-        {Y_TICKS.map((tick) => {
+        {yTicks.map((tick) => {
           const y =
             CHART.padding.top +
             (CHART.height - CHART.padding.top - CHART.padding.bottom) -
@@ -310,28 +324,52 @@ function SalesLineChart({ series, maxY = 2500, showComparison = false }) {
   );
 }
 
-export default function AdminSalesChart() {
+export default function AdminSalesChart({
+  salesOverview = null,
+  loading = false,
+}) {
+  const overview = salesOverview ?? fallbackSalesOverview;
+  const chartMaxY = overview.maxY ?? 2500;
+
   const overviewSeries = useMemo(
     () => [
       {
-        label: salesOverviewData.thisPeriod.label,
+        label: overview.thisPeriod.label,
         color: PRIMARY_COLOR,
         dashed: false,
-        points: salesOverviewData.thisPeriod.points,
+        points: overview.thisPeriod.points,
       },
       {
-        label: salesOverviewData.lastPeriod.label,
+        label: overview.lastPeriod.label,
         color: "#6b7280",
         dashed: true,
-        points: salesOverviewData.lastPeriod.points,
+        points: overview.lastPeriod.points,
       },
     ],
-    []
+    [overview]
   );
+
+  const yTicks = useMemo(() => {
+    if (chartMaxY <= 0) return [0, 500, 1000, 1500, 2000, 2500];
+    const step =
+      chartMaxY <= 2500 ? 500 : Math.max(500, Math.ceil(chartMaxY / 5 / 500) * 500);
+    const ticks = [];
+    for (let v = 0; v <= chartMaxY; v += step) {
+      ticks.push(v);
+    }
+    if (ticks[ticks.length - 1] !== chartMaxY) ticks.push(chartMaxY);
+    return ticks.length > 1 ? ticks : [0, chartMaxY];
+  }, [chartMaxY]);
 
   return (
     <section className={styles.panel}>
-      <SalesLineChart series={overviewSeries} showComparison />
+      <SalesLineChart
+        series={overviewSeries}
+        maxY={chartMaxY}
+        yTicks={yTicks}
+        showComparison
+        loading={loading}
+      />
 
       <div className={styles.legend}>
         {overviewSeries.map((item) => (

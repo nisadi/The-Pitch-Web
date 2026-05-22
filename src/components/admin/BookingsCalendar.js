@@ -24,7 +24,13 @@ import {
 } from "./bookingsUtils";
 import { useAdminLocation } from "./adminLocationContext";
 import { useAdminSettings } from "./settings/adminSettingsContext";
+import AdminCalendarPitchSelect from "./AdminCalendarPitchSelect";
 import AddBookingModal from "./AddBookingModal";
+import {
+  readStoredCalendarPitchId,
+  writeStoredCalendarPitchId,
+} from "@/lib/admin/calendarPitchStorage";
+import { getActivePitchesForLocation } from "@/lib/pitches/pitchMapper";
 import BookingDetailModal from "./BookingDetailModal";
 import {
   fetchCalendarBookings,
@@ -122,8 +128,9 @@ export default function BookingsCalendar() {
   const [detailBooking, setDetailBooking] = useState(null);
   const [detailSubmitting, setDetailSubmitting] = useState(false);
   const { filterValue: locationFilter, locationId } = useAdminLocation();
-  const { locations, sports } = useAdminSettings();
+  const { locations, sports, pitches: settingsPitches } = useAdminSettings();
   const [calendarLocation, setCalendarLocation] = useState(null);
+  const [selectedPitchId, setSelectedPitchId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +149,49 @@ export default function BookingsCalendar() {
 
   const activeLocation = calendarLocation;
 
+  const locationPitches = useMemo(
+    () => getActivePitchesForLocation(settingsPitches, activeLocation),
+    [settingsPitches, activeLocation]
+  );
+
+  const selectedPitch = useMemo(
+    () =>
+      locationPitches.find(
+        (p) =>
+          String(p.id) === String(selectedPitchId) ||
+          String(p.dbId) === String(selectedPitchId)
+      ) ?? null,
+    [locationPitches, selectedPitchId]
+  );
+
+  useEffect(() => {
+    if (!activeLocation?.dbId) {
+      setSelectedPitchId("");
+      return;
+    }
+
+    const ids = locationPitches.map((p) => String(p.dbId ?? p.id));
+    if (!ids.length) {
+      setSelectedPitchId("");
+      return;
+    }
+
+    const stored = readStoredCalendarPitchId(activeLocation.dbId);
+    const next =
+      stored && ids.includes(stored) ? stored : ids[0];
+    setSelectedPitchId(next);
+  }, [activeLocation?.dbId, locationPitches]);
+
+  const handleSelectPitch = useCallback(
+    (pitchId) => {
+      setSelectedPitchId(pitchId);
+      if (activeLocation?.dbId) {
+        writeStoredCalendarPitchId(activeLocation.dbId, pitchId);
+      }
+    },
+    [activeLocation?.dbId]
+  );
+
   const calendarHours = useMemo(
     () =>
       getOperationalHours(
@@ -151,13 +201,17 @@ export default function BookingsCalendar() {
     [activeLocation]
   );
 
-  const filteredBookings = useMemo(
-    () =>
-      filterByLocation(bookings, locationFilter).filter(
-        (b) => b.bookingStatus !== "cancelled"
-      ),
-    [bookings, locationFilter]
-  );
+  const filteredBookings = useMemo(() => {
+    let list = filterByLocation(bookings, locationFilter).filter(
+      (b) => b.bookingStatus !== "cancelled"
+    );
+    if (selectedPitchId) {
+      list = list.filter(
+        (b) => b.pitchId && String(b.pitchId) === String(selectedPitchId)
+      );
+    }
+    return list;
+  }, [bookings, locationFilter, selectedPitchId]);
 
   const calendarRange = useMemo(() => {
     const year = focusDate.getFullYear();
@@ -498,7 +552,13 @@ export default function BookingsCalendar() {
     [focusDate]
   );
 
-  const headerTitle = formatHeaderRange(calendarView, focusDate);
+  const headerTitle = useMemo(() => {
+    const base = formatHeaderRange(calendarView, focusDate);
+    if (selectedPitch?.name) {
+      return `${base} · ${selectedPitch.name}`;
+    }
+    return base;
+  }, [calendarView, focusDate, selectedPitch?.name]);
 
   const navigatePrev = () => {
     const d = new Date(focusDate);
@@ -683,11 +743,18 @@ export default function BookingsCalendar() {
           </div>
 
           <div className={styles.toolbarRight}>
+            {locationPitches.length >= 2 ? (
+              <AdminCalendarPitchSelect
+                pitches={locationPitches}
+                selectedPitchId={selectedPitchId}
+                onSelectPitch={handleSelectPitch}
+              />
+            ) : null}
             <button
               type="button"
               className={styles.addBookingBtn}
               onClick={() => openAddBookingModal(selectedDate)}
-              disabled={!activeLocation?.dbId}
+              disabled={!activeLocation?.dbId || !selectedPitchId}
             >
               <Plus size={16} />
               Add booking
@@ -711,6 +778,13 @@ export default function BookingsCalendar() {
             </div>
           </div>
         </div>
+
+        {!locationPitches.length && activeLocation?.dbId ? (
+          <p className={styles.noPitchHint}>
+            No active pitches at this location. Add courts in Admin → Settings →
+            Pitches to use the calendar.
+          </p>
+        ) : null}
 
         <div className={styles.calendarBody}>
         {calendarView === "month" && (
@@ -982,7 +1056,11 @@ export default function BookingsCalendar() {
           <div className={styles.agendaList}>
             {agendaDays.length === 0 ? (
               <p className={styles.emptyState}>
-                No bookings this week at {locationFilter}.
+                No bookings this week
+                {selectedPitch?.name
+                  ? ` on ${selectedPitch.name}`
+                  : ` at ${locationFilter}`}
+                .
               </p>
             ) : (
               agendaDays.map(({ dateKey, bookings }) => (
@@ -1075,6 +1153,7 @@ export default function BookingsCalendar() {
         bookingsForCalendar={filteredBookings}
         initialDateKey={bookingDraft.dateKey || selectedDate}
         initialStartHour={bookingDraft.startHour}
+        initialPitchId={selectedPitchId}
       />
 
       <BookingDetailModal

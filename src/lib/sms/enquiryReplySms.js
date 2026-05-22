@@ -1,12 +1,12 @@
 import { buildEnquiryReplySmsBody } from "./enquiryReplySmsTemplate";
+import {
+  formatPhoneForEsms,
+  normalizePhoneForSms,
+  sanitizePhoneInput,
+} from "./phoneFormat";
 
 export { buildEnquiryReplySmsBody, getPitchContactPhone } from "./enquiryReplySmsTemplate";
-
-/** Strip to digits; Dialog accepts +94 / 07 / 9-digit mobile. */
-export function sanitizePhoneInput(phone) {
-  if (!phone || typeof phone !== "string") return "";
-  return phone.replace(/[^\d+]/g, "").replace(/\s+/g, "");
-}
+export { sanitizePhoneInput, normalizePhoneForSms, formatPhoneForEsms } from "./phoneFormat";
 
 export function isEsmsConfigured() {
   const hasAuth = Boolean(
@@ -31,8 +31,8 @@ export async function sendEnquiryReplySms({
     };
   }
 
-  const sanitizedPhone = sanitizePhoneInput(phone);
-  if (!sanitizedPhone) {
+  const normalizedPhone = normalizePhoneForSms(phone);
+  if (!normalizedPhone) {
     return { success: false, error: "Customer phone number is missing." };
   }
 
@@ -48,19 +48,19 @@ export async function sendEnquiryReplySms({
     (hasGetKey && process.env.ESMS_USE_GET !== "false");
 
   try {
-    const { sendSMS, formatPhoneNumber } = await import("../../../messenger.js");
+    const { sendSMS } = await import("../../../messenger.js");
     let formattedPhone;
     try {
-      formattedPhone = formatPhoneNumber(sanitizedPhone);
+      formattedPhone = await formatPhoneForEsms(phone);
     } catch (formatErr) {
       return {
         success: false,
         error: formatErr?.message ?? "Invalid phone number format.",
-        phone: sanitizedPhone,
+        phone: normalizedPhone,
       };
     }
 
-    const result = await sendSMS(sanitizedPhone, smsBody, {
+    const result = await sendSMS(normalizedPhone, smsBody, {
       sourceAddress: process.env.ESMS_DEFAULT_MASK,
       useGetMethod,
       skipMaxLength: true,
@@ -70,7 +70,7 @@ export async function sendEnquiryReplySms({
       return {
         success: false,
         error: result?.error ?? "SMS gateway rejected the message.",
-        phone: sanitizedPhone,
+        phone: normalizedPhone,
         formattedPhone,
         method: useGetMethod ? "GET" : "POST",
       };
@@ -78,7 +78,7 @@ export async function sendEnquiryReplySms({
 
     return {
       success: true,
-      phone: sanitizedPhone,
+      phone: normalizedPhone,
       formattedPhone,
       method: useGetMethod ? "GET" : "POST",
       smsBody,

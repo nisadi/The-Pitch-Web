@@ -165,6 +165,161 @@
   outline: none;
 }
 
+/* Pitch / court switcher (segmented, matches view tabs) */
+.pitchSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.pitchTabs {
+  display: flex;
+  max-width: min(100%, 28rem);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--background);
+}
+
+.pitchTab {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 9rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--foreground-muted);
+  background: transparent;
+  border-right: 1px solid var(--border);
+  transition: var(--transition);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pitchTab:last-child {
+  border-right: none;
+}
+
+.pitchTab:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+.pitchTabActive {
+  background: rgba(163, 255, 0, 0.14);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.pitchTab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.pitchDropdown {
+  position: relative;
+}
+
+.pitchDropdownTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 36px;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.pitchDropdownTrigger:hover,
+.pitchDropdownTriggerOpen {
+  border-color: rgba(163, 255, 0, 0.45);
+  background: rgba(163, 255, 0, 0.06);
+}
+
+.pitchDropdownValue {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pitchDropdownChevron {
+  color: var(--primary);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.pitchDropdownChevronOpen {
+  transform: rotate(180deg);
+}
+
+.pitchDropdownMenu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  left: auto;
+  min-width: 220px;
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+
+.pitchDropdownOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--foreground-muted);
+  transition: var(--transition);
+}
+
+.pitchDropdownOption:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+.pitchDropdownOptionActive {
+  background: rgba(163, 255, 0, 0.12);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.pitchDropdownOptionText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pitchDropdownCheck {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.noPitchHint {
+  font-size: 0.8rem;
+  color: var(--foreground-muted);
+  margin: 0 0 0.5rem;
+}
+
 /* Month view */
 .weekdays {
   display: grid;
@@ -398,23 +553,31 @@
 .dayRow {
   display: grid;
   grid-template-columns: 108px 1fr;
-  border-bottom: 1px solid var(--border);
   min-height: 56px;
   align-items: stretch;
 }
 
-.dayRow:last-child {
+.dayRow:last-child .dayHour,
+.dayRow:last-child .daySlot {
   border-bottom: none;
 }
 
 .dayHour {
-  padding: 0.75rem 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.5rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.25;
   color: var(--foreground-muted);
   border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   background: var(--background);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 56px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .daySlot {
@@ -422,6 +585,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  min-height: 56px;
+  box-sizing: border-box;
 }
 
 .daySlotEmpty {
@@ -796,6 +962,35 @@
     padding: 0.45rem 0.25rem;
     font-size: 0.68rem;
     text-align: center;
+  }
+
+  .pitchSwitcher {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .pitchTabs {
+    flex: 1;
+    width: 100%;
+    max-width: none;
+  }
+
+  .pitchTab {
+    flex: 1 1 0;
+    max-width: none;
+    padding: 0.45rem 0.35rem;
+    font-size: 0.72rem;
+    text-align: center;
+  }
+
+  .pitchDropdown {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pitchDropdownTrigger {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .weekHeader,
