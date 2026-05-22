@@ -68,7 +68,7 @@ export function pitchMatchesLocation(pitch, location) {
   const pitchLoc = pitch.locationId ?? pitch.location_id;
   if (!pitchLoc) return false;
 
-  const dbId = location.dbId ?? location.db_id;
+  const dbId = location.dbId ?? location.db_id ?? location.id;
   if (dbId && normalizeUuid(pitchLoc) === normalizeUuid(dbId)) return true;
 
   return false;

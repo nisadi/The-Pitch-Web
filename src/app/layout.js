@@ -25,7 +25,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body style={{ paddingTop: '80px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <body
+        className="has-navbar"
+        style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}
+      >
         <AppShell>{children}</AppShell>
       </body>
     </html>

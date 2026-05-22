@@ -3,6 +3,7 @@
   color: #000000;
   min-height: 100vh;
   font-family: var(--font-outfit);
+  margin-top: calc(-1 * var(--navbar-height));
 }
 
 /* ─── HERO SECTION ─── */
@@ -11,7 +12,7 @@
   background-image: linear-gradient(to bottom, rgba(17, 69, 45, 0.6) 0%, rgba(17, 69, 45, 0.3) 100%), url('/images/sports-hero.png');
   background-size: cover;
   background-position: center;
-  padding: 8rem 0 4rem 0;
+  padding: calc(8rem + var(--navbar-height)) 0 4rem 0;
   color: #FFFFFF;
   display: flex;
   flex-direction: column;

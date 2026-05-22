@@ -45,7 +45,7 @@ function buildBookingApiPayload(parsed, booking) {
   return {
     sport_id: parsed.sport?.id || booking.sportId,
     location_id: parsed.location?.id || booking.locationId,
-    pitch_id: null,
+    pitch_id: parsed.pitch?.id ?? parsed.pitch?.dbId ?? null,
     booking_date: parsed.originalDate || booking.originalDate,
     start_time: timeParts[0],
     end_time: timeParts[1],

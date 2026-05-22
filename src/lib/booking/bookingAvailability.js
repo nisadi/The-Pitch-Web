@@ -6,16 +6,26 @@ import { buildSlotsFromLocation } from "./bookingSlots";
 const AVAILABILITY_SELECT =
   "id, booking_date, start_time, end_time, booking_status, location_id, sport_id, pitch_id";
 
-export async function fetchAvailabilityForDate(locationDbId, dateKey) {
+export async function fetchAvailabilityForDate(
+  locationDbId,
+  dateKey,
+  pitchId = null
+) {
   if (!isSupabaseConfigured() || !locationDbId || !dateKey) return [];
 
   const supabase = createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("bookings")
     .select(AVAILABILITY_SELECT)
     .eq("location_id", locationDbId)
     .eq("booking_date", dateKey)
     .not("booking_status", "eq", "cancelled");
+
+  if (pitchId) {
+    query = query.eq("pitch_id", pitchId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[fetchAvailabilityForDate]", error);
@@ -63,29 +73,35 @@ export function applyAvailabilityToSlots(slots, bookings = []) {
 export async function buildSlotsWithAvailability(
   location,
   selectedDate,
-  locationDbId
+  locationDbId,
+  pitchId = null
 ) {
   const base = buildSlotsFromLocation(location, selectedDate);
-  if (!locationDbId) return base;
+  if (!locationDbId || !pitchId) return base;
 
   const dateKey =
     selectedDate instanceof Date
       ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
       : selectedDate;
 
-  const bookings = await fetchAvailabilityForDate(locationDbId, dateKey);
+  const bookings = await fetchAvailabilityForDate(
+    locationDbId,
+    dateKey,
+    pitchId
+  );
   return applyAvailabilityToSlots(base, bookings);
 }
 
 export function subscribeToAvailability(
   locationDbId,
   dateKey,
-  onRefresh
+  onRefresh,
+  pitchId = null
 ) {
   if (!isSupabaseConfigured() || !locationDbId || !dateKey) return () => {};
 
   const supabase = createClient();
-  const channelName = `booking-availability-${locationDbId}-${dateKey}-${Date.now()}`;
+  const channelName = `booking-availability-${locationDbId}-${pitchId ?? "all"}-${dateKey}-${Date.now()}`;
 
   const channel = supabase
     .channel(channelName)
