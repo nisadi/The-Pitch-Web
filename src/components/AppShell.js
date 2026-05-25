@@ -12,7 +12,10 @@ export default function AppShell({ children }) {
   const isLogin = pathname === "/login";
 
   useEffect(() => {
-    document.body.style.paddingTop = isAdmin || isLogin ? "0" : "80px";
+    document.body.classList.toggle(
+      "has-navbar",
+      !isAdmin && !isLogin
+    );
   }, [isAdmin, isLogin]);
 
   return (

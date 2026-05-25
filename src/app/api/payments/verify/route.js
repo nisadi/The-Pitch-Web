@@ -23,6 +23,13 @@
 
 import { createAdminClient, isAdminClientConfigured } from "@/lib/supabase/admin";
 import { sendPaymentConfirmationEmail, sendBookingConfirmationEmail } from "@/lib/mailer";
+import { attachPromoToBooking } from "@/lib/promos/bookingPromo";
+import {
+  calculatePromoDiscount,
+  formatBookingDate,
+  validatePromoForBooking,
+} from "@/lib/promos/validatePromo";
+import { PROMO_COLUMNS } from "@/lib/promos/promoMapper";
 
 /** Convert Base64url → standard Base64 and decode to a UTF-8 string. */
 function base64UrlDecode(str) {
@@ -164,6 +171,50 @@ export async function POST(request) {
             throw new Error('No pitch found in the database to associate with this booking.');
           }
 
+          let finalTotal = Number(bookingDetails.total_amount) || 0;
+          const promoId = bookingDetails.promo_id ?? null;
+
+          if (promoId && bookingDetails.subtotal_amount) {
+            const { data: promoRow } = await supabaseAdmin
+              .from('promo_codes')
+              .select(PROMO_COLUMNS)
+              .eq('id', promoId)
+              .maybeSingle();
+
+            if (promoRow) {
+              const { data: locationRow } = await supabaseAdmin
+                .from('locations')
+                .select('slug, name')
+                .eq('id', bookingDetails.location_id)
+                .maybeSingle();
+
+              const locationSlug =
+                locationRow?.slug ??
+                (locationRow?.name
+                  ? locationRow.name
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/^-|-$/g, '')
+                  : '');
+
+              const validation = validatePromoForBooking(promoRow, {
+                locationSlug,
+                bookingDate: formatBookingDate(bookingDetails.booking_date),
+              });
+
+              if (validation.valid) {
+                const discount = calculatePromoDiscount(
+                  validation.promo,
+                  Number(bookingDetails.subtotal_amount)
+                );
+                finalTotal = Math.max(
+                  0,
+                  Number(bookingDetails.subtotal_amount) - discount
+                );
+              }
+            }
+          }
+
           const { data: bookingData, error: bookingError } = await supabaseAdmin
             .from('bookings')
             .insert([
@@ -175,7 +226,7 @@ export async function POST(request) {
                 booking_date: bookingDetails.booking_date,
                 start_time: bookingDetails.start_time,
                 end_time: bookingDetails.end_time,
-                total_amount: bookingDetails.total_amount,
+                total_amount: finalTotal,
                 booking_status: 'confirmed',
                 payment_status: 'paid',
               },
@@ -189,7 +240,20 @@ export async function POST(request) {
           } else {
             result.booking = bookingData;
 
-            // 5. Send confirmation emails (fire-and-forget — don't block the response)
+            // 5a. Attach promo code to booking if applicable
+            if (promoId && bookingData?.id) {
+              const { error: promoLinkError } = await attachPromoToBooking(
+                supabaseAdmin,
+                bookingData.id,
+                promoId
+              );
+              if (promoLinkError) {
+                console.error('[verify] booking_promos error:', promoLinkError);
+                result.promoLinkError = promoLinkError.message;
+              }
+            }
+
+            // 5b. Send confirmation emails (fire-and-forget — don't block the response)
             try {
               const { email, fullName, sportName, locationName } =
                 await resolveEmailContext(supabaseAdmin, bookingDetails);

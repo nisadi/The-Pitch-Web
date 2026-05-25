@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import DeleteConfirmModal from "./DeleteConfirmModal";
+import OfferFormModal from "./OfferFormModal";
 import { slugifyId } from "./adminSettingsDefaults";
 import { useAdminSettings } from "./adminSettingsContext";
 import styles from "./AdminSettings.module.css";
 
 const EMPTY = {
   title: "",
+  code: "",
   description: "",
   discountType: "percent",
   discountValue: "",
@@ -17,6 +20,20 @@ const EMPTY = {
   status: "active",
 };
 
+function offerToForm(offer) {
+  return {
+    title: offer.title ?? "",
+    code: offer.code ?? "",
+    description: offer.description ?? "",
+    discountType: offer.discountType ?? "percent",
+    discountValue: String(offer.discountValue ?? ""),
+    locationIds: Array.isArray(offer.locationIds) ? [...offer.locationIds] : [],
+    startsAt: offer.startsAt ?? "",
+    endsAt: offer.endsAt ?? "",
+    status: offer.status ?? "active",
+  };
+}
+
 function formatDiscount(offer) {
   if (offer.discountType === "percent") {
     return `${offer.discountValue}% off`;
@@ -25,294 +42,223 @@ function formatDiscount(offer) {
 }
 
 export default function SettingsOffers() {
-  const { offers, locations, addOffer, updateOffer, removeOffer } =
-    useAdminSettings();
+  const {
+    ready,
+    syncError,
+    offers,
+    locations,
+    addOffer,
+    updateOffer,
+    removeOffer,
+  } = useAdminSettings();
   const [editingId, setEditingId] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+  const [editingDbId, setEditingDbId] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [form, setForm] = useState(EMPTY);
+
+  const handleChange = (patch) => {
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
+    setEditingDbId(null);
+    setForm(EMPTY);
+  };
 
   const startCreate = () => {
     setEditingId(null);
+    setEditingDbId(null);
     setForm({
       ...EMPTY,
-      locationIds: locations.filter((l) => l.status === "active").map((l) => l.id),
+      locationIds: locations
+        .filter((location) => location.status === "active")
+        .map((location) => location.id),
     });
-    setShowForm(true);
+    setModalOpen(true);
   };
 
   const startEdit = (offer) => {
     setEditingId(offer.id);
-    setForm({
-      title: offer.title,
-      description: offer.description,
-      discountType: offer.discountType,
-      discountValue: String(offer.discountValue),
-      locationIds: offer.locationIds,
-      startsAt: offer.startsAt,
-      endsAt: offer.endsAt,
-      status: offer.status,
-    });
-    setShowForm(true);
+    setEditingDbId(offer.dbId ?? null);
+    setForm(offerToForm(offer));
+    setModalOpen(true);
   };
 
-  const toggleLocation = (id) => {
-    setForm((prev) => ({
-      ...prev,
-      locationIds: prev.locationIds.includes(id)
-        ? prev.locationIds.filter((locId) => locId !== id)
-        : [...prev.locationIds, id],
-    }));
-  };
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
+  const handleSubmit = async () => {
     const payload = {
-      ...form,
       title: form.title.trim(),
+      code: form.code.trim().toUpperCase(),
       description: form.description.trim(),
+      discountType: form.discountType,
       discountValue: Number(form.discountValue),
       locationIds: form.locationIds,
+      startsAt: form.startsAt,
+      endsAt: form.endsAt,
+      status: form.status,
     };
 
-    if (!payload.title || !payload.discountValue || payload.locationIds.length === 0) {
+    if (
+      !payload.title ||
+      !payload.code ||
+      !payload.discountValue ||
+      payload.locationIds.length === 0 ||
+      !payload.startsAt ||
+      !payload.endsAt
+    ) {
+      window.alert("Please fill in all required fields.");
       return;
     }
 
-    if (editingId) {
-      updateOffer(editingId, payload);
-    } else {
-      const id = slugifyId(payload.title);
-      if (offers.some((offer) => offer.id === id)) {
-        window.alert("An offer with this title already exists.");
-        return;
+    try {
+      if (editingId) {
+        await updateOffer(editingId, payload);
+      } else {
+        const id = slugifyId(payload.code);
+        const codeTaken = offers.some(
+          (offer) =>
+            offer.code?.toUpperCase() === payload.code ||
+            offer.id === id
+        );
+        if (codeTaken) {
+          window.alert("An offer with this promo code already exists.");
+          return;
+        }
+        await addOffer({ ...payload, id });
       }
-      addOffer({ ...payload, id });
-    }
 
-    setShowForm(false);
-    setEditingId(null);
-    setForm(EMPTY);
+      closeModal();
+    } catch (err) {
+      window.alert(err?.message ?? "Could not save offer.");
+    }
   };
 
-  const handleDelete = (offer) => {
-    if (window.confirm(`Remove offer "${offer.title}"?`)) {
-      removeOffer(offer.id);
-      if (editingId === offer.id) {
-        setShowForm(false);
-        setEditingId(null);
+  const requestDelete = (offer) => {
+    setDeleteTarget(offer);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      await removeOffer(deleteTarget.id);
+      if (editingId === deleteTarget.id) {
+        closeModal();
       }
+      setDeleteTarget(null);
+    } catch (err) {
+      window.alert(err?.message ?? "Could not delete offer.");
     }
   };
 
   return (
-    <section className={styles.panel}>
-      <div className={styles.panelHeader}>
-        <div>
-          <h3>Offers & promotions</h3>
-          <p>Create discounts and bundles applied during checkout or booking.</p>
+    <>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h3>Offers & promotions</h3>
+            <p>
+              {!ready
+                ? "Loading from Supabase…"
+                : "Create discounts and promo codes applied during checkout or booking."}
+            </p>
+            {syncError && <p className={styles.syncError}>{syncError}</p>}
+          </div>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={startCreate}
+          >
+            <Plus size={16} />
+            Add offer
+          </button>
         </div>
-        <button type="button" className={styles.primaryBtn} onClick={startCreate}>
-          <Plus size={16} />
-          Add offer
-        </button>
-      </div>
 
-      {offers.length === 0 ? (
-        <p className={styles.empty}>No offers yet. Create promotions for specific venues or seasons.</p>
-      ) : (
-        <div className={styles.list}>
-          {offers.map((offer) => (
-            <article key={offer.id} className={styles.card}>
-              <div className={styles.cardTop}>
-                <div>
-                  <div className={styles.cardTitle}>{offer.title}</div>
-                  <p className={styles.cardMeta}>{offer.description}</p>
-                  <p className={styles.cardMeta}>
-                    {formatDiscount(offer)} · {offer.startsAt} → {offer.endsAt}
-                  </p>
-                  <div className={styles.tagList}>
-                    {offer.locationIds.map((locId) => {
-                      const loc = locations.find((item) => item.id === locId);
-                      return (
-                        <span key={locId} className={styles.tag}>
-                          {loc?.shortName ?? locId}
-                        </span>
-                      );
-                    })}
+        {!ready ? (
+          <p className={styles.empty}>Syncing with Supabase…</p>
+        ) : offers.length === 0 ? (
+          <p className={styles.empty}>
+            No offers yet. Create promotions for specific venues or seasons.
+          </p>
+        ) : (
+          <div className={styles.list}>
+            {offers.map((offer) => (
+              <article key={offer.dbId ?? offer.id} className={styles.card}>
+                <div className={styles.cardTop}>
+                  <div>
+                    <div className={styles.cardTitle}>{offer.title}</div>
+                    <p className={styles.cardMeta}>
+                      <strong>{offer.code}</strong>
+                      {offer.description ? ` · ${offer.description}` : ""}
+                    </p>
+                    <p className={styles.cardMeta}>
+                      {formatDiscount(offer)} · {offer.startsAt} → {offer.endsAt}
+                    </p>
+                    <div className={styles.tagList}>
+                      {offer.locationIds.map((locId) => {
+                        const loc = locations.find((item) => item.id === locId);
+                        return (
+                          <span key={locId} className={styles.tag}>
+                            {loc?.shortName ?? locId}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className={styles.cardActions}>
+                    <span
+                      className={`${styles.badge} ${
+                        offer.status === "active"
+                          ? styles.badgeActive
+                          : styles.badgeInactive
+                      }`}
+                    >
+                      {offer.status}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.iconBtn}
+                      onClick={() => startEdit(offer)}
+                      aria-label={`Edit ${offer.title}`}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.iconBtn}
+                      onClick={() => requestDelete(offer)}
+                      aria-label={`Delete ${offer.title}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 </div>
-                <div className={styles.cardActions}>
-                  <span
-                    className={`${styles.badge} ${
-                      offer.status === "active"
-                        ? styles.badgeActive
-                        : styles.badgeInactive
-                    }`}
-                  >
-                    {offer.status}
-                  </span>
-                  <button
-                    type="button"
-                    className={styles.iconBtn}
-                    onClick={() => startEdit(offer)}
-                    aria-label={`Edit ${offer.title}`}
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.iconBtn}
-                    onClick={() => handleDelete(offer)}
-                    aria-label={`Delete ${offer.title}`}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
-      {showForm && (
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <div className={styles.formGrid}>
-            <div className={`${styles.field} ${styles.fieldFull}`}>
-              <label className={styles.label} htmlFor="offer-title">
-                Offer title
-              </label>
-              <input
-                id="offer-title"
-                className={styles.input}
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                required
-              />
-            </div>
-            <div className={`${styles.field} ${styles.fieldFull}`}>
-              <label className={styles.label} htmlFor="offer-desc">
-                Description
-              </label>
-              <textarea
-                id="offer-desc"
-                className={styles.textarea}
-                value={form.description}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, description: e.target.value }))
-                }
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="offer-type">
-                Discount type
-              </label>
-              <select
-                id="offer-type"
-                className={styles.select}
-                value={form.discountType}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, discountType: e.target.value }))
-                }
-              >
-                <option value="percent">Percentage</option>
-                <option value="fixed">Fixed amount (LKR)</option>
-              </select>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="offer-value">
-                Value
-              </label>
-              <input
-                id="offer-value"
-                type="number"
-                min="0"
-                className={styles.input}
-                value={form.discountValue}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, discountValue: e.target.value }))
-                }
-                required
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="offer-start">
-                Starts
-              </label>
-              <input
-                id="offer-start"
-                type="date"
-                className={styles.input}
-                value={form.startsAt}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, startsAt: e.target.value }))
-                }
-                required
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="offer-end">
-                Ends
-              </label>
-              <input
-                id="offer-end"
-                type="date"
-                className={styles.input}
-                value={form.endsAt}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, endsAt: e.target.value }))
-                }
-                required
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="offer-status">
-                Status
-              </label>
-              <select
-                id="offer-status"
-                className={styles.select}
-                value={form.status}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, status: e.target.value }))
-                }
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-            <div className={`${styles.field} ${styles.fieldFull}`}>
-              <span className={styles.label}>Locations</span>
-              <div className={styles.checkboxGroup}>
-                {locations.map((location) => (
-                  <label key={location.id} className={styles.checkboxItem}>
-                    <input
-                      type="checkbox"
-                      checked={form.locationIds.includes(location.id)}
-                      onChange={() => toggleLocation(location.id)}
-                    />
-                    {location.shortName}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className={styles.formActions}>
-            <button type="submit" className={styles.primaryBtn}>
-              {editingId ? "Save changes" : "Create offer"}
-            </button>
-            <button
-              type="button"
-              className={styles.secondaryBtn}
-              onClick={() => {
-                setShowForm(false);
-                setEditingId(null);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-    </section>
+      <OfferFormModal
+        open={modalOpen}
+        mode={editingId ? "edit" : "create"}
+        form={form}
+        locations={locations}
+        onChange={handleChange}
+        onClose={closeModal}
+        onSubmit={handleSubmit}
+      />
+
+      <DeleteConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete offer?"
+        description={`This will permanently remove "${deleteTarget?.title}" (${deleteTarget?.code}) from promo codes.`}
+        confirmButtonLabel="Delete offer"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
+    </>
   );
 }

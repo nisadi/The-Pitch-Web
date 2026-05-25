@@ -1,6 +1,7 @@
 export const BOOKING_STATUSES = {
   confirmed: { label: "Confirmed", color: "var(--primary)" },
   pending: { label: "Pending", color: "#f59e0b" },
+  blocked: { label: "Blocked", color: "#64748b" },
   cancelled: { label: "Cancelled", color: "#ef4444" },
 };
 

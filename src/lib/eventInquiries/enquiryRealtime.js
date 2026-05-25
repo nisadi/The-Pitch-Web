@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
 import { ENQUIRY_COLUMNS, enquiryFromRow } from "./enquiryMapper";
 
-const CHANNEL_NAME = "contact-messages-admin";
+const CHANNEL_PREFIX = "contact-messages-admin";
+
+let channelSeq = 0;
+let activeTeardown = null;
 
 function sortEnquiries(list) {
   return [...list].sort((a, b) => {
@@ -11,9 +14,14 @@ function sortEnquiries(list) {
   });
 }
 
-async function removeExistingChannels(supabase, channelName) {
-  const topic = `realtime:${channelName}`;
-  const existing = supabase.getChannels().filter((ch) => ch.topic === topic);
+async function removeChannelsForPrefix(supabase) {
+  const topicPrefix = `realtime:${CHANNEL_PREFIX}`;
+  const existing = supabase
+    .getChannels()
+    .filter(
+      (ch) =>
+        ch.topic === topicPrefix || ch.topic?.startsWith(`${topicPrefix}-`)
+    );
   await Promise.all(existing.map((ch) => supabase.removeChannel(ch)));
 }
 
@@ -31,14 +39,20 @@ export async function fetchEnquiriesFromSupabase() {
 
 /**
  * Subscribe to contact_messages via Supabase Realtime postgres_changes.
- * Waits for any prior channel with the same name to be removed first.
+ * Uses a fresh channel name each connect to avoid reuse-after-subscribe errors.
  */
 export async function subscribeToEnquiries(onPayload, onReady) {
   const supabase = createClient();
 
-  await removeExistingChannels(supabase, CHANNEL_NAME);
+  if (activeTeardown) {
+    await activeTeardown();
+    activeTeardown = null;
+  }
 
-  const channel = supabase.channel(CHANNEL_NAME);
+  await removeChannelsForPrefix(supabase);
+
+  const channelName = `${CHANNEL_PREFIX}-${++channelSeq}`;
+  const channel = supabase.channel(channelName);
 
   channel.on(
     "postgres_changes",
@@ -62,9 +76,15 @@ export async function subscribeToEnquiries(onPayload, onReady) {
     }
   });
 
-  return () => {
-    void supabase.removeChannel(channel);
+  const teardown = async () => {
+    await supabase.removeChannel(channel);
+    if (activeTeardown === teardown) {
+      activeTeardown = null;
+    }
   };
+
+  activeTeardown = teardown;
+  return teardown;
 }
 
 export function applyEnquiryRealtimeEvent(enquiries, payload) {

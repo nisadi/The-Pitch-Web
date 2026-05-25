@@ -268,6 +268,13 @@
   background: #666;
 }
 
+.promoError {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #ff6b6b;
+  line-height: 1.4;
+}
+
 .discountRow {
   display: flex;
   justify-content: space-between;
@@ -518,4 +525,4 @@
 
 .overlayRetryBtn:hover {
   background: #9a3203;
-}
+}

@@ -45,6 +45,21 @@ export function isOperationalRangeValid(start, end) {
   return compareTimeStrings(start, end) < 0;
 }
 
+/** True when periodStart–periodEnd lies within operationalStart–operationalEnd (inclusive). */
+export function isPeriodWithinOperational(
+  periodStart,
+  periodEnd,
+  operationalStart,
+  operationalEnd
+) {
+  if (!isOperationalRangeValid(periodStart, periodEnd)) return false;
+  if (!isOperationalRangeValid(operationalStart, operationalEnd)) return false;
+  return (
+    compareTimeStrings(operationalStart, periodStart) <= 0 &&
+    compareTimeStrings(periodEnd, operationalEnd) <= 0
+  );
+}
+
 export function formatOperationalHoursDisplay(operationalStart, operationalEnd) {
   const formatPoint = (timeStr) => {
     const { hour, minute } = parseTimeField(timeStr);
@@ -59,17 +74,59 @@ export function formatOperationalHoursDisplay(operationalStart, operationalEnd) 
 
 export function parseTimeStart(timeStr) {
   const part = timeStr.split("-")[0].trim();
-  const match = part.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  const trailingPeriod = timeStr.match(/\b(AM|PM)\s*$/i)?.[1]?.toUpperCase();
+  const match = part.match(/(\d+)[.:](\d+)\s*(AM|PM)?/i);
   if (!match) return 0;
 
   let hours = parseInt(match[1], 10);
   const minutes = parseInt(match[2], 10);
-  const period = match[3].toUpperCase();
+  const period = (match[3] || trailingPeriod)?.toUpperCase();
 
   if (period === "PM" && hours !== 12) hours += 12;
   if (period === "AM" && hours === 12) hours = 0;
 
   return hours * 60 + minutes;
+}
+
+export function getBookingStartHour(booking) {
+  if (typeof booking?.startHour === "number") return booking.startHour;
+  return Math.floor(parseTimeStart(booking?.time ?? "") / 60);
+}
+
+export function getBookingTimeRangeMinutes(booking) {
+  const start = parseTimeField(booking?.startTime);
+  const end = parseTimeField(booking?.endTime);
+  const startMin = start.hour * 60 + start.minute;
+  const endMin = end.hour * 60 + end.minute;
+  return Math.max(60, endMin - startMin);
+}
+
+/** True when a booking occupies any part of the calendar hour row. */
+export function bookingOverlapsHour(booking, hour) {
+  if (!booking) return false;
+  if (booking.bookingStatus === "cancelled") return false;
+
+  const start = parseTimeField(booking.startTime);
+  const end = parseTimeField(booking.endTime);
+  const bookingStart = start.hour * 60 + start.minute;
+  const bookingEnd = end.hour * 60 + end.minute;
+  const slotStart = hour * 60;
+  const slotEnd = (hour + 1) * 60;
+
+  return bookingStart < slotEnd && bookingEnd > slotStart;
+}
+
+/** Min height per hour row in day view (fits compact booking card without overlap). */
+export const DAY_VIEW_ROW_BASE_PX = 76;
+
+/** Min row height (px) for day view from booking duration. */
+export function dayRowMinHeightForBooking(
+  booking,
+  basePx = DAY_VIEW_ROW_BASE_PX
+) {
+  const minutes = getBookingTimeRangeMinutes(booking);
+  const rows = Math.max(1, Math.ceil(minutes / 60));
+  return rows * basePx;
 }
 
 export function sortBookingsByTime(bookings) {
@@ -110,6 +167,11 @@ export function formatHourLabel(hour) {
 
   if (start.period === end.period) {
     return `${start.text} - ${end.text} ${start.period}`;
+  }
+
+  // AM → PM (e.g. 11.00 - 12.00 PM): one line in the narrow day-view label column
+  if (start.period === "AM" && end.period === "PM") {
+    return `${start.text} - ${end.text} ${end.period}`;
   }
 
   return `${start.text} ${start.period} - ${end.text} ${end.period}`;

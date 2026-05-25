@@ -6,6 +6,7 @@ import AdminTopBar from "./AdminTopBar";
 import { AdminLocationProvider } from "./adminLocationContext";
 import { AdminSettingsProvider } from "./settings/adminSettingsContext";
 import { UsersProvider } from "@/lib/users/usersContext";
+import { EventCardsProvider } from "@/lib/events/eventCardsContext";
 import { AdminSidebarProvider, useAdminSidebar } from "./adminSidebarContext";
 import AdminAuthGate from "./AdminAuthGate";
 import styles from "./Admin.module.css";
@@ -41,11 +42,13 @@ export default function AdminShell({ children }) {
   return (
     <AdminSettingsProvider>
       <UsersProvider>
-        <AdminLocationProvider>
-          <AdminSidebarProvider>
-            <AdminShellInner>{children}</AdminShellInner>
-          </AdminSidebarProvider>
-        </AdminLocationProvider>
+        <EventCardsProvider>
+          <AdminLocationProvider>
+            <AdminSidebarProvider>
+              <AdminShellInner>{children}</AdminShellInner>
+            </AdminSidebarProvider>
+          </AdminLocationProvider>
+        </EventCardsProvider>
       </UsersProvider>
     </AdminSettingsProvider>
   );

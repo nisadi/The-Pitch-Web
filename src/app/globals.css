@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;500;600;700;800;900&display=swap');
 
 :root {
+  --navbar-height: 72px;
   --primary: #A3FF00;
   --primary-hover: #8EE600;
   --accent: #B32D0F;
@@ -40,6 +41,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
+}
+
+body.has-navbar {
+  padding-top: var(--navbar-height);
 }
 
 a {

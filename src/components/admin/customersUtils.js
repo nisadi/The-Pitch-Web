@@ -149,6 +149,9 @@ export function filterEnquiryThreads(
       thread.phone,
       thread.email,
       thread.subject,
+      thread.organizationName,
+      thread.eventCategory,
+      thread.location,
       ...(thread.messages ?? []).map((m) => `${m.author} ${m.message}`),
     ]
       .join(" ")

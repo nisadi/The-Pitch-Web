@@ -103,6 +103,19 @@
   margin-bottom: 1rem;
 }
 
+.subsectionTitle {
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.35rem;
+}
+
+.periodLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--foreground-muted);
+  margin: 0.85rem 0 0.5rem;
+}
+
 .field {
   display: flex;
   flex-direction: column;

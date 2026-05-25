@@ -10,11 +10,13 @@ export const DEFAULT_ADMIN_SETTINGS = {
       phone: "+94 11 456 7890",
       description: "Main indoor stadium with futsal and cricket nets.",
       image: "",
-      peakHourRate: 4500,
-      nonPeakHourRate: 3000,
       sportIds: ["futsal", "cricket", "badminton"],
       operationalStart: "08:00",
       operationalEnd: "21:00",
+      nonPeakStart: "06:00",
+      nonPeakEnd: "12:00",
+      peakStart: "18:00",
+      peakEnd: "22:00",
       status: "active",
     },
     {
@@ -25,11 +27,13 @@ export const DEFAULT_ADMIN_SETTINGS = {
       phone: "+94 11 234 5678",
       description: "Coastal venue with multi-sport courts.",
       image: "",
-      peakHourRate: 4200,
-      nonPeakHourRate: 2800,
       sportIds: ["futsal", "cricket"],
       operationalStart: "07:00",
       operationalEnd: "22:00",
+      nonPeakStart: "06:00",
+      nonPeakEnd: "12:00",
+      peakStart: "18:00",
+      peakEnd: "22:00",
       status: "active",
     },
     {
@@ -40,11 +44,13 @@ export const DEFAULT_ADMIN_SETTINGS = {
       phone: "+94 11 987 6543",
       description: "Full-size courts near the beach.",
       image: "",
-      peakHourRate: 4000,
-      nonPeakHourRate: 2500,
       sportIds: ["futsal", "badminton"],
       operationalStart: "08:00",
       operationalEnd: "20:00",
+      nonPeakStart: "06:00",
+      nonPeakEnd: "12:00",
+      peakStart: "18:00",
+      peakEnd: "20:00",
       status: "active",
     },
   ],
@@ -76,7 +82,8 @@ export const DEFAULT_ADMIN_SETTINGS = {
   ],
   offers: [
     {
-      id: "weekend-morning",
+      id: "weekend20",
+      code: "WEEKEND20",
       title: "Weekend Morning Special",
       description: "20% off all slots before 12:00 on Sat & Sun",
       discountType: "percent",
@@ -87,7 +94,8 @@ export const DEFAULT_ADMIN_SETTINGS = {
       status: "active",
     },
     {
-      id: "weekday-bundle",
+      id: "weekday3h",
+      code: "WEEKDAY3H",
       title: "Weekday 3-Hour Bundle",
       description: "Book 3 consecutive hours on weekdays and save LKR 1,500",
       discountType: "fixed",
@@ -112,6 +120,10 @@ export const DEFAULT_ADMIN_SETTINGS = {
 
 export const DEFAULT_OPERATIONAL_START = "08:00";
 export const DEFAULT_OPERATIONAL_END = "21:00";
+export const DEFAULT_NON_PEAK_START = "06:00";
+export const DEFAULT_NON_PEAK_END = "12:00";
+export const DEFAULT_PEAK_START = "18:00";
+export const DEFAULT_PEAK_END = "22:00";
 
 export function normalizeLocation(location) {
   return {
@@ -119,11 +131,13 @@ export function normalizeLocation(location) {
     dbId: location.dbId ?? null,
     description: location.description ?? "",
     image: location.image ?? "",
-    peakHourRate: Number(location.peakHourRate) || 0,
-    nonPeakHourRate: Number(location.nonPeakHourRate) || 0,
     sportIds: Array.isArray(location.sportIds) ? location.sportIds : [],
     operationalStart: location.operationalStart || DEFAULT_OPERATIONAL_START,
     operationalEnd: location.operationalEnd || DEFAULT_OPERATIONAL_END,
+    nonPeakStart: location.nonPeakStart || DEFAULT_NON_PEAK_START,
+    nonPeakEnd: location.nonPeakEnd || DEFAULT_NON_PEAK_END,
+    peakStart: location.peakStart || DEFAULT_PEAK_START,
+    peakEnd: location.peakEnd || DEFAULT_PEAK_END,
   };
 }
 

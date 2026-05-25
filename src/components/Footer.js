@@ -113,8 +113,20 @@ const Footer = () => {
             <span className={styles.separator}>|</span>
             <Link href="/contact">Service & Support</Link>
           </div>
-          <div className={styles.copyright}>
-            &copy; {new Date().getFullYear()} The Pitch Indoor Stadium. All rights reserved.
+          <div className={styles.bottomRow}>
+            <div className={styles.copyright}>
+              &copy; {new Date().getFullYear()} The Pitch Indoor Stadium. All rights reserved.
+            </div>
+            <p className={styles.poweredBy}>
+              Powered by{' '}
+              <a
+                href="https://globalpearlventures.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Global Pearl Ventures
+              </a>
+            </p>
           </div>
         </div>
       </div>

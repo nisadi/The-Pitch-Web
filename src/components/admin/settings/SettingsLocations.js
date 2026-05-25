@@ -7,7 +7,14 @@ import LocationFormModal from "./LocationFormModal";
 import {
   formatOperationalHoursDisplay,
   isOperationalRangeValid,
+  isPeriodWithinOperational,
 } from "../bookingsUtils";
+import {
+  DEFAULT_NON_PEAK_END,
+  DEFAULT_NON_PEAK_START,
+  DEFAULT_PEAK_END,
+  DEFAULT_PEAK_START,
+} from "./adminSettingsDefaults";
 import { slugifyId } from "./adminSettingsDefaults";
 import { useAdminSettings } from "./adminSettingsContext";
 import styles from "./AdminSettings.module.css";
@@ -21,11 +28,13 @@ const EMPTY = {
   phone: "",
   description: "",
   image: "",
-  peakHourRate: "",
-  nonPeakHourRate: "",
   sportIds: [],
   operationalStart: "08:00",
   operationalEnd: "21:00",
+  nonPeakStart: DEFAULT_NON_PEAK_START,
+  nonPeakEnd: DEFAULT_NON_PEAK_END,
+  peakStart: DEFAULT_PEAK_START,
+  peakEnd: DEFAULT_PEAK_END,
   status: "active",
 };
 
@@ -37,24 +46,15 @@ function locationToForm(location) {
     phone: location.phone ?? "",
     description: location.description ?? "",
     image: location.image ?? "",
-    peakHourRate: String(location.peakHourRate ?? ""),
-    nonPeakHourRate: String(location.nonPeakHourRate ?? ""),
     sportIds: Array.isArray(location.sportIds) ? [...location.sportIds] : [],
     operationalStart: location.operationalStart ?? "08:00",
     operationalEnd: location.operationalEnd ?? "21:00",
+    nonPeakStart: location.nonPeakStart ?? DEFAULT_NON_PEAK_START,
+    nonPeakEnd: location.nonPeakEnd ?? DEFAULT_NON_PEAK_END,
+    peakStart: location.peakStart ?? DEFAULT_PEAK_START,
+    peakEnd: location.peakEnd ?? DEFAULT_PEAK_END,
     status: location.status ?? "active",
   };
-}
-
-function isValidRates(peak, nonPeak) {
-  return (
-    peak !== "" &&
-    nonPeak !== "" &&
-    !Number.isNaN(Number(peak)) &&
-    !Number.isNaN(Number(nonPeak)) &&
-    Number(peak) >= 0 &&
-    Number(nonPeak) >= 0
-  );
 }
 
 export default function SettingsLocations() {
@@ -105,9 +105,6 @@ export default function SettingsLocations() {
   };
 
   const handleSubmit = async () => {
-    const peakRate = String(form.peakHourRate).trim();
-    const nonPeakRate = String(form.nonPeakHourRate).trim();
-
     const payload = {
       name: form.name.trim(),
       shortName: form.shortName.trim(),
@@ -115,11 +112,13 @@ export default function SettingsLocations() {
       phone: form.phone.trim(),
       description: form.description.trim(),
       image: form.image ?? "",
-      peakHourRate: Number(peakRate),
-      nonPeakHourRate: Number(nonPeakRate),
       sportIds: form.sportIds ?? [],
       operationalStart: form.operationalStart,
       operationalEnd: form.operationalEnd,
+      nonPeakStart: form.nonPeakStart,
+      nonPeakEnd: form.nonPeakEnd,
+      peakStart: form.peakStart,
+      peakEnd: form.peakEnd,
       status: form.status,
     };
 
@@ -128,7 +127,6 @@ export default function SettingsLocations() {
       !payload.shortName ||
       !payload.address ||
       !payload.phone ||
-      !isValidRates(peakRate, nonPeakRate) ||
       !payload.sportIds.length ||
       !payload.operationalStart ||
       !payload.operationalEnd
@@ -139,6 +137,42 @@ export default function SettingsLocations() {
 
     if (!isOperationalRangeValid(payload.operationalStart, payload.operationalEnd)) {
       window.alert("Closing time must be after opening time.");
+      return;
+    }
+
+    if (!isOperationalRangeValid(payload.nonPeakStart, payload.nonPeakEnd)) {
+      window.alert("Non-peak end time must be after non-peak start time.");
+      return;
+    }
+
+    if (!isOperationalRangeValid(payload.peakStart, payload.peakEnd)) {
+      window.alert("Peak end time must be after peak start time.");
+      return;
+    }
+
+    if (
+      !isPeriodWithinOperational(
+        payload.nonPeakStart,
+        payload.nonPeakEnd,
+        payload.operationalStart,
+        payload.operationalEnd
+      )
+    ) {
+      window.alert(
+        "Non-peak hours must fall within the venue operational hours."
+      );
+      return;
+    }
+
+    if (
+      !isPeriodWithinOperational(
+        payload.peakStart,
+        payload.peakEnd,
+        payload.operationalStart,
+        payload.operationalEnd
+      )
+    ) {
+      window.alert("Peak hours must fall within the venue operational hours.");
       return;
     }
 
@@ -242,15 +276,23 @@ export default function SettingsLocations() {
                     </p>
                     <p className={styles.cardMeta}>{location.phone}</p>
                     <p className={styles.cardMeta}>
-                      Peak LKR {Number(location.peakHourRate || 0).toLocaleString("en-LK")}{" "}
-                      · Off-peak LKR{" "}
-                      {Number(location.nonPeakHourRate || 0).toLocaleString("en-LK")}
-                    </p>
-                    <p className={styles.cardMeta}>
                       Hours:{" "}
                       {formatOperationalHoursDisplay(
                         location.operationalStart,
                         location.operationalEnd
+                      )}
+                    </p>
+                    <p className={styles.cardMeta}>
+                      Off-peak:{" "}
+                      {formatOperationalHoursDisplay(
+                        location.nonPeakStart,
+                        location.nonPeakEnd
+                      )}
+                      {" · "}
+                      Peak:{" "}
+                      {formatOperationalHoursDisplay(
+                        location.peakStart,
+                        location.peakEnd
                       )}
                     </p>
                     {(location.sportIds?.length ?? 0) > 0 && (

@@ -3,6 +3,7 @@
   color: #000000;
   min-height: 100vh;
   font-family: var(--font-outfit);
+  margin-top: calc(-1 * var(--navbar-height));
 }
 
 .heroSection {
@@ -10,7 +11,7 @@
   background-image: linear-gradient(to right, rgba(8, 28, 12, 0.9) 0%, rgba(8, 28, 12, 0.7) 100%), url('/images/facility-courts.png');
   background-size: cover;
   background-position: center;
-  padding: 6rem 0 0 0;
+  padding: calc(6rem + var(--navbar-height)) 0 0 0;
   color: #FFFFFF;
   display: flex;
   flex-direction: column;

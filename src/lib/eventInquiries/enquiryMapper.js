@@ -17,7 +17,7 @@ function splitTimestamp(iso) {
   };
 }
 
-function parseReplies(value, defaultInReplyTo = null) {
+export function parseReplies(value, defaultInReplyTo = null) {
   let list = [];
   if (Array.isArray(value)) list = value;
   else if (typeof value === "string") {

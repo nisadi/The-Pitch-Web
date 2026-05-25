@@ -7,12 +7,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUser } from '@/services/auth';
 import { createEventInquiry } from '@/services/events';
+import { fetchEventCardsForPage } from '@/lib/events/eventCardsData';
+import { subscribeToEventCards } from '@/lib/events/eventCardsRealtime';
 
 export default function EventsPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [submitStatus, setSubmitStatus] = useState(null); // 'submitting' | 'success' | 'error' | null
+  const [cards, setCards] = useState(null);
   
   const [formData, setFormData] = useState({
     organizationName: '',
@@ -41,6 +44,33 @@ export default function EventsPage() {
     };
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe = null;
+
+    const load = async () => {
+      const map = await fetchEventCardsForPage();
+      if (!cancelled) setCards(map);
+    };
+
+    void (async () => {
+      await load();
+      unsubscribe = await subscribeToEventCards(() => {
+        if (!cancelled) void load();
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      void unsubscribe?.();
+    };
+  }, []);
+
+  const corporatePackages = cards?.corporatePackages;
+  const corporateEntry = cards?.corporateEntry;
+  const schoolPrograms = cards?.schoolPrograms;
+  const schoolExcellence = cards?.schoolExcellence;
 
   const handleInputChange = (e) => {
     setFormData({
@@ -161,14 +191,14 @@ export default function EventsPage() {
           {/* Corporate Packages */}
           <motion.div variants={fadeInUp} className={`${styles.card} ${styles.corporatePackagesCard}`}>
             <div className={styles.cardContent}>
-              <h2 className={styles.cardTitle}>Corporate Packages</h2>
+              <h2 className={styles.cardTitle}>{corporatePackages?.title ?? "Corporate Packages"}</h2>
               <p className={styles.cardDesc}>
-                Boost morale and team synergy through high-stakes competition and elite training facilities. Our corporate packages blend professional meeting spaces with athletic vigor.
+                {corporatePackages?.description ?? ""}
               </p>
               <div className={styles.badgeList}>
-                <span className={styles.pillBadge}>Team Building</span>
-                <span className={styles.pillBadge}>Executive Retreats</span>
-                <span className={styles.pillBadge}>Product Launches</span>
+                {(corporatePackages?.badges ?? []).map((badge) => (
+                  <span key={badge} className={styles.pillBadge}>{badge}</span>
+                ))}
               </div>
             </div>
           </motion.div>
@@ -176,24 +206,38 @@ export default function EventsPage() {
           {/* Corporate Entry */}
           <motion.div variants={fadeInUp} className={`${styles.card} ${styles.corporateEntryCard}`}>
             <div className={styles.cardContent}>
-              <h2 className={styles.cardTitle} style={{fontSize: "1.8rem"}}>Corporate Entry</h2>
+              <h2 className={styles.cardTitle} style={{fontSize: "1.8rem"}}>{corporateEntry?.title ?? "Corporate Entry"}</h2>
               <div className={styles.priceList}>
-                <div className={styles.priceRow}>
-                  <div>
-                    <span className={styles.priceLabel}>Executive Half-Day</span>
-                    <span className={styles.priceSub}>Pitch access + Lounge</span>
+                {(corporateEntry?.priceTiers ?? []).map((tier, index) => (
+                  <div
+                    key={`${tier.label}-${index}`}
+                    className={styles.priceRow}
+                    style={index === (corporateEntry?.priceTiers?.length ?? 0) - 1 ? { borderBottom: "none" } : undefined}
+                  >
+                    <div>
+                      <span className={styles.priceLabel}>{tier.label}</span>
+                      {tier.sublabel ? (
+                        <span className={styles.priceSub}>{tier.sublabel}</span>
+                      ) : null}
+                    </div>
+                    <span className={styles.priceValue}>{tier.priceDisplay}</span>
                   </div>
-                  <span className={styles.priceValue}>Rs. 50000.00</span>
-                </div>
-                <div className={styles.priceRow}>
-                  <div>
-                    <span className={styles.priceLabel}>Stadium Takeover</span>
-                    <span className={styles.priceSub}>All 5 pitches + Catering</span>
-                  </div>
-                  <span className={styles.priceValue}>Rs. 100000.00</span>
-                </div>
+                ))}
               </div>
-              <button className={styles.orangeBtn}>DOWNLOAD PDF BROCHURE</button>
+              {corporateEntry?.ctaHref ? (
+                <a
+                  href={corporateEntry.ctaHref}
+                  className={styles.orangeBtn}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {corporateEntry.ctaLabel || "DOWNLOAD PDF BROCHURE"}
+                </a>
+              ) : (
+                <button type="button" className={styles.orangeBtn}>
+                  {corporateEntry?.ctaLabel || "DOWNLOAD PDF BROCHURE"}
+                </button>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -208,41 +252,51 @@ export default function EventsPage() {
           {/* School Programs */}
           <motion.div variants={fadeInUp} className={`${styles.card} ${styles.schoolProgramsCard}`}>
             <div className={styles.cardContent}>
-              <h2 className={styles.cardTitle} style={{fontSize: "1.8rem"}}>School Programs</h2>
+              <h2 className={styles.cardTitle} style={{fontSize: "1.8rem"}}>{schoolPrograms?.title ?? "School Programs"}</h2>
               <div className={styles.priceList} style={{marginBottom: "1rem"}}>
-                <div className={styles.priceRow}>
-                  <div>
-                    <span className={styles.priceLabel} style={{color: "#444"}}>Sports Carnival</span>
-                    <span className={styles.priceSub} style={{color: "#666"}}>Full day coaching staff</span>
+                {(schoolPrograms?.priceTiers ?? []).map((tier, index) => (
+                  <div
+                    key={`${tier.label}-${index}`}
+                    className={styles.priceRow}
+                    style={{
+                      borderBottom:
+                        index === (schoolPrograms?.priceTiers?.length ?? 0) - 1
+                          ? "none"
+                          : undefined,
+                    }}
+                  >
+                    <div>
+                      <span className={styles.priceLabel} style={{color: "#444"}}>{tier.label}</span>
+                      {tier.sublabel ? (
+                        <span className={styles.priceSub} style={{color: "#666"}}>{tier.sublabel}</span>
+                      ) : null}
+                    </div>
+                    <span className={styles.priceValue}>{tier.priceDisplay}</span>
                   </div>
-                  <span className={styles.priceValue}>Rs. 1500.00/pp</span>
-                </div>
-                <div className={styles.priceRow} style={{borderBottom: "none"}}>
-                  <div>
-                    <span className={styles.priceLabel} style={{color: "#444"}}>Weekly PE Hire</span>
-                    <span className={styles.priceSub} style={{color: "#666"}}>Recurring booking discount</span>
-                  </div>
-                  <span className={styles.priceValue}>Rs. 1800/hr</span>
-                </div>
+                ))}
               </div>
-              <div className={styles.certBadge}>
-                <ShieldCheck size={20} color="#B9380F" />
-                Certified Safe & Insured Facility
-              </div>
+              {schoolPrograms?.footerBadge ? (
+                <div className={styles.certBadge}>
+                  <ShieldCheck size={20} color="#B9380F" />
+                  {schoolPrograms.footerBadge}
+                </div>
+              ) : null}
             </div>
           </motion.div>
 
           {/* School Excellence */}
           <motion.div variants={fadeInUp} className={`${styles.card} ${styles.schoolExcellenceCard}`}>
             <div className={styles.cardContent}>
-              <h2 className={styles.cardTitle}>School Excellence</h2>
+              <h2 className={styles.cardTitle}>{schoolExcellence?.title ?? "School Excellence"}</h2>
               <p className={styles.cardDesc}>
-                Inspiring the next generation of athletes. We provide a safe, climate-controlled environment for schools to host sports days, training sessions, and inter-school tournaments.
+                {schoolExcellence?.description ?? ""}
               </p>
               <div className={styles.greenBtnList}>
-                <button className={styles.darkGreenBtn}>Carnivals</button>
-                <button className={styles.darkGreenBtn}>Weekly PE</button>
-                <button className={styles.darkGreenBtn}>Exams & Graduations</button>
+                {(schoolExcellence?.highlightTags ?? []).map((tag) => (
+                  <button key={tag} type="button" className={styles.darkGreenBtn}>
+                    {tag}
+                  </button>
+                ))}
               </div>
             </div>
           </motion.div>

@@ -33,9 +33,11 @@ const CONFIG = {
     TOKEN_REFRESH_THRESHOLD: 300, // Refresh token 5 minutes before expiry (seconds)
     PHONE_NUMBER_FORMATS: {
         '9DIGIT': /^7\d{8}$/, // 712345678
-        '10DIGIT': /^0[7-8]\d{8}$/, // 0712345678
-        '11DIGIT': /^94[7-8]\d{8}$/ // 94712345678
-    }
+        '10DIGIT': /^0\d{9}$/, // 0712345678, 0757622092
+        '11DIGIT': /^94\d{9}$/ // 94712345678
+    },
+    /** Sri Lanka mobile national prefix after stripping 0 or 94 */
+    MOBILE_NINE_DIGIT: /^7\d{8}$/
 };
 
 // In-memory cache for tokens
@@ -81,22 +83,44 @@ const formatPhoneNumber = (phone) => {
         throw new SMSError('Invalid phone number', 'INVALID_PHONE');
     }
 
-    // Remove any non-digit characters
-    const digits = phone.replace(/\D/g, '');
-    
-    // Convert to 9-digit format
-    if (CONFIG.PHONE_NUMBER_FORMATS['11DIGIT'].test(digits)) {
-        // 94712345678 -> 712345678
-        return digits.substring(2);
-    } else if (CONFIG.PHONE_NUMBER_FORMATS['10DIGIT'].test(digits)) {
-        // 0712345678 -> 712345678
-        return digits.substring(1);
-    } else if (CONFIG.PHONE_NUMBER_FORMATS['9DIGIT'].test(digits)) {
-        // Already in correct format
-        return digits;
-    } else {
-        throw new SMSError(`Invalid phone number format: ${phone}`, 'INVALID_FORMAT');
+    let digits = phone.replace(/\D/g, '');
+
+    if (digits.startsWith('00')) {
+        digits = digits.slice(2);
     }
+
+    const toNineDigit = (national) => {
+        if (CONFIG.MOBILE_NINE_DIGIT.test(national)) return national;
+        if (national.length === 8 && /^[1-9]\d{7}$/.test(national)) {
+            const candidate = `7${national}`;
+            if (CONFIG.MOBILE_NINE_DIGIT.test(candidate)) return candidate;
+        }
+        return null;
+    };
+
+    if (CONFIG.PHONE_NUMBER_FORMATS['11DIGIT'].test(digits)) {
+        const national = digits.substring(2);
+        const nine = toNineDigit(national);
+        if (nine) return nine;
+    }
+
+    if (CONFIG.PHONE_NUMBER_FORMATS['10DIGIT'].test(digits)) {
+        const national = digits.substring(1);
+        const nine = toNineDigit(national);
+        if (nine) return nine;
+    }
+
+    if (CONFIG.PHONE_NUMBER_FORMATS['9DIGIT'].test(digits)) {
+        return digits;
+    }
+
+    const nineFromRaw = toNineDigit(digits);
+    if (nineFromRaw) return nineFromRaw;
+
+    throw new SMSError(
+        `Invalid phone number format: ${phone}. Use Sri Lanka mobile e.g. 0757622092 or +94757622092.`,
+        'INVALID_FORMAT'
+    );
 };
 
 /**

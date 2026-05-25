@@ -66,14 +66,20 @@ export function canAccessAdminPath(roleId, pathname) {
   const id = resolveRoleId(roleId);
   const access = getRoleAccess(id);
 
+  const normalizedPath =
+    pathname === "/admin/events" ? "/admin/packages" : pathname;
+
   return adminNavItems.some((item) => {
     if (!access[item.permission]) return false;
 
     if (item.exact) {
-      return pathname === item.href;
+      return normalizedPath === item.href;
     }
 
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+    return (
+      normalizedPath === item.href ||
+      normalizedPath.startsWith(`${item.href}/`)
+    );
   });
 }
 

@@ -29,6 +29,26 @@ import {
 } from "@/lib/sports/sportMutations";
 import { normalizeSport } from "@/lib/sports/sportMapper";
 import {
+  applyPitchRealtimeEvent,
+  fetchPitchesFromSupabase,
+  subscribeToPitches,
+} from "@/lib/pitches/pitchRealtime";
+import {
+  deletePitchClient,
+  upsertPitchClient,
+} from "@/lib/pitches/pitchMutations";
+import { normalizePitch } from "@/lib/pitches/pitchMapper";
+import {
+  applyPromoRealtimeEvent,
+  fetchPromosFromSupabase,
+  subscribeToPromos,
+} from "@/lib/promos/promoRealtime";
+import {
+  deletePromoClient,
+  upsertPromoClient,
+} from "@/lib/promos/promoMutations";
+import { normalizeOffer } from "@/lib/promos/promoMapper";
+import {
   ADMIN_SETTINGS_STORAGE_KEY,
   DEFAULT_ADMIN_SETTINGS,
   locationToNavItem,
@@ -46,6 +66,20 @@ function sortSports(list) {
   return [...list].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function sortPitches(list) {
+  return [...list].sort((a, b) => {
+    const loc = (a.locationName || "").localeCompare(b.locationName || "");
+    if (loc !== 0) return loc;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function sortOffers(list) {
+  return [...list].sort((a, b) =>
+    (a.title || a.code).localeCompare(b.title || b.code)
+  );
+}
+
 function loadSettings() {
   if (typeof window === "undefined") return DEFAULT_ADMIN_SETTINGS;
 
@@ -58,7 +92,7 @@ function loadSettings() {
         normalizeLocation
       ),
       sports: (parsed.sports ?? DEFAULT_ADMIN_SETTINGS.sports).map(normalizeSport),
-      offers: parsed.offers ?? DEFAULT_ADMIN_SETTINGS.offers,
+      offers: (parsed.offers ?? DEFAULT_ADMIN_SETTINGS.offers).map(normalizeOffer),
       general: { ...DEFAULT_ADMIN_SETTINGS.general, ...parsed.general },
     };
   } catch {
@@ -73,7 +107,10 @@ function persistSettings(settings) {
 
 export function AdminSettingsProvider({ children }) {
   const usesSupabase = isSupabaseConfigured();
-  const [settings, setSettings] = useState(DEFAULT_ADMIN_SETTINGS);
+  const [settings, setSettings] = useState({
+    ...DEFAULT_ADMIN_SETTINGS,
+    pitches: [],
+  });
   const [ready, setReady] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
@@ -88,7 +125,6 @@ export function AdminSettingsProvider({ children }) {
           persistSettings({
             ...stored,
             sports: next.sports,
-            offers: next.offers,
             general: next.general,
           });
         }
@@ -114,6 +150,22 @@ export function AdminSettingsProvider({ children }) {
     });
   }, []);
 
+  const setOffersSorted = useCallback((updater) => {
+    setSettings((prev) => {
+      const nextOffers =
+        typeof updater === "function" ? updater(prev.offers) : updater;
+      return { ...prev, offers: sortOffers(nextOffers) };
+    });
+  }, []);
+
+  const setPitchesSorted = useCallback((updater) => {
+    setSettings((prev) => {
+      const nextPitches =
+        typeof updater === "function" ? updater(prev.pitches ?? []) : updater;
+      return { ...prev, pitches: sortPitches(nextPitches) };
+    });
+  }, []);
+
   const refreshLocations = useCallback(async () => {
     if (!usesSupabase) return;
     const list = await fetchLocationsFromSupabase();
@@ -128,17 +180,33 @@ export function AdminSettingsProvider({ children }) {
     setSyncError(null);
   }, [usesSupabase, setSportsSorted]);
 
+  const refreshOffers = useCallback(async () => {
+    if (!usesSupabase) return;
+    const list = await fetchPromosFromSupabase();
+    setOffersSorted(list);
+    setSyncError(null);
+  }, [usesSupabase, setOffersSorted]);
+
+  const refreshPitches = useCallback(async () => {
+    if (!usesSupabase) return;
+    const list = await fetchPitchesFromSupabase();
+    setPitchesSorted(list);
+    setSyncError(null);
+  }, [usesSupabase, setPitchesSorted]);
+
   useEffect(() => {
     let cancelled = false;
     let unsubscribeLocations = () => {};
     let unsubscribeSports = () => {};
+    let unsubscribePitches = () => {};
+    let unsubscribePromos = () => {};
 
     async function init() {
       const local = loadSettings();
 
       if (!usesSupabase) {
         if (!cancelled) {
-          setSettings(local);
+          setSettings({ ...local, pitches: [] });
           setReady(true);
         }
         return;
@@ -172,6 +240,30 @@ export function AdminSettingsProvider({ children }) {
         errors.push(err?.message ?? "Could not load sports from Supabase.");
       }
 
+      try {
+        const remoteOffers = await fetchPromosFromSupabase();
+        if (!cancelled) {
+          setSettings((prev) => ({
+            ...prev,
+            offers: remoteOffers.length ? remoteOffers : prev.offers,
+          }));
+        }
+      } catch (err) {
+        errors.push(err?.message ?? "Could not load offers from Supabase.");
+      }
+
+      try {
+        const remotePitches = await fetchPitchesFromSupabase();
+        if (!cancelled) {
+          setSettings((prev) => ({
+            ...prev,
+            pitches: remotePitches,
+          }));
+        }
+      } catch (err) {
+        errors.push(err?.message ?? "Could not load pitches from Supabase.");
+      }
+
       if (!cancelled) {
         setSyncError(errors.length ? errors.join(" ") : null);
         setReady(true);
@@ -187,6 +279,16 @@ export function AdminSettingsProvider({ children }) {
           setSportsSorted((prev) => applySportRealtimeEvent(prev, payload));
           setSyncError(null);
         });
+
+        unsubscribePitches = subscribeToPitches((payload) => {
+          setPitchesSorted((prev) => applyPitchRealtimeEvent(prev, payload));
+          setSyncError(null);
+        });
+
+        unsubscribePromos = subscribeToPromos((payload) => {
+          setOffersSorted((prev) => applyPromoRealtimeEvent(prev, payload));
+          setSyncError(null);
+        });
       }
     }
 
@@ -196,8 +298,16 @@ export function AdminSettingsProvider({ children }) {
       cancelled = true;
       unsubscribeLocations();
       unsubscribeSports();
+      unsubscribePitches();
+      unsubscribePromos();
     };
-  }, [usesSupabase, setLocationsSorted, setSportsSorted]);
+  }, [
+    usesSupabase,
+    setLocationsSorted,
+    setSportsSorted,
+    setPitchesSorted,
+    setOffersSorted,
+  ]);
 
   const addLocation = useCallback(
     async (location) => {
@@ -429,38 +539,176 @@ export function AdminSettingsProvider({ children }) {
     ]
   );
 
+  const addPitch = useCallback(
+    async (pitch) => {
+      const normalized = normalizePitch(pitch);
+
+      if (!usesSupabase) {
+        throw new Error("Pitches require Supabase configuration.");
+      }
+
+      const created = await upsertPitchClient(normalized);
+      setPitchesSorted((prev) => {
+        const rest = prev.filter(
+          (item) => item.id !== created.id && item.dbId !== created.dbId
+        );
+        return [...rest, created];
+      });
+      return created.id;
+    },
+    [usesSupabase, setPitchesSorted]
+  );
+
+  const updatePitch = useCallback(
+    async (id, patch) => {
+      const existing = (settings.pitches ?? []).find((item) => item.id === id);
+      if (!existing) return;
+
+      const optimistic = normalizePitch({ ...existing, ...patch, id });
+
+      setPitchesSorted((prev) =>
+        prev.map((item) => (item.id === id ? optimistic : item))
+      );
+
+      if (!usesSupabase) return;
+
+      try {
+        const updated = await upsertPitchClient(optimistic);
+        setPitchesSorted((prev) =>
+          prev.map((item) => (item.id === id ? updated : item))
+        );
+        setSyncError(null);
+      } catch (err) {
+        setSyncError(err?.message ?? "Could not update pitch in Supabase.");
+        await refreshPitches();
+        throw err;
+      }
+    },
+    [settings.pitches, usesSupabase, setPitchesSorted, refreshPitches]
+  );
+
+  const removePitch = useCallback(
+    async (id) => {
+      const existing = (settings.pitches ?? []).find((item) => item.id === id);
+      const snapshot = settings.pitches ?? [];
+
+      setPitchesSorted((prev) => prev.filter((item) => item.id !== id));
+
+      if (!usesSupabase) return;
+
+      if (!existing) return;
+
+      try {
+        await deletePitchClient(existing);
+        setSyncError(null);
+      } catch (err) {
+        setPitchesSorted(snapshot);
+        setSyncError(err?.message ?? "Could not delete pitch in Supabase.");
+        throw err;
+      }
+    },
+    [settings.pitches, usesSupabase, setPitchesSorted]
+  );
+
   const addOffer = useCallback(
-    (offer) => {
-      const id = offer.id || slugifyId(offer.title);
+    async (offer) => {
+      const normalized = normalizeOffer(offer);
+
+      if (usesSupabase) {
+        const created = await upsertPromoClient(normalized);
+        setOffersSorted((prev) => {
+          const rest = prev.filter(
+            (item) =>
+              item.id !== created.id &&
+              item.dbId !== created.dbId &&
+              item.code !== created.code
+          );
+          return [...rest, created];
+        });
+        return created.id;
+      }
+
+      const id = offer.id || slugifyId(offer.code || offer.title);
+      const local = normalizeOffer({ ...normalized, id, dbId: null });
+
       commit((prev) => ({
         ...prev,
-        offers: [...prev.offers, { ...offer, id }],
+        offers: [...prev.offers, local],
       }));
       return id;
     },
-    [commit]
+    [usesSupabase, commit, setOffersSorted]
   );
 
   const updateOffer = useCallback(
-    (id, patch) => {
-      commit((prev) => ({
-        ...prev,
-        offers: prev.offers.map((item) =>
-          item.id === id ? { ...item, ...patch } : item
-        ),
-      }));
+    async (id, patch) => {
+      const existing = settings.offers.find((item) => item.id === id);
+      if (!existing) return;
+
+      const optimistic = normalizeOffer({ ...existing, ...patch, id });
+
+      setOffersSorted((prev) =>
+        prev.map((item) => (item.id === id ? optimistic : item))
+      );
+
+      if (!usesSupabase) {
+        commit((prev) => ({
+          ...prev,
+          offers: prev.offers.map((item) =>
+            item.id === id ? optimistic : item
+          ),
+        }));
+        return;
+      }
+
+      try {
+        const updated = await upsertPromoClient(optimistic);
+        setOffersSorted((prev) =>
+          prev.map((item) => (item.id === id ? updated : item))
+        );
+        setSyncError(null);
+      } catch (err) {
+        setSyncError(err?.message ?? "Could not update offer in Supabase.");
+        await refreshOffers();
+        throw err;
+      }
     },
-    [commit]
+    [
+      settings.offers,
+      usesSupabase,
+      commit,
+      setOffersSorted,
+      refreshOffers,
+    ]
   );
 
   const removeOffer = useCallback(
-    (id) => {
-      commit((prev) => ({
-        ...prev,
-        offers: prev.offers.filter((item) => item.id !== id),
-      }));
+    async (id) => {
+      const existing = settings.offers.find((item) => item.id === id);
+      const snapshot = settings.offers;
+
+      setOffersSorted((prev) => prev.filter((item) => item.id !== id));
+
+      if (!usesSupabase) {
+        commit((prev) => ({
+          ...prev,
+          offers: prev.offers.filter((item) => item.id !== id),
+        }));
+        return;
+      }
+
+      if (!existing) return;
+
+      try {
+        await deletePromoClient(existing);
+        setSyncError(null);
+      } catch (err) {
+        setOffersSorted(snapshot);
+        setSyncError(err?.message ?? "Could not delete offer in Supabase.");
+        throw err;
+      }
     },
-    [commit]
+    [settings.offers, usesSupabase, commit, setOffersSorted]
   );
 
   const updateGeneral = useCallback(
@@ -475,12 +723,20 @@ export function AdminSettingsProvider({ children }) {
 
   const resetSettings = useCallback(() => {
     persistSettings(DEFAULT_ADMIN_SETTINGS);
-    setSettings(DEFAULT_ADMIN_SETTINGS);
+    setSettings({ ...DEFAULT_ADMIN_SETTINGS, pitches: [] });
     if (usesSupabase) {
       void refreshLocations();
       void refreshSports();
+      void refreshPitches();
+      void refreshOffers();
     }
-  }, [usesSupabase, refreshLocations, refreshSports]);
+  }, [
+    usesSupabase,
+    refreshLocations,
+    refreshSports,
+    refreshPitches,
+    refreshOffers,
+  ]);
 
   const navLocations = useMemo(
     () =>
@@ -494,22 +750,30 @@ export function AdminSettingsProvider({ children }) {
     () => ({
       ready,
       syncError,
+      usesSupabase,
       usesSupabaseLocations: usesSupabase,
       usesSupabaseSports: usesSupabase,
+      usesSupabaseOffers: usesSupabase,
       settings,
       locations: settings.locations,
       sports: settings.sports,
+      pitches: settings.pitches ?? [],
       offers: settings.offers,
       general: settings.general,
       navLocations,
       refreshLocations,
       refreshSports,
+      refreshPitches,
+      refreshOffers,
       addLocation,
       updateLocation,
       removeLocation,
       addSport,
       updateSport,
       removeSport,
+      addPitch,
+      updatePitch,
+      removePitch,
       addOffer,
       updateOffer,
       removeOffer,
@@ -524,12 +788,17 @@ export function AdminSettingsProvider({ children }) {
       navLocations,
       refreshLocations,
       refreshSports,
+      refreshPitches,
+      refreshOffers,
       addLocation,
       updateLocation,
       removeLocation,
       addSport,
       updateSport,
       removeSport,
+      addPitch,
+      updatePitch,
+      removePitch,
       addOffer,
       updateOffer,
       removeOffer,

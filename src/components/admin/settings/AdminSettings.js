@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import SettingsGeneral from "./SettingsGeneral";
+import SettingsGallery from "./SettingsGallery";
 import SettingsLocations from "./SettingsLocations";
 import SettingsOffers from "./SettingsOffers";
 import SettingsSports from "./SettingsSports";
+import SettingsPitches from "./SettingsPitches";
 import styles from "./AdminSettings.module.css";
 
 const TABS = [
@@ -19,9 +21,19 @@ const TABS = [
     hint: "Bookable activities",
   },
   {
+    id: "pitches",
+    label: "Pitches",
+    hint: "Courts & pricing",
+  },
+  {
     id: "offers",
     label: "Offers",
     hint: "Promotions & discounts",
+  },
+  {
+    id: "gallery",
+    label: "Gallery",
+    hint: "Website photos & layout",
   },
   {
     id: "general",
@@ -33,7 +45,9 @@ const TABS = [
 const PANELS = {
   locations: SettingsLocations,
   sports: SettingsSports,
+  pitches: SettingsPitches,
   offers: SettingsOffers,
+  gallery: SettingsGallery,
   general: SettingsGeneral,
 };
 
