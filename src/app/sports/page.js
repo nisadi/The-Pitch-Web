@@ -96,16 +96,9 @@ export default function SportsPage() {
             <p style={{ textAlign: "center", color: "#fff", width: "100%" }}>Loading sports...</p>
           ) : sports.length > 0 ? (
             sports.map((sport) => {
-              // Determine card class based on sport name (fallback to a default)
-              let cardClass = "";
-              if (sport.name.toLowerCase().includes("cricket")) cardClass = styles.cardCricket;
-              else if (sport.name.toLowerCase().includes("football")) cardClass = styles.cardFootball;
-              else if (sport.name.toLowerCase().includes("futsal")) cardClass = styles.cardFutsal;
-              else if (sport.name.toLowerCase().includes("hybrid")) cardClass = styles.cardCricksal;
-              else cardClass = styles.cardFootball; // default fallback
-
+              const displayPrice = sport.base_price || sport.price || 3000;
               return (
-                <motion.div key={sport.id} variants={fadeInUp} className={`${styles.card} ${cardClass}`}>
+                <motion.div key={sport.id} variants={fadeInUp} className={styles.card}>
                   {sport.image_url && <img src={sport.image_url} alt={sport.name} className={styles.cardBg} />}
                   {!sport.image_url && <div className={styles.cardBg}></div>}
                   <div className={styles.cardOverlay}></div>
@@ -115,7 +108,7 @@ export default function SportsPage() {
                     <p className={styles.cardDesc}>{sport.description}</p>
                     <div className={styles.priceInfo}>
                       <span className={styles.priceLabel}>STARTING AT</span>
-                      <span className={styles.priceValue}>Rs. 3000</span>
+                      <span className={styles.priceValue}>Rs. {displayPrice}</span>
                       <span className={styles.priceUnit}> /hr</span>
                     </div>
                   </div>

@@ -83,7 +83,7 @@
 
 .gridContainer {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
   padding: 0 1.5rem;
 }
@@ -98,7 +98,7 @@
   justify-content: flex-end;
   color: #fff;
   transition: transform 0.4s ease, box-shadow 0.4s ease;
-  min-height: 300px;
+  min-height: 380px; /* Uniform height for all cards */
   cursor: pointer;
 }
 
@@ -182,35 +182,6 @@
   font-size: 0.85rem;
   font-weight: 600;
   opacity: 0.8;
-}
-
-/* Specific Cards */
-.cardCricket {
-  grid-column: span 3;
-  min-height: 380px;
-}
-
-.cardFootball {
-  grid-column: span 2;
-  min-height: 380px;
-}
-
-.cardFutsal {
-  grid-column: span 2;
-  min-height: 320px;
-}
-
-.cardCricksal {
-  grid-column: span 3;
-  min-height: 320px;
-  /* Geometric gradient background */
-  background: linear-gradient(135deg, #4A675B 0%, #2A4036 50%, #1A3D22 100%);
-  overflow: hidden;
-}
-
-.cardCricksal .cardBg {
-  opacity: 0.2;
-  mix-blend-mode: overlay;
 }
 
 .priceRow {
@@ -383,10 +354,6 @@
     grid-template-columns: 1fr 1fr;
   }
   
-  .cardCricket, .cardFootball, .cardFutsal, .cardCricksal {
-    grid-column: span 1;
-  }
-  
   .amenitiesGrid {
     grid-template-columns: 1fr;
     max-width: 500px;
@@ -408,8 +375,7 @@
     grid-template-columns: 1fr;
   }
   
-  .cardCricket, .cardFootball, .cardFutsal, .cardCricksal {
-    grid-column: span 1;
+  .card {
     min-height: 300px;
   }
   
