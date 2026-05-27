@@ -125,6 +125,21 @@ export default function EditProfilePage() {
         return;
       }
 
+      // Also update the public.users database table directly
+      const { error: dbError } = await supabase
+        .from("users")
+        .update({
+          full_name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          avatar_url: profile.avatar || null
+        })
+        .eq("id", user.id);
+
+      if (dbError) {
+        console.error("Database update error:", dbError);
+      }
+
       setSaveSuccess(true);
       setIsLoading(false);
       setTimeout(() => {
