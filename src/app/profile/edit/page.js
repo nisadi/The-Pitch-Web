@@ -17,6 +17,8 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
+import { getSession } from "@/services/auth";
+import { supabase } from "@/lib/supabase";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -33,24 +35,30 @@ export default function EditProfilePage() {
   const fileInputRef = React.useRef(null);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("athleteProfile");
-      if (stored) {
-        setProfile(JSON.parse(stored));
-      } else {
-        // Fallback defaults
-        setProfile({
-          name: "Alex Harrison",
-          email: "alex.harrison@stadium.club",
-          phone: "+94 77 128 3567",
-          badge: "GOLD MEMBER",
-          avatar: "https://randomuser.me/api/portraits/men/32.jpg"
-        });
+    const loadProfile = async () => {
+      setIsLoading(true);
+      try {
+        const { session } = await getSession();
+        if (session) {
+          const user = session.user;
+          setProfile({
+            name: user.user_metadata?.full_name || "",
+            email: user.email || "",
+            phone: user.user_metadata?.phone_number || "",
+            badge: "GOLD MEMBER",
+            avatar: user.user_metadata?.avatar_url || ""
+          });
+        } else {
+          router.push("/login");
+        }
+      } catch (e) {
+        console.error("Error loading profile:", e);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
+    };
+    loadProfile();
+  }, [router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -82,23 +90,51 @@ export default function EditProfilePage() {
     setProfile((prev) => ({ ...prev, avatar: "" }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setSaveSuccess(false);
 
-    setTimeout(() => {
-      try {
-        localStorage.setItem("athleteProfile", JSON.stringify(profile));
-        setSaveSuccess(true);
-        setIsLoading(false);
-        setTimeout(() => {
-          router.push("/profile");
-        }, 1000);
-      } catch (err) {
-        console.error(err);
-        setIsLoading(false);
+    try {
+      const { session } = await getSession();
+      if (!session) {
+        alert("Session expired. Please log in again.");
+        router.push("/login");
+        return;
       }
-    }, 800);
+
+      const user = session.user;
+      const updates = {
+        data: {
+          full_name: profile.name,
+          phone_number: profile.phone,
+          avatar_url: profile.avatar,
+        }
+      };
+
+      // Only update email if it actually changed
+      if (profile.email && profile.email !== user.email) {
+        updates.email = profile.email;
+      }
+
+      const { data, error } = await supabase.auth.updateUser(updates);
+
+      if (error) {
+        alert("Error updating profile: " + error.message);
+        setIsLoading(false);
+        return;
+      }
+
+      setSaveSuccess(true);
+      setIsLoading(false);
+      setTimeout(() => {
+        router.push("/profile");
+      }, 1000);
+    } catch (err) {
+      console.error("Error saving profile:", err);
+      alert("An unexpected error occurred while saving your profile.");
+      setIsLoading(false);
+    }
   };
 
   const fadeInUp = {
@@ -206,7 +242,7 @@ export default function EditProfilePage() {
           {/* RIGHT: ACCOUNT DETAILS FORM */}
           <div className={styles.detailsCol}>
             <h3 className={styles.sectionTitle}>Account Credentials</h3>
-            
+
             <div className={styles.formGroup}>
               <label htmlFor="name" className={styles.fieldLabel}>FULL NAME</label>
               <div className={styles.inputWrapper}>
