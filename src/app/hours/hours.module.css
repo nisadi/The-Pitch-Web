@@ -1,0 +1,123 @@
+.page {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+}
+
+.hero {
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  color: #932c01;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  color: #0b3528;
+  margin-bottom: 1rem;
+}
+
+.lead {
+  color: #4b5563;
+  line-height: 1.7;
+  font-size: 1.02rem;
+}
+
+.scheduleCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.scheduleTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  color: #0b3528;
+}
+
+.scheduleTitle h2 {
+  font-size: 1.15rem;
+}
+
+.scheduleList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.scheduleList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  color: #374151;
+}
+
+.scheduleList li:last-child {
+  border-bottom: none;
+}
+
+.note {
+  margin-top: 1rem;
+  color: #6b7280;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.venues h2 {
+  font-size: 1.2rem;
+  color: #0b3528;
+  margin-bottom: 0.75rem;
+}
+
+.venues ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.venues li {
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-top: 2rem;
+}
+
+.primaryBtn,
+.secondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.8rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.primaryBtn {
+  background: #932c01;
+  color: #fff;
+}
+
+.secondaryBtn {
+  border: 1px solid #d1d5db;
+  color: #0b3528;
+  background: #fff;
+}

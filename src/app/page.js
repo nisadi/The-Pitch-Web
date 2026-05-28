@@ -13,7 +13,9 @@ import {
   Users,
   Baby,
   ChevronRight,
+  MapPin,
 } from "lucide-react";
+import { VENUES } from "@/lib/seo/siteConfig";
 
 export default function Home() {
   const reviews = [
@@ -64,7 +66,7 @@ export default function Home() {
           viewport={{ once: false, amount: 0.1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
           src="/images/hero-stadium.png"
-          alt="Indoor Stadium"
+          alt="The Pitch Indoor Stadium — futsal and cricket courts in Colombo, Sri Lanka"
           className={styles.heroImage}
         />
 
@@ -92,10 +94,10 @@ export default function Home() {
             transition={{ duration: 1, delay: 0.6 }}
             className={styles.subtitle}
           >
-            Experience the ultimate indoor athletic arena.
-            Professional-grade turf, precision lighting,
-            and the energy of a championship game,
-            every single day.
+            Sri Lanka&apos;s premier indoor sports destination — book futsal,
+            cricket nets and badminton at our Maharagama, Attidiya and Moratuwa
+            venues. Professional-grade courts, climate-controlled comfort and
+            championship-level lighting, every day.
           </motion.p>
 
           <motion.div 
@@ -123,10 +125,10 @@ export default function Home() {
           transition={{ duration: 0.8, delay: 1.2 }}
           className={styles.infoBar}
         >
-          <span>CURRENT TEMP: 68°F</span>
-          <span>4 COURTS AVAILABLE TODAY</span>
-          <span>CAFE OPEN DAILY</span>
-          <span>NEXT TOURNAMENT: SAT 10AM</span>
+          <span>3 VENUES · COLOMBO AREA</span>
+          <span>FUTSAL · CRICKET NETS · BADMINTON</span>
+          <span>ONLINE BOOKING AVAILABLE</span>
+          <span>CAFE & PARKING ON SITE</span>
         </motion.div>
       </section>
 
@@ -145,16 +147,16 @@ export default function Home() {
           </h2>
 
           <p>
-            The Pitch Indoor Stadium isn't just a facility;
-            it's a high-performance ecosystem designed to elevate your game.
-            From the shock-absorbent flooring to our climate-controlled
-            environment, every inch is engineered for safety and momentum.
+            The Pitch Indoor Stadium is a high-performance indoor sports network
+            across Sri Lanka&apos;s Colombo suburbs. From shock-absorbent futsal
+            courts to professional cricket nets and badminton halls, every venue
+            is climate-controlled and built for safety, speed and year-round play.
           </p>
 
           <div className={styles.stats}>
             <div>
-              <h3>4+</h3>
-              <span>PRO COURTS</span>
+              <h3>3</h3>
+              <span>COLOMBO VENUES</span>
             </div>
 
             <div>
@@ -206,6 +208,53 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* LOCATIONS */}
+      <section className={styles.locations}>
+        <motion.div {...fadeInUp} className={styles.sectionTop}>
+          <div>
+            <h2>Indoor Sports Venues in Colombo</h2>
+            <p>
+              Find The Pitch near you — book courts in Maharagama, Attidiya or
+              Moratuwa.
+            </p>
+          </div>
+          <Link href="/locations" className={styles.viewAll}>
+            VIEW ALL LOCATIONS
+            <ChevronRight size={16} />
+          </Link>
+        </motion.div>
+
+        <motion.div
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="whileInView"
+          viewport={{ once: false, amount: 0.1 }}
+          className={styles.locationGrid}
+        >
+          {VENUES.map((venue) => (
+            <motion.article
+              key={venue.slug}
+              variants={fadeInUp}
+              className={styles.locationCard}
+            >
+              <div className={styles.locationHeader}>
+                <MapPin size={18} />
+                <h3>{venue.label}</h3>
+              </div>
+              <p className={styles.locationArea}>{venue.area}</p>
+              <p className={styles.locationAddress}>{venue.address}</p>
+              <p className={styles.locationSports}>
+                {venue.sports.join(" · ")}
+              </p>
+              <Link href="/booking" className={styles.locationLink}>
+                Book in {venue.name}
+                <ArrowRight size={14} />
+              </Link>
+            </motion.article>
+          ))}
+        </motion.div>
+      </section>
+
       {/* FACILITIES */}
       <section className={styles.facilities}>
         <motion.div 
@@ -213,8 +262,8 @@ export default function Home() {
           className={styles.sectionTop}
         >
           <div>
-            <h2>ELITE FACILITIES</h2>
-            <p>Professional amenities for every athlete.</p>
+            <h2>ELITE INDOOR FACILITIES</h2>
+            <p>Futsal courts, cricket nets, cafe and parking at every venue.</p>
           </div>
 
           <Link href="/sports" className={styles.viewAll}>
@@ -270,8 +319,9 @@ export default function Home() {
           </h2>
 
           <p>
-            Skip the queue and secure your spot instantly.
-            Select your sport and time below.
+            Reserve futsal, cricket nets or badminton in seconds. Pick your
+            venue, sport and time — instant confirmation across all Pitch
+            locations in Sri Lanka.
           </p>
 
           <ul>
@@ -317,9 +367,9 @@ export default function Home() {
             </select>
           </div>
 
-          <button className={styles.primaryBtn}>
+          <Link href="/booking" className={styles.primaryBtn}>
             CHECK AVAILABILITY
-          </button>
+          </Link>
         </motion.div>
       </section>
 

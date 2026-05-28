@@ -102,6 +102,7 @@
 }
 
 .about,
+.locations,
 .facilities,
 .booking,
 .reviews {
@@ -123,6 +124,7 @@
 }
 
 .about h2,
+.locations h2,
 .facilities h2,
 .reviews h2 {
   font-size: 3rem;
@@ -192,6 +194,62 @@
   margin-top: 0.5rem;
   line-height: 1.6;
   color: #f7f7f7;
+}
+
+.locations {
+  background: #fff;
+}
+
+.locationGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.locationCard {
+  background: #f7f7f4;
+  border: 1px solid #e8e8e4;
+  border-radius: 12px;
+  padding: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.locationHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #11452d;
+}
+
+.locationHeader h3 {
+  font-size: 1rem;
+}
+
+.locationArea {
+  color: #932c01;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.locationAddress,
+.locationSports {
+  color: #666;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.locationLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #932c01;
 }
 
 .sectionTop {
@@ -383,6 +441,7 @@
 @media (max-width: 992px) {
   .about,
   .booking,
+  .locationGrid,
   .cardGrid,
   .reviewGrid {
     grid-template-columns: 1fr;

@@ -48,7 +48,7 @@ export default function SportsPage() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className={styles.heroTitle}
           >
-            The Arena
+            Indoor Sports & Courts in Sri Lanka
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
@@ -56,7 +56,9 @@ export default function SportsPage() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className={styles.heroDesc}
           >
-            World-class indoor sporting facilities designed for high-performance athletes and casual competitors alike.
+            Book futsal, cricket nets and badminton at The Pitch Indoor Stadium.
+            Professional courts across Maharagama, Attidiya and Moratuwa with
+            peak and off-peak rates.
           </motion.p>
         </div>
       </section>

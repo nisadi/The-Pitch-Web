@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Mail, MessageCircle, MapPin, ArrowRight } from 'lucide-react';
+import { VENUES } from '@/lib/seo/siteConfig';
 import styles from './Footer.module.css';
 
 const FacebookIcon = ({ size = 24 }) => (
@@ -35,12 +36,7 @@ const InstagramIcon = ({ size = 24 }) => (
 );
 
 const Footer = () => {
-  const locations = [
-    { name: "Moratuwa", address: "210 Sri Rahula Mawatha, Moratuwa 10400" },
-    { name: "Pannipitiya", address: "347, Avissawella Road, Pannipitiya, Maharagama, 10280" },
-    { name: "Dehiwala", address: "325/B Attidiya Rd, Dehiwala-Mount Lavinia 10350" },
-    { name: "Coming Soon", address: "New location adding soon" }
-  ];
+  const featuredVenue = VENUES[0];
 
   return (
     <footer className={styles.footer}>
@@ -50,7 +46,9 @@ const Footer = () => {
           <div className={styles.column}>
             <h2 className={styles.logo}>THE PITCH</h2>
             <p className={styles.tagline}>
-              Redefining the indoor athletic experience through architectural precision and high-performance standards.
+              Book indoor futsal, cricket nets and badminton across Maharagama,
+              Attidiya and Moratuwa — Sri Lanka&apos;s premium indoor stadium
+              experience.
             </p>
             <div className={styles.socials}>
               <a href="#" aria-label="Facebook"><FacebookIcon size={20} /></a>
@@ -89,10 +87,10 @@ const Footer = () => {
               <div className={styles.activeLocation}>
                 <MapPin size={18} className={styles.pinIcon} />
                 <div>
-                  <p className={styles.locationAddress}>{locations[1].address}</p>
-                  <a href="#" className={styles.getDirections}>
-                    GET DIRECTIONS <ArrowRight size={14} />
-                  </a>
+                  <p className={styles.locationAddress}>{featuredVenue.address}</p>
+                  <Link href="/locations" className={styles.getDirections}>
+                    VIEW ALL VENUES <ArrowRight size={14} />
+                  </Link>
                 </div>
               </div>
               
