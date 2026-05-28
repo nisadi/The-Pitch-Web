@@ -84,7 +84,7 @@ export default function Home() {
             <br />
             LEGENDS
             <br />
-            <span className={styles.titleSpan}>ARE FORGED.</span>
+            <span className={styles.titleSpan}>ARE FORGED</span>
           </motion.h1>
 
           <motion.p 
