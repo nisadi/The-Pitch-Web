@@ -31,12 +31,23 @@ export async function upsertPitchClient(pitch) {
   return pitchFromRow(data);
 }
 
+function pitchDeleteErrorMessage(error) {
+  if (error?.code === "23503") {
+    return "This pitch cannot be deleted because it is linked to existing bookings.";
+  }
+  return error?.message ?? "Could not delete pitch.";
+}
+
 export async function deletePitchClient(pitch) {
   const supabase = createClient();
   const id = pitch.dbId ?? pitch.id;
 
-  if (!id) return;
+  if (!id) {
+    throw new Error("This pitch is not saved in the database yet.");
+  }
 
   const { error } = await supabase.from("pitches").delete().eq("id", id);
-  if (error) throw error;
+  if (error) {
+    throw new Error(pitchDeleteErrorMessage(error));
+  }
 }

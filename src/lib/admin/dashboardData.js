@@ -150,8 +150,11 @@ export function buildSalesOverviewFromBookings(bookings, now = new Date()) {
   };
 }
 
-export async function fetchDashboardBookings(now = new Date()) {
-  if (!isSupabaseConfigured()) return [];
+export async function fetchDashboardBookings({
+  locationDbId,
+  now = new Date(),
+} = {}) {
+  if (!isSupabaseConfigured() || !locationDbId) return [];
 
   const today = new Date(now);
   today.setHours(12, 0, 0, 0);
@@ -161,6 +164,7 @@ export async function fetchDashboardBookings(now = new Date()) {
   const { data, error } = await supabase
     .from("bookings")
     .select(BOOKING_METRICS_SELECT)
+    .eq("location_id", locationDbId)
     .gte("booking_date", fromKey)
     .order("booking_date");
 
@@ -168,23 +172,33 @@ export async function fetchDashboardBookings(now = new Date()) {
   return data ?? [];
 }
 
-export async function fetchUpcomingEventInquiryCount() {
+export async function fetchUpcomingEventInquiryCount(locationAliases = []) {
   if (!isSupabaseConfigured()) return 0;
 
   const supabase = createClient();
-  const { count, error } = await supabase
+  let query = supabase
     .from("event_inquiries")
     .select("id", { count: "exact", head: true })
     .in("status", ["new", "in_progress"]);
+
+  if (locationAliases.length > 0) {
+    query = query.in("location", locationAliases);
+  }
+
+  const { count, error } = await query;
 
   if (error) throw error;
   return count ?? 0;
 }
 
-export async function fetchDashboardSnapshot(now = new Date()) {
+export async function fetchDashboardSnapshot({
+  locationDbId,
+  locationAliases = [],
+  now = new Date(),
+} = {}) {
   const [bookings, upcomingEvents] = await Promise.all([
-    fetchDashboardBookings(now),
-    fetchUpcomingEventInquiryCount(),
+    fetchDashboardBookings({ locationDbId, now }),
+    fetchUpcomingEventInquiryCount(locationAliases),
   ]);
 
   const metrics = computeDashboardMetrics(bookings, upcomingEvents, now);

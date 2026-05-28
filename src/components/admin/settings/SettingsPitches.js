@@ -133,7 +133,7 @@ export default function SettingsPitches() {
     if (!deleteTarget) return;
 
     try {
-      await removePitch(deleteTarget.id);
+      await removePitch(deleteTarget);
       if (editingId === deleteTarget.id) {
         closeModal();
       }

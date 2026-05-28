@@ -588,18 +588,29 @@ export function AdminSettingsProvider({ children }) {
   );
 
   const removePitch = useCallback(
-    async (id) => {
-      const existing = (settings.pitches ?? []).find((item) => item.id === id);
+    async (pitchOrId) => {
+      const pitch =
+        typeof pitchOrId === "object" && pitchOrId !== null
+          ? pitchOrId
+          : (settings.pitches ?? []).find(
+              (item) => item.id === pitchOrId || item.dbId === pitchOrId
+            );
+
+      if (!pitch?.id && !pitch?.dbId) {
+        throw new Error("Pitch not found.");
+      }
+
+      const pitchKey = pitch.id ?? pitch.dbId;
       const snapshot = settings.pitches ?? [];
 
-      setPitchesSorted((prev) => prev.filter((item) => item.id !== id));
+      setPitchesSorted((prev) =>
+        prev.filter((item) => item.id !== pitchKey && item.dbId !== pitchKey)
+      );
 
       if (!usesSupabase) return;
 
-      if (!existing) return;
-
       try {
-        await deletePitchClient(existing);
+        await deletePitchClient(pitch);
         setSyncError(null);
       } catch (err) {
         setPitchesSorted(snapshot);

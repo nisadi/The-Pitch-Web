@@ -7,8 +7,12 @@ import {
   formatDashboardLkr,
   subscribeToDashboard,
 } from "@/lib/admin/dashboardData";
+import { resolveCalendarLocation } from "@/lib/locations/resolveAdminLocation";
 import AdminSalesChart from "./AdminSalesChart";
 import AdminStatsGrid from "./AdminStatsGrid";
+import { useAdminLocation } from "./adminLocationContext";
+import { venueLocationAliases } from "./customersUtils";
+import { useAdminSettings } from "./settings/adminSettingsContext";
 import styles from "./Admin.module.css";
 
 const EMPTY_METRICS = {
@@ -19,10 +23,37 @@ const EMPTY_METRICS = {
 };
 
 export default function AdminDashboard() {
+  const { filterValue: locationFilter, locationId } = useAdminLocation();
+  const { locations: settingsLocations } = useAdminSettings();
+  const [calendarLocation, setCalendarLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncError, setSyncError] = useState(null);
   const [metrics, setMetrics] = useState(EMPTY_METRICS);
   const [salesOverview, setSalesOverview] = useState(null);
+
+  useEffect(() => {
+    setCalendarLocation(null);
+    let cancelled = false;
+
+    resolveCalendarLocation(settingsLocations, {
+      locationId,
+      filterValue: locationFilter,
+    }).then((resolved) => {
+      if (!cancelled) setCalendarLocation(resolved);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsLocations, locationId, locationFilter]);
+
+  const locationAliases = useMemo(() => {
+    const current = settingsLocations.find((loc) => loc.id === locationId);
+    const aliases = venueLocationAliases(current);
+    return aliases.length > 0 ? aliases : [locationFilter];
+  }, [settingsLocations, locationId, locationFilter]);
+
+  const locationDbId = calendarLocation?.dbId ?? null;
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured()) {
@@ -31,9 +62,15 @@ export default function AdminDashboard() {
       return;
     }
 
+    if (calendarLocation === null) return;
+
     try {
       setSyncError(null);
-      const snapshot = await fetchDashboardSnapshot();
+      setLoading(true);
+      const snapshot = await fetchDashboardSnapshot({
+        locationDbId,
+        locationAliases,
+      });
       setMetrics(snapshot.metrics);
       setSalesOverview(snapshot.salesOverview);
     } catch (err) {
@@ -42,7 +79,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [calendarLocation, locationDbId, locationAliases]);
 
   useEffect(() => {
     load();
