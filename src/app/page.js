@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   Star,
-  CheckCircle2,
   Clock,
   Coffee,
   Car,
@@ -300,76 +299,6 @@ export default function Home() {
               </div>
             </motion.div>
           ))}
-        </motion.div>
-      </section>
-
-      {/* BOOKING */}
-      <section className={styles.booking}>
-        <motion.div 
-          initial={{ opacity: 0, x: -50 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: false, amount: 0.1 }}
-          transition={{ duration: 0.8 }}
-          className={styles.bookingLeft}
-        >
-          <h2>
-            READY TO
-            <br />
-            PLAY?
-          </h2>
-
-          <p>
-            Reserve futsal, cricket nets or badminton in seconds. Pick your
-            venue, sport and time — instant confirmation across all Pitch
-            locations in Sri Lanka.
-          </p>
-
-          <ul>
-            <li>
-              <CheckCircle2 size={18} /> Instant Confirmation
-            </li>
-            <li>
-              <CheckCircle2 size={18} /> Free Cancellations (24h)
-            </li>
-            <li>
-              <CheckCircle2 size={18} /> Loyalty Points Earned
-            </li>
-          </ul>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: false, amount: 0.1 }}
-          transition={{ duration: 0.6 }}
-          className={styles.bookingForm}
-        >
-          <div className={styles.formGroup}>
-            <label>SELECT SPORT</label>
-            <select>
-              <option>Indoor Football (5-a-side)</option>
-              <option>Basketball</option>
-              <option>Cricket Nets</option>
-            </select>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>DATE</label>
-            <input type="date" />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>PREFERRED TIME</label>
-            <select>
-              <option>Evening (18:00 - 22:00)</option>
-              <option>Morning (08:00 - 12:00)</option>
-              <option>Afternoon (12:00 - 18:00)</option>
-            </select>
-          </div>
-
-          <Link href="/booking" className={styles.primaryBtn}>
-            CHECK AVAILABILITY
-          </Link>
         </motion.div>
       </section>
 

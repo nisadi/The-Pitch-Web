@@ -104,7 +104,6 @@
 .about,
 .locations,
 .facilities,
-.booking,
 .reviews {
   padding: 3rem;
 }
@@ -312,77 +311,6 @@
   opacity: 0.85;
 }
 
-.booking {
-  background: #f5f3ef;
-  display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: -5rem;
-}
-
-.bookingLeft {
-  background: #11452d;
-  color: white;
-  padding: 2.5rem;
-  border-radius: 12px;
-}
-
-.bookingLeft h2 {
-  font-size: 3rem;
-  line-height: 1;
-  margin-bottom: 1.5rem;
-}
-
-.bookingLeft p {
-  color: rgba(255,255,255,0.8);
-}
-
-.bookingLeft ul {
-  list-style: none;
-  margin-top: 2rem;
-}
-
-.bookingLeft li {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 1rem;
-}
-
-.bookingForm {
-  background: white;
-  border-radius: 12px;
-  padding: 2.5rem;
-  display: grid;
-  grid-template-columns: repeat(2,1fr);
-  gap: 1.5rem;
-}
-
-.formGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.formGroup label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #777;
-}
-
-.formGroup select,
-.formGroup input {
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  background: #f7f7f7;
-}
-
-.bookingForm button {
-  grid-column: span 2;
-  justify-content: center;
-  cursor: pointer;
-}
-
 .reviewGrid {
   display: grid;
   grid-template-columns: repeat(3,1fr);
@@ -440,19 +368,10 @@
 
 @media (max-width: 992px) {
   .about,
-  .booking,
   .locationGrid,
   .cardGrid,
   .reviewGrid {
     grid-template-columns: 1fr;
-  }
-
-  .bookingForm {
-    grid-template-columns: 1fr;
-  }
-
-  .bookingForm button {
-    grid-column: span 1;
   }
 
   .title {

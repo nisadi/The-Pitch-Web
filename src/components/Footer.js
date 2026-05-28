@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Mail, MessageCircle, MapPin, ArrowRight } from 'lucide-react';
+import { Mail, MessageCircle, MapPin } from 'lucide-react';
 import { VENUES } from '@/lib/seo/siteConfig';
 import styles from './Footer.module.css';
 
@@ -36,8 +36,6 @@ const InstagramIcon = ({ size = 24 }) => (
 );
 
 const Footer = () => {
-  const featuredVenue = VENUES[0];
-
   return (
     <footer className={styles.footer}>
       <div className={styles.container}>
@@ -74,7 +72,6 @@ const Footer = () => {
             <h3 className={styles.heading}>EXPLORE</h3>
             <ul className={styles.links}>
               <li><Link href="/hours">Hours of Operation</Link></li>
-              <li><Link href="/locations">Location Map</Link></li>
               <li><Link href="/gallery">Gallery</Link></li>
               <li><Link href="/events">Events</Link></li>
             </ul>
@@ -83,22 +80,13 @@ const Footer = () => {
           {/* Visit Column */}
           <div className={styles.column}>
             <h3 className={styles.heading}>VISIT THE ARENA</h3>
-            <div className={styles.locationSelector}>
-              <div className={styles.activeLocation}>
-                <MapPin size={18} className={styles.pinIcon} />
-                <div>
-                  <p className={styles.locationAddress}>{featuredVenue.address}</p>
-                  <Link href="/locations" className={styles.getDirections}>
-                    VIEW ALL VENUES <ArrowRight size={14} />
-                  </Link>
+            <div className={styles.locationList}>
+              {VENUES.map((venue) => (
+                <div key={venue.slug} className={styles.activeLocation}>
+                  <MapPin size={18} className={styles.pinIcon} aria-hidden="true" />
+                  <p className={styles.locationAddress}>{venue.address}</p>
                 </div>
-              </div>
-              
-              <div className={styles.mapContainer}>
-                <div className={styles.mapPlaceholder}>
-                  <span>Map View</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

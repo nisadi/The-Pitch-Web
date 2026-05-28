@@ -514,7 +514,7 @@ export default function UserManagement() {
                               : `${status.color}22`,
                           }}
                         >
-                          {isOwner ? "Owner" : status.label}
+                          {isOwner ? "superadmin" : status.label}
                         </span>
                       </td>
                       {canManage && (
