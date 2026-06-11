@@ -56,7 +56,7 @@ export default function SportsPage() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className={styles.heroDesc}
           >
-            Book futsal, cricket nets and badminton at The Pitch Indoor Stadium.
+            Book futsal, and cricket nets at The Pitch Indoor Stadium.
             Professional courts across Maharagama, Attidiya and Moratuwa with
             peak and off-peak rates.
           </motion.p>
@@ -73,7 +73,7 @@ export default function SportsPage() {
             </li>
             <li className={styles.barItem}>
               <span className={styles.barDot}></span>
-              4 COURTS OPEN
+              3 COURTS OPEN
             </li>
             <li className={styles.barItem}>
               <span className={styles.barDot}></span>
