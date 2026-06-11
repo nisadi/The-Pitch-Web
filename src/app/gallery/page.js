@@ -113,7 +113,7 @@ export default function GalleryPage() {
           >
             <span className={styles.heroLabel}>Visual Experience</span>
             <h1 className={styles.heroTitle}>
-              The Arena In
+              The Stadium In
               <br />
               Focus.
             </h1>
