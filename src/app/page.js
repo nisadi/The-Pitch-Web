@@ -94,7 +94,7 @@ export default function Home() {
             className={styles.subtitle}
           >
             Sri Lanka&apos;s premier indoor sports destination — book futsal,
-            cricket nets and badminton at our Maharagama, Attidiya and Moratuwa
+            and cricket nets at our Maharagama, Attidiya and Moratuwa
             venues. Professional-grade courts, climate-controlled comfort and
             championship-level lighting, every day.
           </motion.p>
@@ -125,7 +125,7 @@ export default function Home() {
           className={styles.infoBar}
         >
           <span>3 VENUES · COLOMBO AREA</span>
-          <span>FUTSAL · CRICKET NETS · BADMINTON</span>
+          <span>FUTSAL · CRICKET NETS · FOOTBALL · CRICKSAL</span>
           <span>ONLINE BOOKING AVAILABLE</span>
           <span>CAFE & PARKING ON SITE</span>
         </motion.div>
@@ -148,7 +148,7 @@ export default function Home() {
           <p>
             The Pitch Indoor Stadium is a high-performance indoor sports network
             across Sri Lanka&apos;s Colombo suburbs. From shock-absorbent futsal
-            courts to professional cricket nets and badminton halls, every venue
+            courts to professional and cricket nets, every venue
             is climate-controlled and built for safety, speed and year-round play.
           </p>
 
