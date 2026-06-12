@@ -42,7 +42,13 @@ const Footer = () => {
         <div className={styles.grid}>
           {/* Brand Column */}
           <div className={styles.column}>
-            <h2 className={styles.logo}>THE PITCH</h2>
+            <Link href="/" className={styles.logo}>
+              <img
+                src="/images/logo.png"
+                alt="The Pitch Indoor Stadium"
+                className={styles.logoImage}
+              />
+            </Link>
             <p className={styles.tagline}>
               Book indoor futsal, cricket nets and badminton across Maharagama,
               Attidiya and Moratuwa — Sri Lanka&apos;s premium indoor stadium

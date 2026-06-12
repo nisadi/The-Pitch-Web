@@ -241,16 +241,6 @@
   line-height: 1.55;
 }
 
-.locationLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.5rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #932c01;
-}
-
 .sectionTop {
   display: flex;
   justify-content: space-between;

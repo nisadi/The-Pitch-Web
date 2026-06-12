@@ -210,43 +210,6 @@
   transform: scale(1.1);
 }
 
-.badgeWrapper {
-  margin-bottom: 1.5rem;
-  display: flex;
-  justify-content: center;
-}
-
-.badge {
-  display: inline-block;
-  padding: 0.45rem 1rem;
-  border-radius: 6px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-}
-
-.badge.goldmember {
-  background: var(--accent);
-  color: white;
-}
-
-.badge.platinummember {
-  background: #2b2b2b;
-  color: white;
-}
-
-.badge.silvermember {
-  background: #7a828a;
-  color: white;
-}
-
-.badge.basicmember {
-  background: #ececea;
-  color: #555;
-}
-
 .avatarActions {
   width: 100%;
   display: flex;
@@ -454,6 +417,18 @@
   border-color: var(--primary);
   background: white;
   box-shadow: 0 4px 12px rgba(24, 77, 40, 0.04);
+}
+
+.formInputReadOnly {
+  background: #f0f0ee;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.formInputReadOnly:focus {
+  border-color: #dcdcd9;
+  background: #f0f0ee;
+  box-shadow: none;
 }
 
 .selectWrapper {

@@ -380,6 +380,11 @@ export function AdminSettingsProvider({ children }) {
     async (id) => {
       const existing = settings.locations.find((item) => item.id === id);
       const snapshot = settings.locations;
+      const locationKeys = new Set(
+        [existing?.id, existing?.dbId, existing?.slug, existing?.shortName]
+          .filter(Boolean)
+          .map(String)
+      );
 
       setLocationsSorted((prev) => prev.filter((item) => item.id !== id));
 
@@ -389,7 +394,9 @@ export function AdminSettingsProvider({ children }) {
           locations: prev.locations.filter((item) => item.id !== id),
           offers: prev.offers.map((offer) => ({
             ...offer,
-            locationIds: offer.locationIds.filter((locId) => locId !== id),
+            locationIds: offer.locationIds.filter(
+              (locId) => !locationKeys.has(String(locId))
+            ),
           })),
         }));
         return;
@@ -399,14 +406,31 @@ export function AdminSettingsProvider({ children }) {
 
       try {
         await deleteLocationClient(existing);
+        commit((prev) => ({
+          ...prev,
+          offers: prev.offers.map((offer) => ({
+            ...offer,
+            locationIds: offer.locationIds.filter(
+              (locId) => !locationKeys.has(String(locId))
+            ),
+          })),
+        }));
         setSyncError(null);
+        await Promise.all([refreshPitches(), refreshOffers()]);
       } catch (err) {
         setLocationsSorted(snapshot);
         setSyncError(err?.message ?? "Could not delete location in Supabase.");
         throw err;
       }
     },
-    [settings.locations, usesSupabase, commit, setLocationsSorted]
+    [
+      settings.locations,
+      usesSupabase,
+      commit,
+      setLocationsSorted,
+      refreshPitches,
+      refreshOffers,
+    ]
   );
 
   const addSport = useCallback(

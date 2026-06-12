@@ -5,7 +5,6 @@
   --transition: all 0.3s ease;
 
   width: 100%;
-  overflow-x: hidden;
   background: #f3f3f0;
   padding: 4rem 7%;
   min-height: 100vh;
@@ -46,6 +45,7 @@
   display: grid;
   grid-template-columns: 1fr 380px;
   gap: 3rem;
+  align-items: start;
 }
 
 .section {
@@ -106,22 +106,7 @@
   width: 100%;
 }
 
-/* Pitch picker (shown inside location when 2+ courts) */
-.pitchBlock {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #EEEEEE;
-}
-
-.pitchSubtitle {
-  font-size: 0.85rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #888888;
-  margin-bottom: 1rem;
-}
-
+/* Pitch picker (when 2+ courts for selected location & sport) */
 .pitchList {
   display: flex;
   flex-direction: column;
@@ -339,9 +324,13 @@
 
 /* Sidebar */
 .sidebar {
+  position: sticky;
+  top: calc(var(--navbar-height, 72px) + 1.5rem);
+  align-self: start;
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  z-index: 20;
 }
 
 .sessionCard {
@@ -350,6 +339,15 @@
   padding: 2rem;
   border-radius: 12px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  max-height: calc(100vh - var(--navbar-height, 72px) - 3rem);
+  overflow-y: auto;
+}
+
+.sessionCard h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-bottom: 1.5rem;
 }
 
 .sidebarHeader {
@@ -541,6 +539,29 @@
 @media (max-width: 1024px) {
   .mainGrid {
     grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    z-index: 900;
+    padding: 0 1rem 1rem;
+    pointer-events: none;
+  }
+
+  .sessionCard {
+    pointer-events: auto;
+    max-height: min(55vh, 420px);
+    margin: 0 auto;
+    max-width: 640px;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
+  }
+
+  .container {
+    padding-bottom: calc(min(55vh, 420px) + 2rem);
   }
 
   .sportGrid {
