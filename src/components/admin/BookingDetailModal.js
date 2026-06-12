@@ -165,6 +165,21 @@ export default function BookingDetailModal({
     };
   }, [open, location?.dbId, rescheduleForm.sport_id]);
 
+  useEffect(() => {
+    if (!pitches.length) {
+      setRescheduleForm((prev) => ({ ...prev, pitch_id: "" }));
+      return;
+    }
+
+    setRescheduleForm((prev) => {
+      const stillValid = pitches.some(
+        (pitch) => String(pitch.id) === String(prev.pitch_id)
+      );
+      if (stillValid) return prev;
+      return { ...prev, pitch_id: String(pitches[0].id) };
+    });
+  }, [pitches]);
+
   if (!open || !booking) return null;
 
   const status = BOOKING_STATUSES[booking.status] ?? BOOKING_STATUSES.pending;
@@ -177,7 +192,7 @@ export default function BookingDetailModal({
       booking_date: rescheduleForm.booking_date,
       start_hour: Number(rescheduleForm.start_hour),
       sport_id: rescheduleForm.sport_id,
-      pitch_id: rescheduleForm.pitch_id || null,
+      pitch_id: rescheduleForm.pitch_id,
     });
   };
 
@@ -412,6 +427,8 @@ export default function BookingDetailModal({
                 <select
                   id={`${formId}-pitch`}
                   className={styles.input}
+                  required={pitches.length > 0}
+                  disabled={pitches.length === 0}
                   value={rescheduleForm.pitch_id}
                   onChange={(e) =>
                     setRescheduleForm((prev) => ({
@@ -420,7 +437,6 @@ export default function BookingDetailModal({
                     }))
                   }
                 >
-                  <option value="">Any / not specified</option>
                   {pitches.map((pitch) => (
                     <option key={pitch.id} value={pitch.id}>
                       {pitch.name}

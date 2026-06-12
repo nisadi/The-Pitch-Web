@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./checkout.module.css";
 import { motion } from "framer-motion";
+import { resolveSessionPricing } from "@/lib/bookings/resolveSessionPricing";
+import { hoursToDbRange } from "@/lib/bookings/bookingRange";
+import { calculatePromoDiscount } from "@/lib/promos/validatePromo";
 import { getSession } from "@/services/auth";
 
 import {
@@ -40,19 +43,109 @@ function computeTotals(basePriceNum, discountAmount = 0) {
   };
 }
 
+function resolvePromoDiscount(appliedPromo, subtotal) {
+  if (!appliedPromo) return 0;
+  if (appliedPromo.discountType != null) {
+    return calculatePromoDiscount(appliedPromo, subtotal);
+  }
+  return Number(appliedPromo.discountAmount) || 0;
+}
+
+function buildBookingStateFromPending(parsed) {
+  const pricing = resolveSessionPricing({
+    location: parsed.location,
+    pitch: parsed.pitch,
+    slot: parsed.slot,
+    startHour: parsed.startHour,
+    endHour: parsed.endHour,
+  });
+
+  const subtotalNum = pricing.subtotal;
+  const discountNum = resolvePromoDiscount(parsed.appliedPromo, subtotalNum);
+  const totals = computeTotals(subtotalNum, discountNum);
+
+  return {
+    sportId: parsed.sport?.id,
+    locationId: parsed.location?.id,
+    pitchId: parsed.pitch?.id ?? parsed.pitch?.dbId ?? null,
+    sport: parsed.sport?.name || "Indoor Football",
+    location: parsed.location?.name || "Field 1",
+    date: parsed.date || "Friday, Nov 15, 2024",
+    originalDate: parsed.originalDate,
+    time: parsed.slot || "06:00 PM - 08:00 PM",
+    startHour: pricing.startHour,
+    endHour: pricing.endHour,
+    rate: pricing.rateLabel,
+    basePrice: formatRs(subtotalNum),
+    basePriceNum: subtotalNum,
+    subtotalNum: totals.subtotalNum,
+    subtotal: totals.subtotal,
+    discountNum: totals.discountNum,
+    discountFormatted: totals.discountFormatted,
+    totalAmountNum: totals.totalAmountNum,
+    total: totals.total,
+    promoId: parsed.appliedPromo?.id ?? null,
+    promoCode: parsed.appliedPromo?.code ?? null,
+    ref: `#TP-${Math.floor(10000 + Math.random() * 90000)}-X`,
+  };
+}
+
 function buildBookingApiPayload(parsed, booking) {
-  const timeParts = (parsed.slot || booking.time).split(" - ");
+  const startHour = parsed.startHour ?? booking.startHour;
+  const endHour = parsed.endHour ?? booking.endHour;
+
+  let start_time;
+  let end_time;
+  if (Number.isFinite(Number(startHour)) && Number.isFinite(Number(endHour))) {
+    ({ start_time, end_time } = hoursToDbRange(startHour, endHour));
+  } else {
+    const timeParts = (parsed.slot || booking.time).split(" - ");
+    start_time = timeParts[0]?.trim();
+    end_time =
+      timeParts.length > 1
+        ? timeParts[timeParts.length - 1]?.trim()
+        : start_time;
+  }
+
   return {
     sport_id: parsed.sport?.id || booking.sportId,
     location_id: parsed.location?.id || booking.locationId,
     pitch_id: parsed.pitch?.id ?? parsed.pitch?.dbId ?? null,
     booking_date: parsed.originalDate || booking.originalDate,
-    start_time: timeParts[0],
-    end_time: timeParts[1],
+    start_time,
+    end_time,
     subtotal_amount: booking.subtotalNum,
     total_amount: booking.totalAmountNum,
     promo_id: booking.promoId ?? null,
   };
+}
+
+function readPendingBooking() {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = sessionStorage.getItem("pendingBooking");
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+const DEFAULT_BOOKING = {
+  sport: "Indoor Football",
+  location: "Field 1",
+  date: "Friday, Nov 15, 2024",
+  time: "06:00 PM - 08:00 PM",
+  rate: "Standard Rate",
+  basePrice: "Rs. 0.00",
+  basePriceNum: 0,
+  total: "Rs. 0.00",
+  totalAmountNum: 0,
+  ref: "#TP-94821-X",
+};
+
+function createInitialBookingState() {
+  const parsed = readPendingBooking();
+  return parsed ? buildBookingStateFromPending(parsed) : DEFAULT_BOOKING;
 }
 
 export default function CheckoutPage() {
@@ -65,67 +158,23 @@ export default function CheckoutPage() {
   const [saveCard, setSaveCard] = useState(false);
   const [overlayState, setOverlayState] = useState(null); // null | "verifying" | "success" | "failed"
   const [overlayMessage, setOverlayMessage] = useState("");
-  const [promoInput, setPromoInput] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoError, setPromoError] = useState("");
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  const [paymentReady, setPaymentReady] = useState(false);
 
-  const [booking, setBooking] = useState({
-    sport: "Indoor Football",
-    location: "Field 1",
-    date: "Friday, Nov 15, 2024",
-    time: "06:00 PM - 08:00 PM",
-    rate: "Peak Hour Rate 5000/hr",
-    basePrice: "Rs. 5000.00",
-    total: "Rs. 5000.00",
-    ref: "#TP-94821-X",
+  const [booking, setBooking] = useState(createInitialBookingState);
+  const [appliedPromo, setAppliedPromo] = useState(() => {
+    const parsed = readPendingBooking();
+    return parsed?.appliedPromo ?? null;
+  });
+  const [promoInput, setPromoInput] = useState(() => {
+    const parsed = readPendingBooking();
+    return parsed?.appliedPromo?.code ?? "";
   });
 
   const generateSessionRef = useRef(null);
   const isInitialized = useRef(false);
   const verificationStarted = useRef(false);
-
-  // ─── Load booking from sessionStorage ───────────────────────────────────────
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("pendingBooking");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const sportPrice = 3000;
-        const discountNum = parsed.appliedPromo?.discountAmount ?? 0;
-        const totals = computeTotals(sportPrice, discountNum);
-
-        setBooking({
-          sportId: parsed.sport?.id,
-          locationId: parsed.location?.id,
-          sport: parsed.sport?.name || "Indoor Football",
-          location: parsed.location?.name || "Field 1",
-          date: parsed.date || "Friday, Nov 15, 2024",
-          originalDate: parsed.originalDate,
-          time: parsed.slot || "06:00 PM - 08:00 PM",
-          rate: "Standard Rate",
-          basePrice: formatRs(sportPrice),
-          basePriceNum: sportPrice,
-          subtotalNum: totals.subtotalNum,
-          subtotal: totals.subtotal,
-          discountNum: totals.discountNum,
-          discountFormatted: totals.discountFormatted,
-          totalAmountNum: totals.totalAmountNum,
-          total: totals.total,
-          promoId: parsed.appliedPromo?.id ?? null,
-          promoCode: parsed.appliedPromo?.code ?? null,
-          ref: `#TP-${Math.floor(10000 + Math.random() * 90000)}-X`,
-        });
-
-        if (parsed.appliedPromo) {
-          setAppliedPromo(parsed.appliedPromo);
-          setPromoInput(parsed.appliedPromo.code);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
 
   // ─── Load WebXPay Hosted Session scripts ─────────────────────────────────────
   useEffect(() => {
@@ -143,10 +192,12 @@ export default function CheckoutPage() {
 
     const init = async () => {
       try {
-        await loadScript(
-          "https://seylan.gateway.mastercard.com/form/version/82/merchant/MPGS00000251/session.js"
-        );
-        await loadScript("/webxpay.hostedsession.js");
+        await Promise.all([
+          loadScript(
+            "https://seylan.gateway.mastercard.com/form/version/82/merchant/MPGS00000251/session.js"
+          ),
+          loadScript("/webxpay.hostedsession.js"),
+        ]);
 
         window.WebxpayTokenizeInit({
           card: {
@@ -159,6 +210,7 @@ export default function CheckoutPage() {
           ready: (GenerateSession) => {
             generateSessionRef.current = GenerateSession;
             isInitialized.current = true;
+            setPaymentReady(true);
           },
         });
       } catch {
@@ -194,7 +246,7 @@ export default function CheckoutPage() {
           ...buildBookingApiPayload(parsed, {
             ...booking,
             subtotalNum: booking.subtotalNum ?? booking.basePriceNum ?? 0,
-            totalAmountNum: booking.totalAmountNum || 3500,
+            totalAmountNum: booking.totalAmountNum ?? booking.basePriceNum ?? 0,
             promoId: parsed.appliedPromo?.id ?? booking.promoId ?? null,
           }),
         };
@@ -482,7 +534,7 @@ export default function CheckoutPage() {
           buildBookingApiPayload(parsed, {
             ...booking,
             subtotalNum: booking.subtotalNum ?? booking.basePriceNum ?? 0,
-            totalAmountNum: booking.totalAmountNum || 3500,
+            totalAmountNum: booking.totalAmountNum ?? booking.basePriceNum ?? 0,
             promoId: parsed.appliedPromo?.id ?? booking.promoId ?? null,
           })
         ),
@@ -528,10 +580,9 @@ export default function CheckoutPage() {
   };
 
   const fadeInUp = {
-    initial: { opacity: 0, y: 30 },
-    whileInView: { opacity: 1, y: 0 },
-    viewport: { once: false, amount: 0.1 },
-    transition: { duration: 0.6, ease: "easeOut" },
+    initial: { opacity: 0, y: 12 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.25, ease: "easeOut" },
   };
 
   return (
@@ -791,9 +842,13 @@ export default function CheckoutPage() {
               <button
                 className={styles.payButton}
                 onClick={handlePayment}
-                disabled={isProcessing || isSaving}
+                disabled={isProcessing || isSaving || !paymentReady}
               >
-                {isSaving ? (
+                {!paymentReady ? (
+                  <>
+                    <Loader2 size={18} className={styles.spinIcon} /> LOADING PAYMENT…
+                  </>
+                ) : isSaving ? (
                   <>
                     <Loader2 size={18} className={styles.spinIcon} /> PROCESSING…
                   </>

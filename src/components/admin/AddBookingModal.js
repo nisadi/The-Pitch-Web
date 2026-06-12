@@ -13,6 +13,8 @@ import {
   getBookingAmountBreakdown,
 } from "@/lib/bookings/bookingPricing";
 import {
+  filterBookingsForPitch,
+  firstAvailableStartHour,
   formatEndHourLabel,
   getRangeDurationHours,
   getValidEndHours,
@@ -33,11 +35,6 @@ function todayDateKey() {
   const m = String(t.getMonth() + 1).padStart(2, "0");
   const d = String(t.getDate()).padStart(2, "0");
   return `${t.getFullYear()}-${m}-${d}`;
-}
-
-function firstBookableHour(dateKey, slotHours) {
-  const hour = slotHours.find((h) => isSlotBookable(dateKey, h));
-  return hour != null ? String(hour) : "";
 }
 
 const EMPTY_FORM = {
@@ -116,23 +113,37 @@ export default function AddBookingModal({
     [bookingsForCalendar, form.booking_date]
   );
 
-  const bookableStartOptions = useMemo(
-    () =>
-      slotHours
-        .filter((hour) => isSlotBookable(form.booking_date, hour))
-        .map((hour) => ({ hour, label: formatHourLabel(hour) })),
-    [slotHours, form.booking_date]
+  const pitchDayBookings = useMemo(
+    () => filterBookingsForPitch(dayBookings, form.pitch_id),
+    [dayBookings, form.pitch_id]
   );
 
+  const bookableStartOptions = useMemo(() => {
+    if (!form.pitch_id) return [];
+    return slotHours
+      .filter((hour) => {
+        if (!isSlotBookable(form.booking_date, hour)) return false;
+        return (
+          getValidEndHours(
+            form.booking_date,
+            hour,
+            slotHours,
+            pitchDayBookings
+          ).length > 0
+        );
+      })
+      .map((hour) => ({ hour, label: formatHourLabel(hour) }));
+  }, [slotHours, form.booking_date, form.pitch_id, pitchDayBookings]);
+
   const validEndHours = useMemo(() => {
-    if (!form.start_hour) return [];
+    if (!form.start_hour || !form.pitch_id) return [];
     return getValidEndHours(
       form.booking_date,
       Number(form.start_hour),
       slotHours,
-      dayBookings
+      pitchDayBookings
     );
-  }, [form.booking_date, form.start_hour, slotHours, dayBookings]);
+  }, [form.booking_date, form.start_hour, form.pitch_id, slotHours, pitchDayBookings]);
 
   const endOptions = useMemo(
     () =>
@@ -249,16 +260,10 @@ export default function AddBookingModal({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || didInitForOpen.current) return;
@@ -270,29 +275,10 @@ export default function AddBookingModal({
         ? initialDateKey
         : minDate;
 
-    const defaultStart =
-      initialStartHour != null &&
-      isSlotBookable(resolvedDate, initialStartHour)
-        ? Number(initialStartHour)
-        : Number(firstBookableHour(resolvedDate, slotHours) || "");
-
     const dayList = getBookingsForDate(
       bookingsSnapshotRef.current,
       resolvedDate
     );
-
-    const ends =
-      Number.isFinite(defaultStart) ?
-        getValidEndHours(resolvedDate, defaultStart, slotHours, dayList)
-      : [];
-
-    const fallbackEnd =
-      Number.isFinite(defaultStart) &&
-      isAdminRangeBookable(resolvedDate, defaultStart, defaultStart + 1, dayList)
-        ? defaultStart + 1
-        : null;
-
-    const defaultEnd = ends[0] ?? fallbackEnd;
 
     const locationPitches = getActivePitchesForLocation(
       settingsPitches,
@@ -309,6 +295,47 @@ export default function AddBookingModal({
     const defaultPitchId = calendarPitch
       ? String(calendarPitch.dbId ?? calendarPitch.id)
       : "";
+
+    const pitchBookingsForInit = filterBookingsForPitch(
+      dayList,
+      defaultPitchId
+    );
+
+    const defaultStart =
+      initialStartHour != null &&
+      isSlotBookable(resolvedDate, initialStartHour) &&
+      getValidEndHours(
+        resolvedDate,
+        Number(initialStartHour),
+        slotHours,
+        pitchBookingsForInit
+      ).length > 0
+        ? Number(initialStartHour)
+        : Number(
+            firstAvailableStartHour(
+              resolvedDate,
+              slotHours,
+              pitchBookingsForInit
+            ) || ""
+          );
+
+    const ends =
+      Number.isFinite(defaultStart) ?
+        getValidEndHours(resolvedDate, defaultStart, slotHours, pitchBookingsForInit)
+      : [];
+
+    const fallbackEnd =
+      Number.isFinite(defaultStart) &&
+      isAdminRangeBookable(
+        resolvedDate,
+        defaultStart,
+        defaultStart + 1,
+        pitchBookingsForInit
+      )
+        ? defaultStart + 1
+        : null;
+
+    const defaultEnd = ends[0] ?? fallbackEnd;
 
     const sportFromPitch =
       calendarPitch?.sportId && isUuid(String(calendarPitch.sportId))
@@ -379,14 +406,56 @@ export default function AddBookingModal({
   }, [open, pitches]);
 
   useEffect(() => {
-    if (!open || !form.start_hour || validEndHours.length === 0) return;
-    if (!validEndHours.includes(Number(form.end_hour))) {
-      setForm((prev) => ({
-        ...prev,
-        end_hour: String(validEndHours[validEndHours.length - 1]),
-      }));
+    if (!open || !form.pitch_id) return;
+
+    const pitchBookings = filterBookingsForPitch(dayBookings, form.pitch_id);
+    const startNum = Number(form.start_hour);
+    const startStillValid =
+      Number.isFinite(startNum) &&
+      isSlotBookable(form.booking_date, startNum) &&
+      getValidEndHours(
+        form.booking_date,
+        startNum,
+        slotHours,
+        pitchBookings
+      ).length > 0;
+
+    if (startStillValid) {
+      const ends = getValidEndHours(
+        form.booking_date,
+        startNum,
+        slotHours,
+        pitchBookings
+      );
+      if (!ends.includes(Number(form.end_hour))) {
+        setForm((prev) => ({
+          ...prev,
+          end_hour: ends.length ? String(ends[0]) : "",
+        }));
+      }
+      return;
     }
-  }, [open, form.start_hour, form.end_hour, validEndHours]);
+
+    const nextStart = firstAvailableStartHour(
+      form.booking_date,
+      slotHours,
+      pitchBookings
+    );
+    const ends = nextStart
+      ? getValidEndHours(
+          form.booking_date,
+          Number(nextStart),
+          slotHours,
+          pitchBookings
+        )
+      : [];
+
+    setForm((prev) => ({
+      ...prev,
+      start_hour: nextStart,
+      end_hour: ends.length ? String(ends[0]) : "",
+    }));
+  }, [open, form.pitch_id, form.booking_date, dayBookings, slotHours]);
 
   if (!open) return null;
 
@@ -397,7 +466,7 @@ export default function AddBookingModal({
       form.booking_date,
       Number(startHour),
       slotHours,
-      dayBookings
+      pitchDayBookings
     );
     patch({
       start_hour: startHour,
@@ -442,7 +511,7 @@ export default function AddBookingModal({
         form.booking_date,
         Number(form.start_hour),
         Number(form.end_hour),
-        dayBookings
+        pitchDayBookings
       )
     ) {
       setSubmitError(
@@ -481,7 +550,7 @@ export default function AddBookingModal({
       form.booking_date,
       Number(form.start_hour),
       Number(form.end_hour),
-      dayBookings
+      pitchDayBookings
     );
 
   const submitHint =
@@ -504,14 +573,12 @@ export default function AddBookingModal({
     <div
       className={modalStyles.overlay}
       role="presentation"
-      onClick={onClose}
     >
       <div
         className={modalStyles.dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${formId}-title`}
-        onClick={(e) => e.stopPropagation()}
       >
         <header className={modalStyles.header}>
           <div className={modalStyles.headerText}>
@@ -562,18 +629,32 @@ export default function AddBookingModal({
               value={form.booking_date}
               onChange={(e) => {
                 const nextDate = e.target.value;
+                const pitchBookings = filterBookingsForPitch(
+                  getBookingsForDate(bookingsForCalendar, nextDate),
+                  form.pitch_id
+                );
                 const nextStart = isSlotBookable(
                   nextDate,
                   Number(form.start_hour)
-                )
+                ) &&
+                getValidEndHours(
+                  nextDate,
+                  Number(form.start_hour),
+                  slotHours,
+                  pitchBookings
+                ).length > 0
                   ? form.start_hour
-                  : firstBookableHour(nextDate, slotHours);
+                  : firstAvailableStartHour(
+                      nextDate,
+                      slotHours,
+                      pitchBookings
+                    );
                 const ends = nextStart
                   ? getValidEndHours(
                       nextDate,
                       Number(nextStart),
                       slotHours,
-                      getBookingsForDate(bookingsForCalendar, nextDate)
+                      pitchBookings
                     )
                   : [];
                 patch({
@@ -604,7 +685,11 @@ export default function AddBookingModal({
                   onChange={(e) => handleStartChange(e.target.value)}
                 >
                   {bookableStartOptions.length === 0 ? (
-                    <option value="">No future slots</option>
+                    <option value="">
+                      {form.pitch_id
+                        ? "No available slots for this court"
+                        : "Select a pitch first"}
+                    </option>
                   ) : (
                     bookableStartOptions.map(({ hour, label }) => (
                       <option key={hour} value={String(hour)}>

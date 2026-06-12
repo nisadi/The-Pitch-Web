@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './booking.module.css';
 import { getSession } from '@/services/auth';
@@ -20,11 +20,14 @@ import { filterSportsForLocation } from '@/lib/locations/locationSports';
 import {
   isPastDate,
   isSelectableSlot,
+  buildSlotsFromLocation,
 } from '@/lib/booking/bookingSlots';
 import {
-  buildSlotsWithAvailability,
+  applyAvailabilityToSlots,
+  fetchAvailabilityForDate,
   subscribeToAvailability,
 } from '@/lib/booking/bookingAvailability';
+import { resolveSessionPricing } from '@/lib/bookings/resolveSessionPricing';
 
 function pitchId(pitch) {
   return pitch?.dbId ?? pitch?.id ?? null;
@@ -67,36 +70,54 @@ export default function BookingPage() {
   const showPitchPicker = locationPitches.length >= 2;
   const activePitchId = pitchId(selectedPitch);
 
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+
+  const availabilityDebounceRef = useRef(null);
+  const loadAvailabilityRef = useRef(null);
+
   useEffect(() => {
-    const checkAuthAndLoad = async () => {
-      const { session } = await getSession();
-      if (!session) {
-        router.push('/login');
-        return;
+    let cancelled = false;
+
+    const bootstrap = async () => {
+      try {
+        const [sessionResult, sportsData, locationsData, pitchesData] =
+          await Promise.all([
+            getSession(),
+            getSports(),
+            getLocations(),
+            getPitches(),
+          ]);
+
+        if (cancelled) return;
+
+        if (!sessionResult.session) {
+          router.push('/login');
+          return;
+        }
+
+        setSports(sportsData);
+        setLocations(locationsData);
+        setAllPitches(pitchesData);
+
+        const initialLocation = locationsData[0] ?? null;
+        if (initialLocation) {
+          setSelectedLocation(initialLocation);
+          const forLocation = filterSportsForLocation(
+            sportsData,
+            initialLocation
+          );
+          setSelectedSport(forLocation[0] ?? null);
+        }
+      } finally {
+        if (!cancelled) setIsBootstrapping(false);
       }
-      loadData();
     };
-    checkAuthAndLoad();
+
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
-
-  const loadData = async () => {
-    const [sportsData, locationsData, pitchesData] = await Promise.all([
-      getSports(),
-      getLocations(),
-      getPitches(),
-    ]);
-
-    setSports(sportsData);
-    setLocations(locationsData);
-    setAllPitches(pitchesData);
-
-    const initialLocation = locationsData[0] ?? null;
-    if (initialLocation) {
-      setSelectedLocation(initialLocation);
-      const forLocation = filterSportsForLocation(sportsData, initialLocation);
-      setSelectedSport(forLocation[0] ?? null);
-    }
-  };
 
   useEffect(() => {
     if (!selectedLocation || !sports.length) return;
@@ -146,17 +167,60 @@ export default function BookingPage() {
       alert('Please choose a future time slot.');
       return;
     }
-    const bookingDetails = {
-      sport: selectedSport,
+
+    const startHour = slot.startHour;
+    const endHour = startHour + 1;
+    const pricing = resolveSessionPricing({
       location: selectedLocation,
       pitch: selectedPitch,
+      slot: selectedSlot,
+      startHour,
+      endHour,
+    });
+
+    const bookingDetails = {
+      sport: { id: selectedSport.id, name: selectedSport.name },
+      location: {
+        id: selectedLocation.id,
+        name: selectedLocation.name,
+        peak_start: selectedLocation.peak_start,
+        peak_end: selectedLocation.peak_end,
+        non_peak_start: selectedLocation.non_peak_start,
+        non_peak_end: selectedLocation.non_peak_end,
+        open_time: selectedLocation.open_time,
+        close_time: selectedLocation.close_time,
+      },
+      pitch: {
+        id: selectedPitch.id,
+        dbId: selectedPitch.dbId,
+        name: selectedPitch.name,
+        peak_hour_rate: selectedPitch.peakHourRate,
+        non_peak_hour_rate: selectedPitch.nonPeakHourRate,
+      },
       date: selectedDate.toDateString(),
       slot: selectedSlot,
-      originalDate: selectedDate,
+      startHour,
+      endHour,
+      subtotal: pricing.subtotal,
+      rateLabel: pricing.rateLabel,
+      originalDate: selectedDate.toISOString(),
     };
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingDetails));
     router.push('/checkout');
   };
+
+  const sessionPricing = useMemo(() => {
+    if (!selectedLocation || !selectedPitch || !selectedSlot) return null;
+    const slot = timeSlots.find((s) => s.time === selectedSlot);
+    if (!slot) return null;
+    return resolveSessionPricing({
+      location: selectedLocation,
+      pitch: selectedPitch,
+      slot: selectedSlot,
+      startHour: slot.startHour,
+      endHour: slot.startHour + 1,
+    });
+  }, [selectedLocation, selectedPitch, selectedSlot, timeSlots]);
 
   const dateKey = useMemo(() => {
     const d = selectedDate;
@@ -164,18 +228,26 @@ export default function BookingPage() {
   }, [selectedDate]);
 
   const loadAvailability = useCallback(async () => {
-    if (!selectedLocation?.id || !activePitchId) {
+    if (!selectedLocation) {
       setTimeSlots([]);
       return;
     }
-    const slots = await buildSlotsWithAvailability(
-      selectedLocation,
-      selectedDate,
+
+    const base = buildSlotsFromLocation(selectedLocation, selectedDate);
+    setTimeSlots(base);
+
+    if (!selectedLocation.id || !activePitchId) return;
+
+    const bookings = await fetchAvailabilityForDate(
       selectedLocation.id,
+      dateKey,
       activePitchId
     );
-    setTimeSlots(slots);
-  }, [selectedLocation, selectedDate, activePitchId]);
+
+    setTimeSlots(applyAvailabilityToSlots(base, bookings));
+  }, [selectedLocation, selectedDate, activePitchId, dateKey]);
+
+  loadAvailabilityRef.current = loadAvailability;
 
   useEffect(() => {
     loadAvailability();
@@ -183,13 +255,31 @@ export default function BookingPage() {
 
   useEffect(() => {
     if (!selectedLocation?.id || !dateKey || !activePitchId) return undefined;
+
+    const scheduleRefresh = () => {
+      if (availabilityDebounceRef.current) {
+        clearTimeout(availabilityDebounceRef.current);
+      }
+      availabilityDebounceRef.current = setTimeout(() => {
+        void loadAvailabilityRef.current?.();
+      }, 350);
+    };
+
     return subscribeToAvailability(
       selectedLocation.id,
       dateKey,
-      loadAvailability,
+      scheduleRefresh,
       activePitchId
     );
-  }, [selectedLocation?.id, dateKey, activePitchId, loadAvailability]);
+  }, [selectedLocation?.id, dateKey, activePitchId]);
+
+  useEffect(() => {
+    return () => {
+      if (availabilityDebounceRef.current) {
+        clearTimeout(availabilityDebounceRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (isPastDate(selectedDate)) {
@@ -244,6 +334,14 @@ export default function BookingPage() {
     'November',
     'December',
   ];
+
+  if (isBootstrapping) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loadingState}>Loading booking options…</div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -485,6 +583,14 @@ export default function BookingPage() {
               <label>SLOT</label>
               <p>{selectedSlot ?? '—'}</p>
             </div>
+
+            {sessionPricing && sessionPricing.subtotal > 0 && (
+              <div className={styles.infoGroup}>
+                <label>SESSION FEE</label>
+                <p>Rs. {sessionPricing.subtotal.toLocaleString('en-LK')}</p>
+                <span className={styles.rateHint}>{sessionPricing.rateLabel}</span>
+              </div>
+            )}
 
             <button
               onClick={handleCheckout}

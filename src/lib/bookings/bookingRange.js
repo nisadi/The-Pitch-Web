@@ -89,6 +89,55 @@ export function getValidEndHours(
   return valid;
 }
 
+/** Bookings that block the selected pitch (same rules as findBookingRangeConflict). */
+export function filterBookingsForPitch(bookings, pitchId) {
+  if (!pitchId) return [];
+  const key = String(pitchId);
+  return (bookings ?? []).filter(
+    (booking) => booking.pitchId && String(booking.pitchId) === key
+  );
+}
+
+/** Start hours with at least one bookable hour-long (or longer) range free. */
+export function getAvailableStartHours(
+  dateKey,
+  slotHours,
+  existingBookings = [],
+  excludeId = null,
+  now = new Date()
+) {
+  return (slotHours ?? []).filter((hour) => {
+    if (!isSlotBookable(dateKey, hour, now)) return false;
+    return (
+      getValidEndHours(
+        dateKey,
+        hour,
+        slotHours,
+        existingBookings,
+        excludeId,
+        now
+      ).length > 0
+    );
+  });
+}
+
+export function firstAvailableStartHour(
+  dateKey,
+  slotHours,
+  existingBookings = [],
+  excludeId = null,
+  now = new Date()
+) {
+  const hour = getAvailableStartHours(
+    dateKey,
+    slotHours,
+    existingBookings,
+    excludeId,
+    now
+  )[0];
+  return hour != null ? String(hour) : "";
+}
+
 export function formatEndHourLabel(endHour) {
   const { hour } = parseTimeField(`${endHour}:00`);
   const date = new Date();

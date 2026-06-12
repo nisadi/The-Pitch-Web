@@ -388,6 +388,14 @@
   margin-bottom: 0.5rem;
 }
 
+.rateHint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.45);
+}
+
 .infoRow {
   display: flex;
   justify-content: space-between;
@@ -536,6 +544,16 @@
 
 .rulesList li svg {
   color: #1d3521;
+}
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  color: #555;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 @media (max-width: 1024px) {
