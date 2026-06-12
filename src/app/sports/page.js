@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Coffee, Car, Droplets } from "lucide-react";
 import styles from "./sports.module.css";
 import { getSports } from "@/services/sports";
+import { getSession } from "@/services/auth";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -27,6 +28,7 @@ const staggerContainer = {
 export default function SportsPage() {
   const [sports, setSports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const loadSports = async () => {
@@ -35,6 +37,14 @@ export default function SportsPage() {
       setLoading(false);
     };
     loadSports();
+  }, []);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { session } = await getSession();
+      setIsAuthenticated(!!session);
+    };
+    checkAuth();
   }, []);
 
   return (
@@ -194,10 +204,12 @@ export default function SportsPage() {
           <p className={styles.ctaSub}>
             Secure your spot at the region's premier indoor sports destination. Group bookings and seasonal passes available.
           </p>
-          <Link href="/contact" className={styles.ctaButton}>
+          <Link
+            href={isAuthenticated ? "/booking" : "/login"}
+            className={styles.ctaButton}
+          >
             BOOK A FACILITY NOW
-          </Link>
-        </motion.div>
+          </Link>        </motion.div>
       </section>
     </div>
   );

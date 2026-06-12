@@ -262,15 +262,6 @@
   color: #777;
 }
 
-.viewAll {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #1d1d1d;
-}
-
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(4,1fr);
@@ -324,6 +315,9 @@
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .stars {
@@ -336,13 +330,15 @@
 .reviewCard p {
   color: #555;
   line-height: 1.7;
-  margin-bottom: 2rem;
+  margin-bottom: 0;
+  flex: 1;
 }
 
 .userInfo {
   display: flex;
   align-items: center;
   gap: 1rem;
+  margin-top: 2rem;
 }
 
 .avatar {
@@ -359,6 +355,7 @@
 
 .userInfo h4 {
   margin-bottom: 0.2rem;
+  color: #000;
 }
 
 .userInfo span {
