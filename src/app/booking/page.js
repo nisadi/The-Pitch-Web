@@ -16,6 +16,7 @@ import { getSports } from '@/services/sports';
 import { getLocations } from '@/services/locations';
 import { getPitches } from '@/services/pitches';
 import { filterPitchesForBooking } from '@/lib/pitches/pitchMapper';
+import { filterSportsForLocation } from '@/lib/locations/locationSports';
 import {
   isPastDate,
   isSelectableSlot,
@@ -46,6 +47,11 @@ export default function BookingPage() {
 
   const [currentMonth, setCurrentMonth] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  );
+
+  const availableSports = useMemo(
+    () => filterSportsForLocation(sports, selectedLocation),
+    [sports, selectedLocation]
   );
 
   const locationPitches = useMemo(() => {
@@ -84,14 +90,28 @@ export default function BookingPage() {
     setLocations(locationsData);
     setAllPitches(pitchesData);
 
-    if (sportsData.length > 0) {
-      setSelectedSport(sportsData[0]);
-    }
-
-    if (locationsData.length > 0) {
-      setSelectedLocation(locationsData[0]);
+    const initialLocation = locationsData[0] ?? null;
+    if (initialLocation) {
+      setSelectedLocation(initialLocation);
+      const forLocation = filterSportsForLocation(sportsData, initialLocation);
+      setSelectedSport(forLocation[0] ?? null);
     }
   };
+
+  useEffect(() => {
+    if (!selectedLocation || !sports.length) return;
+
+    const forLocation = filterSportsForLocation(sports, selectedLocation);
+    if (!forLocation.length) {
+      setSelectedSport(null);
+      return;
+    }
+
+    const stillValid = forLocation.some((sport) => sport.id === selectedSport?.id);
+    if (!stillValid) {
+      setSelectedSport(forLocation[0]);
+    }
+  }, [selectedLocation, sports, selectedSport?.id]);
 
   useEffect(() => {
     if (!locationPitches.length) {
@@ -255,41 +275,18 @@ export default function BookingPage() {
                 </div>
               ))}
             </div>
-
-            {showPitchPicker && (
-              <div className={styles.pitchBlock}>
-                <h3 className={styles.pitchSubtitle}>Select court</h3>
-                <div className={styles.pitchList}>
-                  {locationPitches.map((pitch) => (
-                    <div
-                      key={pitchId(pitch)}
-                      className={`${styles.pitchItem} ${
-                        pitchId(pitch) === activePitchId
-                          ? styles.activePitch
-                          : ''
-                      }`}
-                      onClick={() => setSelectedPitch(pitch)}
-                    >
-                      <div className={styles.radio}>
-                        {pitchId(pitch) === activePitchId ? (
-                          <CheckCircle2 size={16} />
-                        ) : (
-                          <Circle size={16} />
-                        )}
-                      </div>
-                      <span>{pitch.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </section>
 
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>SELECT YOUR SPORT</h2>
 
             <div className={styles.sportGrid}>
-              {sports.map((sport) => (
+              {availableSports.length === 0 && (
+                <p className={styles.slotEmpty}>
+                  No sports are configured for this location.
+                </p>
+              )}
+              {availableSports.map((sport) => (
                 <div
                   key={sport.id}
                   className={`${styles.sportCard} ${
@@ -308,6 +305,34 @@ export default function BookingPage() {
               ))}
             </div>
           </section>
+
+          {showPitchPicker && (
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>Select court</h2>
+              <div className={styles.pitchList}>
+                {locationPitches.map((pitch) => (
+                  <div
+                    key={pitchId(pitch)}
+                    className={`${styles.pitchItem} ${
+                      pitchId(pitch) === activePitchId
+                        ? styles.activePitch
+                        : ''
+                    }`}
+                    onClick={() => setSelectedPitch(pitch)}
+                  >
+                    <div className={styles.radio}>
+                      {pitchId(pitch) === activePitchId ? (
+                        <CheckCircle2 size={16} />
+                      ) : (
+                        <Circle size={16} />
+                      )}
+                    </div>
+                    <span>{pitch.name}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className={`${styles.section} ${styles.calendarSection}`}>
             <div className={styles.sectionHeader}>
@@ -435,13 +460,13 @@ export default function BookingPage() {
             <h3>YOUR SESSION</h3>
 
             <div className={styles.infoGroup}>
-              <label>SPORT</label>
-              <p>{selectedSport?.name}</p>
+              <label>LOCATION</label>
+              <p>{selectedLocation?.name}</p>
             </div>
 
             <div className={styles.infoGroup}>
-              <label>LOCATION</label>
-              <p>{selectedLocation?.name}</p>
+              <label>SPORT</label>
+              <p>{selectedSport?.name}</p>
             </div>
 
             {selectedPitch && (

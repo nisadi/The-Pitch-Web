@@ -26,7 +26,6 @@ export default function EditProfilePage() {
     name: "",
     email: "",
     phone: "",
-    badge: "GOLD MEMBER",
     avatar: ""
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +44,6 @@ export default function EditProfilePage() {
             name: user.user_metadata?.full_name || "",
             email: user.email || "",
             phone: user.user_metadata?.phone_number || "",
-            badge: "GOLD MEMBER",
             avatar: user.user_metadata?.avatar_url || ""
           });
         } else {
@@ -112,11 +110,7 @@ export default function EditProfilePage() {
         }
       };
 
-      // Only update email if it actually changed
-      if (profile.email && profile.email !== user.email) {
-        updates.email = profile.email;
-      }
-
+      // Email is managed by auth and cannot be changed here.
       const { data, error } = await supabase.auth.updateUser(updates);
 
       if (error) {
@@ -130,7 +124,7 @@ export default function EditProfilePage() {
         .from("users")
         .update({
           full_name: profile.name,
-          email: profile.email,
+          email: user.email,
           phone: profile.phone,
           avatar_url: profile.avatar || null
         })
@@ -223,12 +217,6 @@ export default function EditProfilePage() {
                 style={{ display: "none" }}
               />
 
-              <div className={styles.badgeWrapper}>
-                <span className={`${styles.badge} ${styles[profile.badge ? profile.badge.toLowerCase().replace(" ", "") : "basicmember"]}`}>
-                  {profile.badge || "BASIC MEMBER"}
-                </span>
-              </div>
-
               {/* Interactive Profile Controls */}
               <div className={styles.avatarActions}>
                 <button
@@ -284,10 +272,10 @@ export default function EditProfilePage() {
                   type="email"
                   name="email"
                   value={profile.email}
-                  onChange={handleChange}
-                  required
+                  readOnly
+                  aria-readonly="true"
                   placeholder="Enter email address"
-                  className={styles.formInput}
+                  className={`${styles.formInput} ${styles.formInputReadOnly}`}
                 />
               </div>
             </div>

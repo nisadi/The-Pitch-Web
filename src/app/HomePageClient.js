@@ -1,7 +1,20 @@
-import HomeLocations from "@/components/home/HomeLocations";
-import HomePageClient from "./HomePageClient";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import styles from "./page.module.css";
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  Star,
+  Clock,
+  Coffee,
+  Car,
+  Users,
+  Baby,
+  ChevronRight,
+} from "lucide-react";
+
+export default function HomePageClient({ locationsSection }) {
   const reviews = [
     {
       name: "Jason David",
@@ -27,17 +40,17 @@ export default function Home() {
     initial: { opacity: 0, y: 30 },
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: false, amount: 0.1 },
-    transition: { duration: 0.6, ease: "easeOut" }
+    transition: { duration: 0.6, ease: "easeOut" },
   };
 
   const staggerContainer = {
     initial: {},
     whileInView: {
       transition: {
-        staggerChildren: 0.1
-      }
+        staggerChildren: 0.1,
+      },
     },
-    viewport: { once: false, amount: 0.1 }
+    viewport: { once: false, amount: 0.1 },
   };
 
   return (
@@ -49,7 +62,7 @@ export default function Home() {
           whileInView={{ scale: 1, opacity: 1 }}
           viewport={{ once: false, amount: 0.1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
-          src="/images/hero-stadium.png"
+          src="/home-hero.webp"
           alt="The Pitch Indoor Stadium — futsal and cricket courts in Colombo, Sri Lanka"
           className={styles.heroImage}
         />
@@ -57,7 +70,7 @@ export default function Home() {
         <div className={styles.overlay}></div>
 
         <div className={styles.heroContent}>
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.1 }}
@@ -71,7 +84,7 @@ export default function Home() {
             <span className={styles.titleSpan}>ARE FORGED</span>
           </motion.h1>
 
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: false, amount: 0.1 }}
@@ -84,7 +97,7 @@ export default function Home() {
             championship-level lighting, every day.
           </motion.p>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.1 }}
@@ -102,7 +115,7 @@ export default function Home() {
           </motion.div>
         </div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 60 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, amount: 0.1 }}
@@ -118,10 +131,7 @@ export default function Home() {
 
       {/* ABOUT */}
       <section className={styles.about}>
-        <motion.div 
-          {...fadeInUp}
-          className={styles.aboutLeft}
-        >
+        <motion.div {...fadeInUp} className={styles.aboutLeft}>
           <span className={styles.tag}>THE ARCHITECTURAL ATHLETE</span>
 
           <h2>
@@ -155,7 +165,7 @@ export default function Home() {
           </div>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 50 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: false, amount: 0.1 }}
@@ -192,59 +202,11 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* LOCATIONS */}
-      <section className={styles.locations}>
-        <motion.div {...fadeInUp} className={styles.sectionTop}>
-          <div>
-            <h2>Indoor Sports Venues in Colombo</h2>
-            <p>
-              Find The Pitch near you — book courts in Maharagama, Attidiya or
-              Moratuwa.
-            </p>
-          </div>
-          <Link href="/locations" className={styles.viewAll}>
-            VIEW ALL LOCATIONS
-            <ChevronRight size={16} />
-          </Link>
-        </motion.div>
-
-        <motion.div
-          variants={staggerContainer}
-          initial="initial"
-          whileInView="whileInView"
-          viewport={{ once: false, amount: 0.1 }}
-          className={styles.locationGrid}
-        >
-          {VENUES.map((venue) => (
-            <motion.article
-              key={venue.slug}
-              variants={fadeInUp}
-              className={styles.locationCard}
-            >
-              <div className={styles.locationHeader}>
-                <MapPin size={18} />
-                <h3>{venue.label}</h3>
-              </div>
-              <p className={styles.locationArea}>{venue.area}</p>
-              <p className={styles.locationAddress}>{venue.address}</p>
-              <p className={styles.locationSports}>
-                {venue.sports.join(" · ")}
-              </p>
-              <Link href="/booking" className={styles.locationLink}>
-                Book in {venue.name}
-                <ArrowRight size={14} />
-              </Link>
-            </motion.article>
-          ))}
-        </motion.div>
-      </section>
+      {locationsSection}
 
       {/* FACILITIES */}
       <section className={styles.facilities}>
-        <motion.div 
-          {...fadeInUp}
-          className={styles.sectionTop}
-        >
+        <motion.div {...fadeInUp} className={styles.sectionTop}>
           <div>
             <h2>ELITE INDOOR FACILITIES</h2>
             <p>Futsal courts, cricket nets, cafe and parking at every venue.</p>
@@ -256,7 +218,7 @@ export default function Home() {
           </Link>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           variants={staggerContainer}
           initial="initial"
           whileInView="whileInView"
@@ -267,9 +229,9 @@ export default function Home() {
             { img: "courts", icon: Users, title: "Pro Courts", desc: "Shock absorbent hardwood for peak performance." },
             { img: "cafe", icon: Coffee, title: "Sideline Cafe", desc: "Recovery meals and premium coffee available." },
             { img: "parking", icon: Car, title: "Secure Parking", desc: "24/7 monitored parking for all players." },
-            { img: "rookie", icon: Baby, title: "Rookie Zone", desc: "Dedicated supervised play area for kids." }
+            { img: "rookie", icon: Baby, title: "Rookie Zone", desc: "Dedicated supervised play area for kids." },
           ].map((item, idx) => (
-            <motion.div 
+            <motion.div
               key={idx}
               variants={fadeInUp}
               whileHover={{ y: -10 }}
@@ -291,7 +253,7 @@ export default function Home() {
       <section className={styles.reviews}>
         <motion.h2 {...fadeInUp}>PLAYER REVIEWS</motion.h2>
 
-        <motion.div 
+        <motion.div
           variants={staggerContainer}
           initial="initial"
           whileInView="whileInView"
@@ -299,11 +261,11 @@ export default function Home() {
           className={styles.reviewGrid}
         >
           {reviews.map((review, index) => (
-            <motion.div 
+            <motion.div
               key={index}
               variants={fadeInUp}
               whileHover={{ scale: 1.02 }}
-              className={styles.reviewCard} 
+              className={styles.reviewCard}
             >
               <div className={styles.stars}>
                 {[...Array(review.rating)].map((_, i) => (
@@ -311,12 +273,10 @@ export default function Home() {
                 ))}
               </div>
 
-              <p>"{review.text}"</p>
+              <p>&quot;{review.text}&quot;</p>
 
               <div className={styles.userInfo}>
-                <div className={styles.avatar}>
-                  {review.name[0]}
-                </div>
+                <div className={styles.avatar}>{review.name[0]}</div>
 
                 <div>
                   <h4>{review.name}</h4>

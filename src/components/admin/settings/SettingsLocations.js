@@ -357,7 +357,7 @@ export default function SettingsLocations() {
       <DeleteConfirmModal
         open={Boolean(deleteTarget)}
         title="Delete location?"
-        description={`This will permanently remove "${deleteTarget?.name}". Offers linked to this venue will be updated. This action cannot be undone.`}
+        description={`This will permanently remove "${deleteTarget?.name}", its courts, and all bookings at this venue. Linked offers will be updated. This action cannot be undone.`}
         confirmButtonLabel="Delete location"
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
