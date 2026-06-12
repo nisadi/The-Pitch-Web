@@ -264,11 +264,6 @@ export default function Home() {
             <h2>ELITE INDOOR FACILITIES</h2>
             <p>Futsal courts, cricket nets, cafe and parking at every venue.</p>
           </div>
-
-          <Link href="/sports" className={styles.viewAll}>
-            VIEW ALL AMENITIES
-            <ChevronRight size={16} />
-          </Link>
         </motion.div>
 
         <motion.div 
