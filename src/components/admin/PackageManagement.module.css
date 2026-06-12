@@ -218,3 +218,23 @@
 .previewLink:hover {
   text-decoration: underline;
 }
+
+@media (max-width: 768px) {
+  .templateGrid {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .panelHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tableWrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sectionHeader {
+    padding: 1rem;
+  }
+}

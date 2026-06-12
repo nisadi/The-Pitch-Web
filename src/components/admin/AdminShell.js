@@ -5,6 +5,7 @@ import AdminSidebarToggle from "./AdminSidebarToggle";
 import AdminTopBar from "./AdminTopBar";
 import { AdminLocationProvider } from "./adminLocationContext";
 import { AdminSettingsProvider } from "./settings/adminSettingsContext";
+import { AdminSettingsTabProvider } from "./settings/adminSettingsTabContext";
 import { UsersProvider } from "@/lib/users/usersContext";
 import { EventCardsProvider } from "@/lib/events/eventCardsContext";
 import { AdminSidebarProvider, useAdminSidebar } from "./adminSidebarContext";
@@ -45,7 +46,9 @@ export default function AdminShell({ children }) {
         <EventCardsProvider>
           <AdminLocationProvider>
             <AdminSidebarProvider>
-              <AdminShellInner>{children}</AdminShellInner>
+              <AdminSettingsTabProvider>
+                <AdminShellInner>{children}</AdminShellInner>
+              </AdminSettingsTabProvider>
             </AdminSidebarProvider>
           </AdminLocationProvider>
         </EventCardsProvider>

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import AdminLocationSelect from "./AdminLocationSelect";
+import AdminSettingsTabSelect from "./AdminSettingsTabSelect";
 import { getAdminPageMeta } from "./adminPageMeta";
 import { useAdminSidebar } from "./adminSidebarContext";
 import styles from "./Admin.module.css";
@@ -11,6 +12,7 @@ export default function AdminTopBar() {
   const pathname = usePathname();
   const { title } = getAdminPageMeta(pathname);
   const { toggleMobileMenu } = useAdminSidebar();
+  const isSettingsPage = pathname === "/admin/settings";
 
   return (
     <header className={styles.topBar}>
@@ -28,7 +30,10 @@ export default function AdminTopBar() {
           <h1 className={styles.topBarTitle}>{title}</h1>
         </div>
       </div>
-      <div className={styles.topBarRight}>
+      <div
+        className={`${styles.topBarRight} ${isSettingsPage ? styles.topBarRightSettings : ""}`}
+      >
+        {isSettingsPage && <AdminSettingsTabSelect />}
         <AdminLocationSelect />
       </div>
     </header>

@@ -307,6 +307,7 @@
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--border);
   background: var(--background);
+  overflow: visible;
 }
 
 .topBarPage {
@@ -420,6 +421,76 @@
   color: #ffffff;
 }
 
+.settingsTabSelectWrap {
+  display: none;
+  position: relative;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.settingsTabMenu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  left: auto;
+  min-width: min(280px, calc(100vw - 2rem));
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  z-index: 60;
+  -webkit-overflow-scrolling: touch;
+}
+
+.topBarRightSettings {
+  position: relative;
+}
+
+.settingsTabOption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  text-align: left;
+  color: var(--foreground-muted);
+  transition: var(--transition);
+}
+
+.settingsTabOption:not(.settingsTabOptionActive):hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+.settingsTabOptionActive {
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.settingsTabOptionActive:hover {
+  background: var(--primary-hover);
+  color: #ffffff;
+}
+
+.settingsTabOptionLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.settingsTabOptionHint {
+  font-size: 0.72rem;
+  opacity: 0.85;
+  line-height: 1.35;
+}
+
 .topBarLeft {
   min-width: 0;
 }
@@ -513,10 +584,12 @@
   .shell,
   .shellCollapsed {
     --admin-sidebar-width: 0;
+    overflow-x: hidden;
   }
 
   .main {
     margin-left: 0;
+    min-width: 0;
   }
 
   .sidebarToggle {
@@ -582,6 +655,7 @@
 
   .topBar {
     flex-wrap: wrap;
+    align-items: flex-start;
     padding: 0.75rem 1rem;
     gap: 0.75rem;
   }
@@ -593,26 +667,112 @@
 
   .topBarRight {
     flex: 1 1 100%;
-    justify-content: space-between;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
     align-items: flex-start;
-    gap: 0.75rem;
+    gap: 0.75rem 1rem;
+  }
+
+  .topBarRightSettings {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topBarRightSettings .locationSelectWrap {
+    display: none;
+  }
+
+  .topBarRightSettings .settingsTabSelectWrap {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .topBarRightSettings .locationTrigger {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .topBarRightSettings .settingsTabMenu {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    width: 100%;
   }
 
   .topBarTitle {
     font-size: 1.2rem;
+    word-break: break-word;
+  }
+
+  .breadcrumb {
+    font-size: 0.65rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .locationSelectWrap {
     flex: 1;
     min-width: 0;
+    text-align: left;
+  }
+
+  .locationTrigger {
+    justify-content: flex-start;
+    margin-left: 0;
+    text-align: left;
   }
 
   .locationName {
     font-size: 0.95rem;
   }
 
+  .locationMenu {
+    left: 0;
+    right: auto;
+    min-width: min(280px, calc(100vw - 2rem));
+  }
+
   .mainContent {
     padding: 1rem;
+    min-width: 0;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .statCard {
+    padding: 1rem;
+  }
+
+  .statCard strong {
+    font-size: 1.4rem;
+  }
+
+  .panel {
+    padding: 1rem;
+  }
+
+  .header h1 {
+    font-size: 1.35rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .topBarTitle {
+    font-size: 1.05rem;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
   }
 }
 

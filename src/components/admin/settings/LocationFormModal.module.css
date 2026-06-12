@@ -381,4 +381,25 @@
   .formRow {
     grid-template-columns: 1fr;
   }
+
+  .sportGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .header,
+  .body,
+  .footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .footer {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
+  .footer button,
+  .saveBtn {
+    width: 100%;
+  }
 }

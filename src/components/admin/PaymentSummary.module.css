@@ -200,14 +200,36 @@
 }
 
 @media (max-width: 768px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .field,
+  .fieldGrow {
+    min-width: 0;
+    width: 100%;
+  }
+
   .toolbarActions {
     margin-left: 0;
     width: 100%;
+    flex-direction: column;
   }
 
   .exportBtn,
   .resetBtn {
     flex: 1;
     justify-content: center;
+    width: 100%;
+  }
+
+  .panelHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tableWrap {
+    -webkit-overflow-scrolling: touch;
   }
 }

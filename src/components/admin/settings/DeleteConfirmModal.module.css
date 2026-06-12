@@ -102,3 +102,26 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+  .overlay {
+    padding: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .dialog {
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
+  .cancelBtn,
+  .deleteBtn {
+    width: 100%;
+    text-align: center;
+  }
+}

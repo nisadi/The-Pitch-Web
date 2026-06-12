@@ -62,7 +62,7 @@ export default function HomePageClient({ locationsSection }) {
           whileInView={{ scale: 1, opacity: 1 }}
           viewport={{ once: false, amount: 0.1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
-          src="/home-hero.webp"
+          src="/images/home-hero-stadium.jpg"
           alt="The Pitch Indoor Stadium — futsal and cricket courts in Colombo, Sri Lanka"
           className={styles.heroImage}
         />
