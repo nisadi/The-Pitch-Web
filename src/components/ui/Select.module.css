@@ -1,0 +1,103 @@
+/* ── Trigger (the visible "button" that opens the dropdown) ── */
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+  background: #FAFAFA;
+  border: 1px solid #D0D0D0;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 1rem;
+  color: #333333;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+  text-align: left;
+}
+
+.trigger:hover {
+  background: #FFFFFF;
+  border-color: #A0A0A0;
+}
+
+.trigger[data-state='open'],
+.trigger:focus {
+  background: #FFFFFF;
+  border-color: #2C4A31;
+  box-shadow: 0 0 0 4px rgba(44, 74, 49, 0.1);
+  outline: none;
+}
+
+/* Placeholder colour */
+.trigger[data-placeholder] {
+  color: #A0A0A0;
+}
+
+/* Chevron icon */
+.icon {
+  color: #666;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.trigger[data-state='open'] .icon {
+  transform: rotate(180deg);
+}
+
+/* ── Dropdown content ── */
+.content {
+  background: #FFFFFF;
+  border: 1px solid #E0E0E0;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  z-index: 9999;
+  /* Match trigger width */
+  width: var(--radix-select-trigger-width);
+  max-height: var(--radix-select-content-available-height);
+  animation: slideDown 0.15s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Viewport (scrollable inner area) ── */
+.viewport {
+  padding: 0.35rem;
+}
+
+/* ── Individual option ── */
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  color: #333;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.item[data-highlighted] {
+  background: #F0F4F0;
+  color: #133816;
+}
+
+.item[data-state='checked'] {
+  font-weight: 600;
+  color: #2C4A31;
+}
+
+/* Checkmark indicator */
+.itemIndicator {
+  color: #2C4A31;
+  display: flex;
+  align-items: center;
+}

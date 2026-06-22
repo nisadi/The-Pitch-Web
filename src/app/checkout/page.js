@@ -187,6 +187,21 @@ export default function CheckoutPage() {
   const isInitialized = useRef(false);
   const verificationStarted = useRef(false);
 
+  // ─── Check Auth Session on Mount ─────────────────────────────────────────────
+  useEffect(() => {
+    const checkUserSession = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const result3ds = urlParams.get("result3ds");
+      if (result3ds) return;
+
+      const { session } = await getSession();
+      if (!session) {
+        router.push("/login?next=/checkout");
+      }
+    };
+    checkUserSession();
+  }, [router]);
+
   // ─── Load WebXPay Hosted Session scripts ─────────────────────────────────────
   useEffect(() => {
     if (isInitialized.current) return;

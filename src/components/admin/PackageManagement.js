@@ -111,7 +111,7 @@ export default function PackageManagement() {
   return (
     <div className={styles.page}>
       <EventCardsManagement />
-
+{/*
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <h3>Package templates</h3>
@@ -145,9 +145,9 @@ export default function PackageManagement() {
             );
           })}
         </div>
-      </section>
+      </section>*/}
 
-      <section className={styles.section}>
+ {/* <section className={styles.section}>
         <div className={styles.panelHeader}>
           <div>
             <h3>Your packages</h3>
@@ -250,7 +250,7 @@ export default function PackageManagement() {
             </table>
           </div>
         )}
-      </section>
+      </section> */}
 
       <PackageFormModal
         open={modalOpen}

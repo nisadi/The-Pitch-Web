@@ -1,6 +1,12 @@
 import { parseTimeField } from "@/components/admin/bookingsUtils";
 import { isRangeBookable, isSlotBookable } from "@/lib/booking/bookingSlots";
 
+function formatDecimalHour(decimalHour) {
+  const hour = Math.floor(decimalHour);
+  const minutes = Math.round((decimalHour - hour) * 60);
+  return `${String(hour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
 export function hoursToDbRange(startHour, endHour) {
   const start = Number(startHour);
   let end = Number(endHour);
@@ -11,8 +17,8 @@ export function hoursToDbRange(startHour, endHour) {
     end = start + 1;
   }
   return {
-    start_time: `${String(start).padStart(2, "0")}:00`,
-    end_time: `${String(end).padStart(2, "0")}:00`,
+    start_time: formatDecimalHour(start),
+    end_time: formatDecimalHour(end),
   };
 }
 

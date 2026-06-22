@@ -6,10 +6,11 @@ import { motion } from 'framer-motion';
 import { getLocations } from '@/services/locations';
 import { submitContactMessage } from '@/services/contact';
 import { getUser } from '@/services/auth';
+import { Select } from '@/components/ui/Select';
 
 export default function ContactPage() {
   const [locations, setLocations] = useState([]);
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', location: 'General', subject: 'Facility Inquiry', message: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', location: '', subject: 'Facility Inquiry', message: '' });
   const [submitStatus, setSubmitStatus] = useState(null);
   const [user, setUser] = useState(null);
 
@@ -17,6 +18,10 @@ export default function ContactPage() {
     const fetchLocations = async () => {
       const data = await getLocations();
       setLocations(data);
+      // Pre-select first real location
+      if (data.length > 0) {
+        setFormData(prev => ({ ...prev, location: prev.location || data[0].name }));
+      }
     };
     
     const fetchUserData = async () => {
@@ -57,7 +62,7 @@ export default function ContactPage() {
         name: user?.user_metadata?.full_name || '',
         email: user?.email || '',
         phone: user?.user_metadata?.phone_number || '',
-        location: 'General',
+        location: locations[0]?.name || '',
         subject: 'Facility Inquiry',
         message: ''
       });
@@ -229,12 +234,12 @@ export default function ContactPage() {
                 </div>
                 <div className={styles.formGroup}>
                   <label className={styles.formLabel}>Select Location</label>
-                  <select name="location" value={formData.location} onChange={handleFormChange} className={styles.formSelect}>
-                    <option value="General">General/Other</option>
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.name}>{loc.name}</option>
-                    ))}
-                  </select>
+                  <Select
+                    value={formData.location}
+                    onValueChange={(val) => setFormData({ ...formData, location: val })}
+                    placeholder="Choose a location…"
+                    options={locations.map((loc) => ({ value: loc.name, label: loc.name }))}
+                  />
                 </div>
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                   <label className={styles.formLabel}>Subject</label>

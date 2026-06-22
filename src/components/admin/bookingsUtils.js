@@ -63,10 +63,7 @@ export function isPeriodWithinOperational(
 export function formatOperationalHoursDisplay(operationalStart, operationalEnd) {
   const formatPoint = (timeStr) => {
     const { hour, minute } = parseTimeField(timeStr);
-    const period = hour >= 12 ? "PM" : "AM";
-    let displayHour = hour % 12;
-    if (displayHour === 0) displayHour = 12;
-    return `${displayHour}.${String(minute).padStart(2, "0")} ${period}`;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   };
 
   return `${formatPoint(operationalStart)} – ${formatPoint(operationalEnd)}`;
@@ -152,29 +149,10 @@ export function getWeekDateKeys(reference) {
   });
 }
 
-function formatClockTime(hour, minute = 0) {
-  const period = hour >= 12 ? "PM" : "AM";
-  let displayHour = hour % 12;
-  if (displayHour === 0) displayHour = 12;
-  const mins = String(minute).padStart(2, "0");
-  return { text: `${displayHour}.${mins}`, period };
-}
-
-/** Hour slot label for calendar rows, e.g. 8.00 - 9.00 AM */
+/** Hour slot label for calendar rows, e.g. 08:00 – 09:00 */
 export function formatHourLabel(hour) {
-  const start = formatClockTime(hour);
-  const end = formatClockTime(hour + 1);
-
-  if (start.period === end.period) {
-    return `${start.text} - ${end.text} ${start.period}`;
-  }
-
-  // AM → PM (e.g. 11.00 - 12.00 PM): one line in the narrow day-view label column
-  if (start.period === "AM" && end.period === "PM") {
-    return `${start.text} - ${end.text} ${end.period}`;
-  }
-
-  return `${start.text} ${start.period} - ${end.text} ${end.period}`;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(hour)}:00 – ${pad(hour + 1)}:00`;
 }
 
 export function formatShortDate(dateKey) {
