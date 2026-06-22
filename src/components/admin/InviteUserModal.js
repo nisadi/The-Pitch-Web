@@ -65,53 +65,56 @@ export default function InviteUserModal({
 
     if (sent) {
       setSendingEmail(true);
+      let emailWarning = null;
+
       try {
         const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
         const templateId = process.env.NEXT_PUBLIC_EMAILJS_INVITE_TEMPLATE_ID;
         const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
 
-        if (!serviceId || !templateId || !publicKey) {
-          window.alert(
-            "Invite email is not configured. Set NEXT_PUBLIC_EMAILJS_SERVICE_ID, NEXT_PUBLIC_EMAILJS_INVITE_TEMPLATE_ID, and NEXT_PUBLIC_EMAILJS_PUBLIC_KEY in .env.local."
-          );
-          return;
-        }
+        if (serviceId && templateId && publicKey) {
+          const baseUrl =
+            process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+            window.location.origin;
 
-        const baseUrl =
-          process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-          window.location.origin;
+          try {
+            const result = await emailjs.send(
+              serviceId,
+              templateId,
+              {
+                name: form.name,
+                email: form.email,
+                password: form.password,
+                loginUrl: `${baseUrl}/login`,
+              },
+              { publicKey }
+            );
 
-        try {
-          const result = await emailjs.send(
-            serviceId,
-            templateId,
-            {
-              name: form.name,
-              email: form.email,
-              password: form.password,
-              loginUrl: `${baseUrl}/login`,
-            },
-            { publicKey }
-          );
-
-          if (result.status < 200 || result.status >= 300) {
-            throw result;
+            if (result.status < 200 || result.status >= 300) {
+              throw result;
+            }
+          } catch (err) {
+            const message = formatEmailJsError(err);
+            console.error("Invite email failed", {
+              status: err?.status,
+              text: err?.text,
+              message,
+            });
+            // Don't block user creation — just warn about the email
+            emailWarning = message;
           }
-        } catch (err) {
-          const message = formatEmailJsError(err);
-          console.error("Invite email failed", {
-            status: err?.status,
-            text: err?.text,
-            message,
-          });
-          window.alert(message);
-          return;
         }
       } finally {
         setSendingEmail(false);
       }
 
-      window.alert(`User ${form.email} was created successfully.`);
+      if (emailWarning) {
+        window.alert(
+          `User ${form.email} was created successfully.\n\nNote: The invite email could not be sent `
+        );
+      } else {
+        window.alert(`User ${form.email} was created successfully.`);
+      }
       onClose();
     }
   };
