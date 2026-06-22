@@ -1,5 +1,5 @@
 const rawSiteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://thepitch.lk";
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://www.pitchindoorstadium.com/";
 
 export const SITE_URL = rawSiteUrl;
 export const SITE_NAME = "The Pitch Indoor Stadium";
@@ -123,7 +123,7 @@ export function organizationJsonLd() {
     description: DEFAULT_DESCRIPTION,
     url: SITE_URL,
     image: absoluteUrl("/images/hero-stadium.png"),
-    telephone: "+94-77-748-1786",
+    telephone: "+94-77-210-3344",
     email: "play@thepitch.lk",
     priceRange: "$$",
     address: {
