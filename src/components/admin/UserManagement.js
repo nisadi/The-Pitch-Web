@@ -441,27 +441,29 @@ export default function UserManagement() {
                                   autoComplete="new-password"
                                   spellCheck={false}
                                 />
-                                <button
-                                  type="button"
-                                  className={styles.passwordToggle}
-                                  onClick={() => togglePasswordVisible(user.id)}
-                                  aria-label={
-                                    isVisible
-                                      ? "Hide password"
-                                      : "Show password"
-                                  }
-                                  title={
-                                    isVisible
-                                      ? "Hide password"
-                                      : "Show password"
-                                  }
-                                >
-                                  {isVisible ? (
-                                    <EyeOff size={16} />
-                                  ) : (
-                                    <Eye size={16} />
-                                  )}
-                                </button>
+                                {!isOwner && (
+                                  <button
+                                    type="button"
+                                    className={styles.passwordToggle}
+                                    onClick={() => togglePasswordVisible(user.id)}
+                                    aria-label={
+                                      isVisible
+                                        ? "Hide password"
+                                        : "Show password"
+                                    }
+                                    title={
+                                      isVisible
+                                        ? "Hide password"
+                                        : "Show password"
+                                    }
+                                  >
+                                    {isVisible ? (
+                                      <EyeOff size={16} />
+                                    ) : (
+                                      <Eye size={16} />
+                                    )}
+                                  </button>
+                                )}
                                 {isEditing ? (
                                   <>
                                     <button
@@ -488,7 +490,7 @@ export default function UserManagement() {
                                       Cancel
                                     </button>
                                   </>
-                                ) : (
+                                ) : !isOwner && (
                                   <button
                                     type="button"
                                     className={styles.passwordEditBtn}
