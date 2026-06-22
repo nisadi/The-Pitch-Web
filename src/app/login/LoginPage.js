@@ -69,7 +69,12 @@ export default function LoginPage() {
                 router.replace(destination);
             } else {
                 // Regular customer
-                router.push("/");
+                const next = searchParams.get("next");
+                if (next) {
+                    router.push(next);
+                } else {
+                    router.push("/");
+                }
             }
         } catch (err) {
             setError(err?.message ?? "Could not sign in.");

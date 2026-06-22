@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./signup.module.css";
@@ -23,6 +23,12 @@ export default function SignupPage() {
     const [error, setError] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [nextParam, setNextParam] = useState(() => {
+        if (typeof window !== "undefined") {
+            return new URLSearchParams(window.location.search).get("next") || "";
+        }
+        return "";
+    });
     const router = useRouter();
 
     const handleChange = (e) => {
@@ -68,13 +74,13 @@ export default function SignupPage() {
                 setSuccessMsg("Account created and verified! Logging you in...");
                 setLoading(false);
                 setTimeout(() => {
-                    window.location.href = "/";
+                    window.location.href = nextParam || "/";
                 }, 1500);
             } else {
                 setSuccessMsg("Signup successful! Please check your email to confirm your account before logging in.");
                 setLoading(false);
                 setTimeout(() => {
-                    router.push("/login");
+                    router.push(nextParam ? `/login?next=${encodeURIComponent(nextParam)}` : "/login");
                 }, 5000);
             }
         }
@@ -167,7 +173,7 @@ export default function SignupPage() {
                     </button>
                     <p className={styles.bottomText}>
                         Already have an account?
-                        <Link href="/login"> Login</Link>
+                        <Link href={nextParam ? `/login?next=${encodeURIComponent(nextParam)}` : "/login"}> Login</Link>
                     </p>
                 </form>
             </motion.div>
