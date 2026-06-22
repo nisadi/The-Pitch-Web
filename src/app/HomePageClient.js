@@ -130,41 +130,46 @@ export default function HomePageClient({ locationsSection }) {
 
       {/* ABOUT */}
       <section className={styles.about}>
-        <motion.div {...fadeInUp} className={styles.aboutLeft}>
-          <span className={styles.tag}>THE ARCHITECTURAL ATHLETE</span>
+        <motion.div {...fadeInUp} className={styles.aboutInner}>
 
-          <h2>
-            Built for Precision.
-            <br />
-            Maintained for Champions.
-          </h2>
+          {/* LEFT — heading */}
+          <div className={styles.aboutHeading}>
+            <span className={styles.tag}>THE ARCHITECTURAL ATHLETE</span>
+            <h2>
+              Built for Precision.
+              <br />
+              Maintained for Champions.
+            </h2>
+          </div>
 
-          <p>
-            The Pitch Indoor Stadium is a high-performance indoor sports network
-            across Sri Lanka&apos;s Colombo suburbs. From shock-absorbent futsal
-            courts to professional and cricket nets, every venue
-            is climate-controlled and built for safety, speed and year-round play.
-          </p>
+          {/* RIGHT — body + stats */}
+          <div className={styles.aboutBody}>
+            <p>
+              The Pitch Indoor Stadium is a high-performance indoor sports network
+              across Sri Lanka&apos;s Colombo suburbs. From shock-absorbent futsal
+              courts to professional cricket nets, every venue is climate-controlled
+              and built for safety, speed and year-round play.
+            </p>
 
-          <div className={styles.stats}>
-            <div>
-              <h3>3</h3>
-              <span>COLOMBO VENUES</span>
-            </div>
-
-            <div>
-              <h3>24/7</h3>
-              <span>SECURITY</span>
-            </div>
-
-            <div>
-              <h3>500+</h3>
-              <span>WEEKLY PLAYERS</span>
+            <div className={styles.stats}>
+              <div>
+                <h3>3</h3>
+                <span>COLOMBO VENUES</span>
+              </div>
+              <div>
+                <h3>24/7</h3>
+                <span>SECURITY</span>
+              </div>
+              <div>
+                <h3>500+</h3>
+                <span>WEEKLY PLAYERS</span>
+              </div>
             </div>
           </div>
+
         </motion.div>
 
-        <motion.div
+        {/*<motion.div
           initial={{ opacity: 0, x: 50 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: false, amount: 0.1 }}
@@ -198,8 +203,9 @@ export default function HomePageClient({ locationsSection }) {
               (10:00 - 18:00)
             </p>
           </div>
-        </motion.div>
+        </motion.div>*/}
       </section>
+
 
       {locationsSection}
 

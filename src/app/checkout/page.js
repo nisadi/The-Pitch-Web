@@ -28,17 +28,24 @@ function formatRs(amount) {
   return `Rs. ${Number(amount).toFixed(2)}`;
 }
 
+const SERVICE_CHARGE_RATE = 0.032; // 3.2%
+
 function computeTotals(basePriceNum, discountAmount = 0) {
   const subtotalNum = Number(basePriceNum) || 0;
   const discountNum = Number(discountAmount) || 0;
   const totalAmountNum = Math.max(0, subtotalNum - discountNum);
+  const serviceChargeNum = Math.round(totalAmountNum * SERVICE_CHARGE_RATE * 100) / 100;
+  const grandTotalNum = Math.round((totalAmountNum + serviceChargeNum) * 100) / 100;
 
   return {
     subtotalNum,
     discountNum,
     totalAmountNum,
+    serviceChargeNum,
+    grandTotalNum,
     subtotal: formatRs(subtotalNum),
-    total: formatRs(totalAmountNum),
+    total: formatRs(grandTotalNum),
+    serviceCharge: formatRs(serviceChargeNum),
     discountFormatted: formatRs(discountNum),
   };
 }
@@ -83,6 +90,9 @@ function buildBookingStateFromPending(parsed) {
     discountNum: totals.discountNum,
     discountFormatted: totals.discountFormatted,
     totalAmountNum: totals.totalAmountNum,
+    serviceChargeNum: totals.serviceChargeNum,
+    serviceCharge: totals.serviceCharge,
+    grandTotalNum: totals.grandTotalNum,
     total: totals.total,
     promoId: parsed.appliedPromo?.id ?? null,
     promoCode: parsed.appliedPromo?.code ?? null,
@@ -115,7 +125,8 @@ function buildBookingApiPayload(parsed, booking) {
     start_time,
     end_time,
     subtotal_amount: booking.subtotalNum,
-    total_amount: booking.totalAmountNum,
+    service_charge_amount: booking.serviceChargeNum ?? 0,
+    total_amount: booking.grandTotalNum ?? booking.totalAmountNum,
     promo_id: booking.promoId ?? null,
   };
 }
@@ -482,7 +493,7 @@ export default function CheckoutPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               session: sessionId,
-              amount: booking.totalAmountNum,
+              amount: booking.grandTotalNum ?? booking.totalAmountNum,
               currency: "LKR",
               customer,
               bookingRef: booking.ref,
@@ -807,6 +818,12 @@ export default function CheckoutPage() {
               <span>Session Fee</span>
               <strong>{booking.basePrice}</strong>
             </div>
+            {booking.serviceChargeNum > 0 && (
+              <div className={styles.orderRow}>
+                <span>Service Charge (3.2%)</span>
+                <strong>{booking.serviceCharge}</strong>
+              </div>
+            )}
 
             <div className={styles.promoContainer}>
               <span className={styles.promoLabel}>PROMO CODE</span>
@@ -835,15 +852,16 @@ export default function CheckoutPage() {
               {promoError && (
                 <p className={styles.promoError}>{promoError}</p>
               )}
-              {appliedPromo && (
-                <div className={styles.discountRow}>
-                  <span>
-                    DISCOUNT APPLIED ({appliedPromo.code})
-                  </span>
-                  <span>-{booking.discountFormatted}</span>
-                </div>
-              )}
             </div>
+
+            {appliedPromo && (
+              <div className={styles.discountRow}>
+                <span>DISCOUNT APPLIED ({appliedPromo.code})</span>
+                <span>-{booking.discountFormatted}</span>
+              </div>
+            )}
+
+            
 
             <div className={styles.divider}></div>
 
@@ -851,7 +869,6 @@ export default function CheckoutPage() {
               <span className={styles.totalLabel}>TOTAL AMOUNT DUE</span>
               <div className={styles.totalValue}>
                 <h2>{booking.total}</h2>
-                <span>INCLUDES TAXES</span>
               </div>
 
               <button

@@ -171,7 +171,9 @@ export async function POST(request) {
             throw new Error('No pitch found in the database to associate with this booking.');
           }
 
-          let finalTotal = Number(bookingDetails.total_amount) || 0;
+          const SERVICE_CHARGE_RATE = 0.032; // 3.2%
+
+          let sessionFeeTotal = Number(bookingDetails.total_amount) || 0;
           const promoId = bookingDetails.promo_id ?? null;
 
           if (promoId && bookingDetails.subtotal_amount) {
@@ -207,13 +209,19 @@ export async function POST(request) {
                   validation.promo,
                   Number(bookingDetails.subtotal_amount)
                 );
-                finalTotal = Math.max(
+                sessionFeeTotal = Math.max(
                   0,
                   Number(bookingDetails.subtotal_amount) - discount
                 );
               }
             }
           }
+
+          // Add 3.2% service charge on top of the post-discount session fee
+          const serviceChargeAmount =
+            Math.round(sessionFeeTotal * SERVICE_CHARGE_RATE * 100) / 100;
+          const grandTotal =
+            Math.round((sessionFeeTotal + serviceChargeAmount) * 100) / 100;
 
           const { data: bookingData, error: bookingError } = await supabaseAdmin
             .from('bookings')
@@ -226,7 +234,7 @@ export async function POST(request) {
                 booking_date: bookingDetails.booking_date,
                 start_time: bookingDetails.start_time,
                 end_time: bookingDetails.end_time,
-                total_amount: finalTotal,
+                total_amount: grandTotal,
                 booking_status: 'confirmed',
                 payment_status: 'paid',
               },

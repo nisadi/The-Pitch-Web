@@ -6,9 +6,11 @@ import { Calendar, Utensils, ShieldCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUser } from '@/services/auth';
+import { getLocations } from '@/services/locations';
 import { createEventInquiry } from '@/services/events';
 import { fetchEventCardsForPage } from '@/lib/events/eventCardsData';
 import { subscribeToEventCards } from '@/lib/events/eventCardsRealtime';
+import { Select } from '@/components/ui/Select';
 
 export default function EventsPage() {
   const router = useRouter();
@@ -16,12 +18,14 @@ export default function EventsPage() {
   const [loadingUser, setLoadingUser] = useState(true);
   const [submitStatus, setSubmitStatus] = useState(null); // 'submitting' | 'success' | 'error' | null
   const [cards, setCards] = useState(null);
+  const [locations, setLocations] = useState([]);
   
   const [formData, setFormData] = useState({
     organizationName: '',
     contactPerson: '',
     email: '',
     phone: '',
+    location: '',
     eventCategory: 'Corporate Team Building',
     guestCount: '',
     preferredDate: '',
@@ -43,6 +47,15 @@ export default function EventsPage() {
       setLoadingUser(false);
     };
     checkAuth();
+
+    const fetchLocs = async () => {
+      const data = await getLocations();
+      setLocations(data);
+      if (data.length > 0) {
+        setFormData(prev => ({ ...prev, location: prev.location || data[0].name }));
+      }
+    };
+    fetchLocs();
   }, []);
 
   useEffect(() => {
@@ -92,6 +105,7 @@ export default function EventsPage() {
       contactPerson: formData.contactPerson,
       email: formData.email,
       phone: formData.phone,
+      location: formData.location,
       eventCategory: formData.eventCategory,
       guestCount: formData.guestCount,
       preferredDate: formData.preferredDate,
@@ -105,6 +119,7 @@ export default function EventsPage() {
         contactPerson: user?.user_metadata?.full_name || '',
         email: user?.email || '',
         phone: user?.user_metadata?.phone_number || '',
+        location: locations[0]?.name || '',
         eventCategory: 'Corporate Team Building',
         guestCount: '',
         preferredDate: '',
@@ -389,6 +404,17 @@ export default function EventsPage() {
                     <option>Private Tournament</option>
                     <option>Other Event</option>
                   </select>
+                </div>
+
+                <div className={styles.formGroup} style={{marginBottom: "1.5rem"}}>
+                  <label>Pitch Location</label>
+                  <Select
+                    value={formData.location}
+                    onValueChange={(val) => setFormData({ ...formData, location: val })}
+                    placeholder="Choose a location…"
+                    options={locations.map((loc) => ({ value: loc.name, label: loc.name }))}
+                    className={styles.formSelect}
+                  />
                 </div>
 
                 <div className={styles.formRow}>
