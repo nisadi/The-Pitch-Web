@@ -450,6 +450,10 @@ export default function BookingsCalendar() {
         customer_email: form.customer_email,
         customer_phone: form.customer_phone,
         total_amount: form.total_amount,
+        remark: form.remark,
+        discount_type: form.discount_type,
+        discount_value: form.discount_value,
+        final_amount: form.final_amount,
       };
 
       let booking = null;

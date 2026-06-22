@@ -145,6 +145,10 @@ export function validateAdminBookingPayload(body) {
     customer_email: body.customer_email,
     customer_phone: body.customer_phone,
     total_amount: body.total_amount,
+    remark: body.remark,
+    discount_type: body.discount_type,
+    discount_value: body.discount_value,
+    final_amount: body.final_amount,
   };
 }
 
@@ -166,6 +170,10 @@ export async function insertCalendarBooking(supabase, payload) {
     customer_email,
     customer_phone,
     total_amount,
+    remark,
+    discount_type,
+    discount_value,
+    final_amount,
   } = validated;
 
   const { start_time, end_time } = hoursToDbRange(start, end);
@@ -229,6 +237,10 @@ export async function insertCalendarBooking(supabase, payload) {
       guest_name: isBlock ? null : customer_name?.trim() || null,
       guest_email: isBlock ? null : customer_email?.trim() || null,
       guest_phone: isBlock ? null : customer_phone?.trim() || null,
+      remark: isBlock ? null : remark?.trim() || null,
+      discount_type: isBlock || !discount_type || discount_type === "none" ? null : Number(discount_type === "percentage" ? 1 : 2),
+      discount_value: isBlock || !discount_value ? null : Number(discount_value) || null,
+      final_amount: isBlock ? 0 : Number(final_amount) || Number(total_amount) || 0,
     })
     .select(BOOKING_CALENDAR_SELECT)
     .single();

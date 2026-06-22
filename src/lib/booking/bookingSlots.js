@@ -54,7 +54,10 @@ export function isRangeBookable(dateKey, startHour, endHour, now = new Date()) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
     return false;
   }
-  for (let hour = start; hour < end; hour++) {
+  // Check each whole hour the range touches (start is always integer from the dropdown,
+  // end can be fractional like 13.5 for 13:30 — we need to check up to Math.ceil(end)-1)
+  const lastHour = Math.ceil(end) - 1;
+  for (let hour = Math.floor(start); hour <= lastHour; hour++) {
     if (!isSlotBookable(dateKey, hour, now)) return false;
   }
   return true;

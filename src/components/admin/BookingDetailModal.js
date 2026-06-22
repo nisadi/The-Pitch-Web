@@ -274,6 +274,28 @@ export default function BookingDetailModal({
                 ? `LKR ${booking.totalAmount.toLocaleString("en-LK")}`
                 : "—"}
             </div>
+            {booking.discountType && booking.discountValue > 0 ? (
+              <>
+                <div>
+                  <span className={styles.detailLabel}>Discount</span>
+                  {booking.discountType === 1 || booking.discountType === "percentage"
+                    ? `${booking.discountValue}%`
+                    : `LKR ${booking.discountValue.toLocaleString("en-LK")}`}
+                </div>
+                <div>
+                  <span className={styles.detailLabel}>Final Amount</span>
+                  <span style={{ fontWeight: 600, color: "var(--primary, #A3FF00)" }}>
+                    LKR {(booking.finalAmount ?? booking.totalAmount).toLocaleString("en-LK")}
+                  </span>
+                </div>
+              </>
+            ) : null}
+            {booking.remark ? (
+              <div className={styles.detailFull} style={{ marginTop: "0.5rem" }}>
+                <span className={styles.detailLabel}>Remarks</span>
+                <span style={{ whiteSpace: "pre-wrap" }}>{booking.remark}</span>
+              </div>
+            ) : null}
             <div className={styles.detailFull}>
               <span className={styles.detailLabel}>Time slot</span>
               {booking.time}

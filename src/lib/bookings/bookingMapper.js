@@ -15,6 +15,10 @@ export const BOOKING_CALENDAR_SELECT = `
   sport_id,
   location_id,
   pitch_id,
+  remark,
+  discount_type,
+  discount_value,
+  final_amount,
   locations ( id, slug, name, short_name ),
   sports ( id, name ),
   pitches ( id, name ),
@@ -96,6 +100,10 @@ export function calendarBookingFromRow(row) {
     status: calendarStatusFromDb(row.booking_status),
     bookingStatus: row.booking_status,
     paymentStatus: row.payment_status,
+    remark: row.remark ?? null,
+    discountType: row.discount_type ?? null,
+    discountValue: Number(row.discount_value) || 0,
+    finalAmount: Number(row.final_amount) || Number(row.total_amount) || 0,
   };
 }
 
