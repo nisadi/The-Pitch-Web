@@ -30,13 +30,6 @@ import { getBookingsForDate } from "./bookingsData";
 import { formatHourLabel } from "./bookingsUtils";
 import modalStyles from "./settings/LocationFormModal.module.css";
 
-function todayDateKey() {
-  const t = new Date();
-  const m = String(t.getMonth() + 1).padStart(2, "0");
-  const d = String(t.getDate()).padStart(2, "0");
-  return `${t.getFullYear()}-${m}-${d}`;
-}
-
 const EMPTY_FORM = {
   type: "block",
   booking_date: "",
@@ -49,6 +42,13 @@ const EMPTY_FORM = {
   customer_phone: "",
   total_amount: "",
 };
+
+function formatTimeValue(decimalHour) {
+  if (!Number.isFinite(decimalHour)) return "";
+  const h = Math.floor(decimalHour);
+  const m = Math.round((decimalHour - h) * 60);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 export default function AddBookingModal({
   open,
@@ -72,6 +72,7 @@ export default function AddBookingModal({
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitError, setSubmitError] = useState("");
   const [loadingPitches, setLoadingPitches] = useState(false);
+  const [endInput, setEndInput] = useState("");
   const { pitches: settingsPitches, refreshPitches, locations: settingsLocations } =
     useAdminSettings();
 
@@ -106,7 +107,12 @@ export default function AddBookingModal({
     return linked.filter((sport) => sport.dbId && isUuid(String(sport.dbId)));
   }, [sports, locationWithPeriods?.sportIds, locationWithPeriods?.id]);
 
-  const minDate = useMemo(() => todayDateKey(), []);
+  const minDate = useMemo(() => {
+    const t = new Date();
+    const m = String(t.getMonth() + 1).padStart(2, "0");
+    const d = String(t.getDate()).padStart(2, "0");
+    return `${t.getFullYear()}-${m}-${d}`;
+  }, []);
 
   const dayBookings = useMemo(
     () => getBookingsForDate(bookingsForCalendar, form.booking_date),
@@ -358,6 +364,7 @@ export default function AddBookingModal({
       customer_phone: "",
       total_amount: "",
     });
+    setEndInput(defaultEnd != null ? formatTimeValue(defaultEnd) : "");
   }, [
     open,
     initialDateKey,
@@ -428,10 +435,9 @@ export default function AddBookingModal({
         pitchBookings
       );
       if (!ends.includes(Number(form.end_hour))) {
-        setForm((prev) => ({
-          ...prev,
-          end_hour: ends.length ? String(ends[0]) : "",
-        }));
+        const nextEnd = ends.length ? String(ends[0]) : "";
+        setForm((prev) => ({ ...prev, end_hour: nextEnd }));
+        setEndInput(nextEnd ? formatTimeValue(Number(nextEnd)) : "");
       }
       return;
     }
@@ -450,11 +456,13 @@ export default function AddBookingModal({
         )
       : [];
 
+    const nextEnd = ends.length ? String(ends[0]) : "";
     setForm((prev) => ({
       ...prev,
       start_hour: nextStart,
-      end_hour: ends.length ? String(ends[0]) : "",
+      end_hour: nextEnd,
     }));
+    setEndInput(nextEnd ? formatTimeValue(Number(nextEnd)) : "");
   }, [open, form.pitch_id, form.booking_date, dayBookings, slotHours]);
 
   if (!open) return null;
@@ -468,10 +476,12 @@ export default function AddBookingModal({
       slotHours,
       pitchDayBookings
     );
+    const nextEnd = ends.length ? String(ends[0]) : "";
     patch({
       start_hour: startHour,
-      end_hour: ends.length ? String(ends[0]) : "",
+      end_hour: nextEnd,
     });
+    setEndInput(nextEnd ? formatTimeValue(Number(nextEnd)) : "");
   };
 
   const handleSubmit = (event) => {
@@ -707,24 +717,39 @@ export default function AddBookingModal({
                 >
                   Ends at
                 </label>
-                <select
+                <input
                   id={`${formId}-end`}
+                  type="text"
+                  placeholder="23:30"
+                  pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+                  maxLength={5}
                   className={modalStyles.input}
                   required
-                  value={form.end_hour}
-                  disabled={!form.start_hour || endOptions.length === 0}
-                  onChange={(e) => patch({ end_hour: e.target.value })}
-                >
-                  {endOptions.length === 0 ? (
-                    <option value="">—</option>
-                  ) : (
-                    endOptions.map(({ hour, label }) => (
-                      <option key={hour} value={String(hour)}>
-                        {label}
-                      </option>
-                    ))
-                  )}
-                </select>
+                  disabled={!form.start_hour}
+                  value={endInput}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/[^0-9:]/g, "");
+                    // Auto-insert colon if they type 2 digits
+                    if (val.length === 2 && !val.includes(':') && endInput.length < val.length) {
+                      val += ':';
+                    }
+                    setEndInput(val);
+                  }}
+                  onBlur={() => {
+                    const [hh, mm] = endInput.split(":");
+                    const hour = parseInt(hh, 10);
+                    const min = parseInt(mm || "0", 10);
+                    
+                    if (Number.isFinite(hour)) {
+                      const decimal = hour + (Number.isFinite(min) ? min / 60 : 0);
+                      patch({ end_hour: String(decimal) });
+                      setEndInput(formatTimeValue(decimal));
+                    } else {
+                      patch({ end_hour: "" });
+                      setEndInput("");
+                    }
+                  }}
+                />
               </div>
             </div>
             {rangePreview ? (
