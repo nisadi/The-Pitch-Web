@@ -55,8 +55,11 @@ export function calculateBookingTotalAmount({
 
   const rates = { peakHourRate, nonPeakHourRate };
   let total = 0;
-  for (let hour = start; hour < end; hour += 1) {
-    total += getHourlyRateForSlot(hour, location, rates);
+  for (let hour = Math.floor(start); hour < Math.ceil(end); hour += 1) {
+    const overlap = Math.min(hour + 1, end) - Math.max(hour, start);
+    if (overlap > 0) {
+      total += getHourlyRateForSlot(hour, location, rates) * overlap;
+    }
   }
   return Math.round(total);
 }
@@ -85,13 +88,16 @@ export function getBookingAmountBreakdown({
   let nonPeakHours = 0;
   let otherHours = 0;
 
-  for (let hour = start; hour < end; hour += 1) {
-    if (isHourInTimePeriod(hour, peakStart, peakEnd)) {
-      peakHours += 1;
-    } else if (isHourInTimePeriod(hour, nonPeakStart, nonPeakEnd)) {
-      nonPeakHours += 1;
-    } else {
-      otherHours += 1;
+  for (let hour = Math.floor(start); hour < Math.ceil(end); hour += 1) {
+    const overlap = Math.min(hour + 1, end) - Math.max(hour, start);
+    if (overlap > 0) {
+      if (isHourInTimePeriod(hour, peakStart, peakEnd)) {
+        peakHours += overlap;
+      } else if (isHourInTimePeriod(hour, nonPeakStart, nonPeakEnd)) {
+        nonPeakHours += overlap;
+      } else {
+        otherHours += overlap;
+      }
     }
   }
 

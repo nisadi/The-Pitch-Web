@@ -41,6 +41,10 @@ const EMPTY_FORM = {
   customer_email: "",
   customer_phone: "",
   total_amount: "",
+  remark: "",
+  discount_type: "none",
+  discount_value: "",
+  final_amount: "",
 };
 
 function formatTimeValue(decimalHour) {
@@ -48,6 +52,18 @@ function formatTimeValue(decimalHour) {
   const h = Math.floor(decimalHour);
   const m = Math.round((decimalHour - h) * 60);
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function calculateFinalAmount(totalAmount, discountType, discountValue) {
+  const total = Number(totalAmount) || 0;
+  const discount = Number(discountValue) || 0;
+  if (total <= 0 || discount <= 0 || discountType === "none") return total;
+  if (discountType === "percentage") {
+    const capped = Math.min(discount, 100);
+    return Math.max(0, Math.round(total - (total * capped) / 100));
+  }
+  // fixed
+  return Math.max(0, Math.round(total - discount));
 }
 
 export default function AddBookingModal({
@@ -539,10 +555,28 @@ export default function AddBookingModal({
     }
 
     const endHour = Number(form.end_hour) || Number(form.start_hour) + 1;
-    onSubmit({ ...form, end_hour: String(endHour) });
+    const finalAmt = calculateFinalAmount(
+      form.total_amount,
+      form.discount_type,
+      form.discount_value
+    );
+    onSubmit({
+      ...form,
+      end_hour: String(endHour),
+      final_amount: String(finalAmt),
+    });
   };
 
   const isBlock = form.type === "block";
+  const isRangeValid = isAdminRangeBookable(
+    form.booking_date,
+    Number(form.start_hour),
+    Number(form.end_hour),
+    pitchDayBookings
+  );
+
+  const hasCustomer = isBlock || String(form.customer_name ?? "").trim();
+
   const canSubmit =
     locationWithPeriods?.dbId &&
     form.booking_date &&
@@ -555,13 +589,8 @@ export default function AddBookingModal({
     !loadingPitches &&
     pitches.length > 0 &&
     locationSports.length > 0 &&
-    (isBlock || String(form.customer_name ?? "").trim()) &&
-    isAdminRangeBookable(
-      form.booking_date,
-      Number(form.start_hour),
-      Number(form.end_hour),
-      pitchDayBookings
-    );
+    hasCustomer &&
+    isRangeValid;
 
   const submitHint =
     submitError ||
@@ -575,9 +604,11 @@ export default function AddBookingModal({
             ? "No pitches for this sport at this location — add one in Settings."
             : !form.pitch_id
               ? "Select a pitch/court."
-              : !canSubmit
+              : !isRangeValid
                 ? "Pick a valid future time range that does not overlap existing bookings."
-                : "");
+                : !hasCustomer
+                  ? "Please enter the customer name."
+                  : "");
 
   return createPortal(
     <div
@@ -734,13 +765,23 @@ export default function AddBookingModal({
                       val += ':';
                     }
                     setEndInput(val);
+
+                    // Update form.end_hour live when input looks like a valid time
+                    const parts = val.split(":");
+                    if (parts.length === 2 && parts[1].length === 2) {
+                      const hour = parseInt(parts[0], 10);
+                      const min = parseInt(parts[1], 10);
+                      if (Number.isFinite(hour) && Number.isFinite(min) && hour >= 0 && hour <= 24 && min >= 0 && min <= 59) {
+                        patch({ end_hour: String(hour + min / 60) });
+                      }
+                    }
                   }}
                   onBlur={() => {
                     const [hh, mm] = endInput.split(":");
                     const hour = parseInt(hh, 10);
                     const min = parseInt(mm || "0", 10);
                     
-                    if (Number.isFinite(hour)) {
+                    if (Number.isFinite(hour) && hour >= 0 && hour <= 24) {
                       const decimal = hour + (Number.isFinite(min) ? min / 60 : 0);
                       patch({ end_hour: String(decimal) });
                       setEndInput(formatTimeValue(decimal));
@@ -942,6 +983,115 @@ export default function AddBookingModal({
                       : "Set peak and non-peak rates on this pitch in Settings → Pitches to auto-fill the amount."}
                   </p>
                 ) : null}
+              </div>
+              <div className={modalStyles.field}>
+                <span className={modalStyles.label}>Discount</span>
+                <div className={modalStyles.formRow}>
+                  <div className={modalStyles.field}>
+                    <label
+                      className={modalStyles.label}
+                      htmlFor={`${formId}-discount-type`}
+                      style={{ fontSize: "0.72rem" }}
+                    >
+                      Type
+                    </label>
+                    <select
+                      id={`${formId}-discount-type`}
+                      className={modalStyles.input}
+                      value={form.discount_type}
+                      onChange={(e) => {
+                        const nextType = e.target.value;
+                        patch({
+                          discount_type: nextType,
+                          discount_value: nextType === "none" ? "" : form.discount_value,
+                        });
+                      }}
+                    >
+                      <option value="none">No discount</option>
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="fixed">Fixed amount (LKR)</option>
+                    </select>
+                  </div>
+                  {form.discount_type !== "none" && (
+                    <div className={modalStyles.field}>
+                      <label
+                        className={modalStyles.label}
+                        htmlFor={`${formId}-discount-value`}
+                        style={{ fontSize: "0.72rem" }}
+                      >
+                        {form.discount_type === "percentage" ? "Percentage" : "Amount"}
+                      </label>
+                      <input
+                        id={`${formId}-discount-value`}
+                        type="number"
+                        min="0"
+                        max={form.discount_type === "percentage" ? "100" : undefined}
+                        step="0.01"
+                        className={modalStyles.input}
+                        placeholder={form.discount_type === "percentage" ? "e.g. 10" : "e.g. 500"}
+                        value={form.discount_value ?? ""}
+                        onChange={(e) => patch({ discount_value: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+                {form.discount_type !== "none" && Number(form.discount_value) > 0 && Number(form.total_amount) > 0 && (
+                  <p
+                    className={modalStyles.hint}
+                    style={{ marginTop: "0.35rem", marginBottom: 0 }}
+                  >
+                    Discount:{" "}
+                    {form.discount_type === "percentage"
+                      ? `${form.discount_value}% of LKR ${Number(form.total_amount).toLocaleString("en-LK")}`
+                      : `LKR ${Number(form.discount_value).toLocaleString("en-LK")}`}
+                    {" "}= LKR{" "}
+                    {(
+                      Number(form.total_amount) -
+                      calculateFinalAmount(
+                        form.total_amount,
+                        form.discount_type,
+                        form.discount_value
+                      )
+                    ).toLocaleString("en-LK")}{" "}
+                    off
+                  </p>
+                )}
+              </div>
+              {(form.discount_type !== "none" && Number(form.discount_value) > 0) && (
+                <div className={modalStyles.field}>
+                  <label className={modalStyles.label}>
+                    Final amount (LKR)
+                  </label>
+                  <input
+                    type="text"
+                    className={modalStyles.input}
+                    readOnly
+                    value={
+                      Number(form.total_amount) > 0
+                        ? calculateFinalAmount(
+                            form.total_amount,
+                            form.discount_type,
+                            form.discount_value
+                          ).toLocaleString("en-LK")
+                        : "—"
+                    }
+                    style={{ fontWeight: 700, color: "var(--primary, #A3FF00)" }}
+                  />
+                </div>
+              )}
+              <div className={modalStyles.field}>
+                <label className={modalStyles.label} htmlFor={`${formId}-remark`}>
+                  Remarks
+                </label>
+                <textarea
+                  id={`${formId}-remark`}
+                  className={modalStyles.input}
+                  rows={2}
+                  placeholder="Optional notes about this booking..."
+                  value={form.remark}
+                  onChange={(e) => patch({ remark: e.target.value })}
+                  style={{ resize: "vertical", minHeight: "3rem" }}
+                />
               </div>
             </>
           )}
