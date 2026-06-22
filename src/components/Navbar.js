@@ -39,9 +39,7 @@ const Navbar = () => {
           <Link href="/" className={getLinkClass('/')} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
           <Link href="/gallery" className={getLinkClass('/gallery')} onClick={() => setIsMobileMenuOpen(false)}>Gallery</Link>
           <Link href="/sports" className={getLinkClass('/sports')} onClick={() => setIsMobileMenuOpen(false)}>sports</Link>
-          {isAuthenticated && (
-            <Link href="/booking" className={getLinkClass('/booking')} onClick={() => setIsMobileMenuOpen(false)}>Booking</Link>
-          )}
+          <Link href="/booking" className={getLinkClass('/booking')} onClick={() => setIsMobileMenuOpen(false)}>Booking</Link>
           <Link href="/events" className={getLinkClass('/events')} onClick={() => setIsMobileMenuOpen(false)}>Events</Link>
           <Link href="/contact" className={getLinkClass('/contact')} onClick={() => setIsMobileMenuOpen(false)}>Contact</Link>
         </div>

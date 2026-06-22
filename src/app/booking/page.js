@@ -90,11 +90,6 @@ export default function BookingPage() {
 
         if (cancelled) return;
 
-        if (!sessionResult.session) {
-          router.push('/login');
-          return;
-        }
-
         setSports(sportsData);
         setLocations(locationsData);
         setAllPitches(pitchesData);
@@ -147,7 +142,7 @@ export default function BookingPage() {
     }
   }, [locationPitches, selectedPitch]);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (
       !selectedSport ||
       !selectedLocation ||
@@ -206,7 +201,16 @@ export default function BookingPage() {
       originalDate: selectedDate.toISOString(),
     };
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingDetails));
-    router.push('/checkout');
+    
+    // Log the selected booking details
+    console.log("Pending booking details stored:", bookingDetails);
+
+    const { session } = await getSession();
+    if (!session) {
+      router.push('/login?next=/checkout');
+    } else {
+      router.push('/checkout');
+    }
   };
 
   const sessionPricing = useMemo(() => {

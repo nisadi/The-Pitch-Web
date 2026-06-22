@@ -202,10 +202,10 @@ export default function SportsPage() {
         <motion.div variants={fadeInUp} initial="initial" whileInView="whileInView">
           <h2 className={styles.ctaTitle}>READY TO PLAY?</h2>
           <p className={styles.ctaSub}>
-            Secure your spot at the region's premier indoor sports destination. Group bookings and seasonal passes available.
+            Secure your spot at the region&apos;s premier indoor sports destination. Group bookings and seasonal passes available.
           </p>
           <Link
-            href={isAuthenticated ? "/booking" : "/login"}
+            href="/booking"
             className={styles.ctaButton}
           >
             BOOK A FACILITY NOW
