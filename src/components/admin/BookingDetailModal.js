@@ -30,6 +30,7 @@ export default function BookingDetailModal({
   onClose,
   onCancel,
   onReschedule,
+  onMarkPaid,
   location,
   sports = [],
   slotHours = [],
@@ -263,10 +264,29 @@ export default function BookingDetailModal({
                 {booking.customerEmail}
               </div>
             ) : null}
-            <div>
-              <span className={styles.detailLabel}>Payment</span>
-              {PAYMENT_LABELS[booking.paymentStatus] ??
-                booking.paymentStatus}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <span className={styles.detailLabel}>Payment</span>
+                {PAYMENT_LABELS[booking.paymentStatus] ?? booking.paymentStatus}
+              </div>
+              {booking.paymentStatus === "unpaid" && canModify ? (
+                <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", cursor: "pointer", fontSize: "0.85rem" }}>
+                  <input
+                    type="checkbox"
+                    disabled={submitting}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        if (window.confirm("Mark this booking as paid?")) {
+                          onMarkPaid?.(booking.id);
+                        } else {
+                          e.target.checked = false;
+                        }
+                      }
+                    }}
+                  />
+                  Mark as paid
+                </label>
+              ) : null}
             </div>
             <div>
               <span className={styles.detailLabel}>Amount</span>
@@ -497,6 +517,16 @@ export default function BookingDetailModal({
               >
                 <CalendarClock size={16} />
                 {showReschedule ? "Hide reschedule" : "Reschedule"}
+              </button>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                disabled={submitting}
+                onClick={() => {
+                  window.alert("Refund functionality coming soon.");
+                }}
+              >
+                Refund
               </button>
               <button
                 type="button"

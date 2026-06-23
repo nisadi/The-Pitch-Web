@@ -424,6 +424,28 @@ export default function BookingsCalendar() {
     }
   };
 
+  const handleMarkPaid = async (bookingId) => {
+    setDetailSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark_paid" }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        window.alert(payload.error ?? "Could not mark booking as paid.");
+        return;
+      }
+      upsertBookingInList(payload.booking);
+      setDetailBooking(payload.booking);
+    } catch (err) {
+      window.alert(err?.message ?? "Could not mark booking as paid.");
+    } finally {
+      setDetailSubmitting(false);
+    }
+  };
+
   const handleAddBooking = async (form) => {
     if (!activeLocation?.dbId) {
       window.alert(
@@ -1259,6 +1281,7 @@ export default function BookingsCalendar() {
         onClose={closeBookingDetail}
         onCancel={handleCancelBooking}
         onReschedule={handleRescheduleBooking}
+        onMarkPaid={handleMarkPaid}
         submitting={detailSubmitting}
         location={activeLocation}
         sports={sports}
