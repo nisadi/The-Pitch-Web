@@ -52,12 +52,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className="has-navbar"
-        style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
-      >
-        <JsonLdScripts />
-        <AppShell>{children}</AppShell>
+      <body className="has-navbar">
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+          <JsonLdScripts />
+          <AppShell>{children}</AppShell>
+        </div>
       </body>
     </html>
   );
