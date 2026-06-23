@@ -30,7 +30,7 @@ export default function AdminUserFooter() {
   const handleLogout = () => {
     closeMobileMenu();
     clearAdminSession();
-    router.push("/login");
+    router.push("/");
   };
 
   if (!user) {
