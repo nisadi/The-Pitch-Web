@@ -233,15 +233,29 @@
   gap: 0.55rem;
 }
 
+.locationHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
 .locationHeader {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   color: #11452d;
+  flex: 1; /* allow text to take remaining space */
 }
 
 .locationHeader h3 {
   font-size: 1rem;
+}
+
+.locationLogo {
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .locationArea {

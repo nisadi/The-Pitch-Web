@@ -1,4 +1,5 @@
 import { MapPin, Clock } from "lucide-react";
+import Image from "next/image";
 import styles from "@/app/page.module.css";
 
 const VENUE_SPORTS = ["Cricket", "Cricksal", "Football", "Futsal"];
@@ -8,6 +9,7 @@ const HOME_VENUES = [
     label: "The Pitch — Maharagama",
     area: "Maharagama & Pannipitiya",
     address: "347 Avissawella Road, Pannipitiya, Maharagama 10280",
+    image: "/images/maharagama.jpeg",
     hours: [
       { days: "Mon – Sun", time: "6:00 AM – 11:00 PM" },
     ],
@@ -16,18 +18,20 @@ const HOME_VENUES = [
     label: "The Pitch — Attidiya",
     area: "Dehiwala & Attidiya",
     address: "325/B Attidiya Road, Dehiwala-Mount Lavinia 10350",
+    image: "/images/attidiya.jpeg",
     hours: [
       { days: "Mon – Fri", time: "6:00 AM – 12:00 AM" },
-      { days: "Saturday",  time: "9:00 AM – 12:00 AM" },
-      { days: "Sunday",    time: "6:00 AM – 12:00 AM" },
+      { days: "Saturday", time: "9:00 AM – 12:00 AM" },
+      { days: "Sunday", time: "6:00 AM – 12:00 AM" },
     ],
   },
   {
-    label: "The Pitch — Moratuwa",
+    label: "The Pitch Premiem — Moratuwa",
     area: "Moratuwa & Galle Road",
     address: "210 Sri Rahula Mawatha, Moratuwa 10400",
+    image: "/images/moratuwa.jpeg",
     hours: [
-      { days: "Mon – Fri",           time: "6:00 AM – 12:00 AM" },
+      { days: "Mon – Fri", time: "6:00 AM – 12:00 AM" },
       { days: "Sat / Sun / Holidays", time: "6:00 AM – 12:00 AM" },
     ],
   },
@@ -49,9 +53,20 @@ export default function HomeLocations() {
       <div className={styles.locationGrid}>
         {HOME_VENUES.map((venue) => (
           <article key={venue.label} className={styles.locationCard}>
-            <div className={styles.locationHeader}>
-              <MapPin size={18} />
-              <h3>{venue.label}</h3>
+            <div className={styles.locationHeaderRow}>
+              <div className={styles.locationHeader}>
+                <MapPin size={18} />
+                <h3>{venue.label}</h3>
+              </div>
+              {venue.image && (
+                <Image
+                  src={venue.image}
+                  alt={`${venue.label} Logo`}
+                  width={64}
+                  height={64}
+                  className={styles.locationLogo}
+                />
+              )}
             </div>
 
             <p className={styles.locationArea}>{venue.area}</p>
