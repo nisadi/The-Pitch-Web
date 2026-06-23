@@ -65,7 +65,7 @@ function BookingCard({ booking, onSelect, variant = "default" }) {
       className={
         isDay ?
           `${styles.inlineBooking} ${styles.inlineBookingDay}`
-        : styles.inlineBooking
+          : styles.inlineBooking
       }
       style={{ borderLeftColor: status.color }}
       role="button"
@@ -495,7 +495,7 @@ export default function BookingsCalendar() {
       if (!booking) {
         window.alert(
           errorMessage ??
-            "Could not save booking. Apply migration 00036_bookings_admin_anon_mutations.sql or set SUPABASE_SERVICE_ROLE_KEY."
+          "Could not save booking. Apply migration 00036_bookings_admin_anon_mutations.sql or set SUPABASE_SERVICE_ROLE_KEY."
         );
         return;
       }
@@ -534,6 +534,10 @@ export default function BookingsCalendar() {
                   sport: booking.sport,
                   court: booking.court,
                   totalAmount: booking.totalAmount,
+                  remark: form.remark,
+                  discountType: form.discount_type,
+                  discountValue: form.discount_value,
+                  finalAmount: form.final_amount,
                 }),
               }
             );
@@ -551,6 +555,44 @@ export default function BookingsCalendar() {
             window.alert(
               `Booking saved, but the confirmation SMS could not be sent: ${smsErr?.message ?? "Network error"}`
             );
+          }
+        }
+
+        const email = String(form.customer_email ?? "").trim();
+        if (email) {
+          try {
+            const emailRes = await fetch("/api/send-booking-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email,
+                fullName: form.customer_name || "there",
+                booking: {
+                  ref: booking.reference,
+                  sport: booking.sport,
+                  location: booking.location,
+                  date: booking.date,
+                  time: booking.time,
+                  amount: booking.totalAmount,
+                  remark: form.remark,
+                  discountType: form.discount_type,
+                  discountValue: form.discount_value,
+                  finalAmount: form.final_amount,
+                },
+              }),
+            });
+            const emailResult = await emailRes.json();
+            if (!emailRes.ok || !emailResult.success) {
+              console.warn("[booking Email]", emailResult.error);
+              {/*window.alert(
+                `Booking saved, but the confirmation email could not be sent.`
+              );*/}
+            }
+          } catch (emailErr) {
+            console.warn("[booking Email]", emailErr);
+            {/*window.alert(
+              `Booking saved, but the confirmation email could not be sent.`
+            );*/}
           }
         }
       }
@@ -707,10 +749,10 @@ export default function BookingsCalendar() {
           filteredBookings,
           calendarView === "day"
             ? toDateKey(
-                focusDate.getFullYear(),
-                focusDate.getMonth(),
-                focusDate.getDate()
-              )
+              focusDate.getFullYear(),
+              focusDate.getMonth(),
+              focusDate.getDate()
+            )
             : selectedDate
         )
       ),
@@ -801,378 +843,376 @@ export default function BookingsCalendar() {
         ) : null}
 
         <div className={styles.calendarBody}>
-        {calendarView === "month" && (
-          <div className={styles.monthView}>
-            <div className={styles.weekdays}>
-              {WEEKDAYS.map((day) => (
-                <span key={day} className={styles.weekday}>
-                  {day}
-                </span>
-              ))}
-            </div>
-            <div className={styles.daysGrid}>
-              {monthDays.map(({ day, dateKey, outside }) => {
-                const dayBookings = getBookingsForDate(
-                  filteredBookings,
-                  dateKey
-                );
-                const isPast = !outside && isPastDateKey(dateKey);
-                const isSelected = !isPast && selectedDate === dateKey;
-                const isToday = todayKey === dateKey;
+          {calendarView === "month" && (
+            <div className={styles.monthView}>
+              <div className={styles.weekdays}>
+                {WEEKDAYS.map((day) => (
+                  <span key={day} className={styles.weekday}>
+                    {day}
+                  </span>
+                ))}
+              </div>
+              <div className={styles.daysGrid}>
+                {monthDays.map(({ day, dateKey, outside }) => {
+                  const dayBookings = getBookingsForDate(
+                    filteredBookings,
+                    dateKey
+                  );
+                  const isPast = !outside && isPastDateKey(dateKey);
+                  const isSelected = !isPast && selectedDate === dateKey;
+                  const isToday = todayKey === dateKey;
 
-                return (
-                  <button
-                    key={dateKey + (outside ? "-out" : "")}
-                    type="button"
-                    disabled={outside}
-                    className={[
-                      styles.dayCell,
-                      outside ? styles.dayCellOutside : "",
-                      isPast ? styles.dayCellPast : "",
-                      isToday ? styles.dayCellToday : "",
-                      isSelected ? styles.dayCellSelected : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={() => !outside && openDayView(dateKey)}
-                  >
-                    <span className={styles.dayNumber}>{day}</span>
-                    {dayBookings.length > 0 && (
-                      <>
-                        <div className={styles.dayDots}>
-                          {dayBookings.slice(0, 3).map((b) => (
-                            <span
-                              key={b.id}
-                              className={styles.dot}
-                              style={{
-                                background:
-                                  BOOKING_STATUSES[b.status]?.color,
-                              }}
-                            />
-                          ))}
-                        </div>
-                        {dayBookings.length > 3 && (
-                          <span className={styles.dayCount}>
-                            +{dayBookings.length - 3}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {calendarView === "week" && (
-          <div className={styles.weekGrid}>
-            <div className={styles.weekHeader}>
-              <div />
-              {weekDateKeys.map((dateKey) => {
-                const d = dateFromKey(dateKey);
-                const isToday = dateKey === todayKey;
-                const isSelected = dateKey === selectedDate;
-                return (
-                  <div key={dateKey} className={styles.weekHeaderCell}>
+                  return (
                     <button
+                      key={dateKey + (outside ? "-out" : "")}
                       type="button"
+                      disabled={outside}
                       className={[
-                        isToday ? styles.weekHeaderToday : "",
-                        isSelected ? styles.weekHeaderSelected : "",
+                        styles.dayCell,
+                        outside ? styles.dayCellOutside : "",
+                        isPast ? styles.dayCellPast : "",
+                        isToday ? styles.dayCellToday : "",
+                        isSelected ? styles.dayCellSelected : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
-                      onClick={() => selectDate(dateKey)}
+                      onClick={() => !outside && openDayView(dateKey)}
                     >
-                      <span>{WEEKDAYS[d.getDay()]}</span>
-                      <strong>{d.getDate()}</strong>
+                      <span className={styles.dayNumber}>{day}</span>
+                      {dayBookings.length > 0 && (
+                        <>
+                          <div className={styles.dayDots}>
+                            {dayBookings.slice(0, 3).map((b) => (
+                              <span
+                                key={b.id}
+                                className={styles.dot}
+                                style={{
+                                  background:
+                                    BOOKING_STATUSES[b.status]?.color,
+                                }}
+                              />
+                            ))}
+                          </div>
+                          {dayBookings.length > 3 && (
+                            <span className={styles.dayCount}>
+                              +{dayBookings.length - 3}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-            <div className={styles.weekBody}>
+          )}
+
+          {calendarView === "week" && (
+            <div className={styles.weekGrid}>
+              <div className={styles.weekHeader}>
+                <div />
+                {weekDateKeys.map((dateKey) => {
+                  const d = dateFromKey(dateKey);
+                  const isToday = dateKey === todayKey;
+                  const isSelected = dateKey === selectedDate;
+                  return (
+                    <div key={dateKey} className={styles.weekHeaderCell}>
+                      <button
+                        type="button"
+                        className={[
+                          isToday ? styles.weekHeaderToday : "",
+                          isSelected ? styles.weekHeaderSelected : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        onClick={() => selectDate(dateKey)}
+                      >
+                        <span>{WEEKDAYS[d.getDay()]}</span>
+                        <strong>{d.getDate()}</strong>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className={styles.weekBody}>
+                {calendarHours.length === 0 ? (
+                  <div
+                    style={{
+                      gridColumn: `1 / -1`,
+                      padding: "2rem 1rem",
+                      textAlign: "center",
+                      color: "var(--foreground-muted)",
+                      fontSize: "0.88rem",
+                    }}
+                  >
+                    No open hours configured for this day. Set hours in Settings → Locations.
+                  </div>
+                ) : (
+                  calendarHours.flatMap((hour) => [
+                    <div key={`time-${hour}`} className={styles.timeLabel}>
+                      {formatHourLabel(hour)}
+                    </div>,
+                    ...weekDateKeys.map((dateKey) => {
+                      // Per-day availability: check the location's open mappings for this specific day
+                      const dayDateId = dateKeyToDateId(dateKey);
+                      const dayHours = getOperationalHoursForDay(
+                        activeLocation?.openTimeMappings ?? [],
+                        dayDateId
+                      );
+                      const isClosedThisDay = !dayHours.includes(hour);
+
+                      const dayBookings = getBookingsForDate(
+                        filteredBookings,
+                        dateKey
+                      );
+                      const overlapping = dayBookings.filter((b) =>
+                        bookingOverlapsHour(b, hour)
+                      );
+                      const slotBookings = overlapping.filter(
+                        (b) => getBookingStartHour(b) === hour
+                      );
+                      const isAvailable =
+                        !isClosedThisDay &&
+                        overlapping.length === 0 &&
+                        isAdminRangeBookable(
+                          dateKey,
+                          hour,
+                          hour + 1,
+                          slotDayBookings(dateKey)
+                        );
+                      return (
+                        <div
+                          key={`${dateKey}-${hour}`}
+                          className={`${styles.weekCell} ${isClosedThisDay ? styles.weekCellClosed ?? "" : ""
+                            } ${isAvailable ? styles.weekCellEmpty : ""
+                            } ${!isAvailable && slotBookings.length === 0 && !isClosedThisDay ? styles.weekCellCovered : ""}`}
+                          role={isAvailable ? "button" : undefined}
+                          tabIndex={isAvailable ? 0 : undefined}
+                          title={
+                            isClosedThisDay
+                              ? "Closed"
+                              : isAvailable
+                                ? `Book or block ${formatHourLabel(hour)}`
+                                : undefined
+                          }
+                          onClick={() => {
+                            if (isAvailable) openSlotBooking(dateKey, hour);
+                          }}
+                          onKeyDown={(e) => {
+                            if (
+                              isAvailable &&
+                              (e.key === "Enter" || e.key === " ")
+                            ) {
+                              e.preventDefault();
+                              openSlotBooking(dateKey, hour);
+                            }
+                          }}
+                        >
+                          {isClosedThisDay ? null : slotBookings.map((b) => {
+                            const status = BOOKING_STATUSES[b.status];
+                            return (
+                              <div
+                                key={b.id}
+                                className={styles.weekBooking}
+                                style={{
+                                  borderLeftColor: status.color,
+                                }}
+                                title={`${b.sport} - ${b.customer}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openBookingDetail(b);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openBookingDetail(b);
+                                  }
+                                }}
+                                role="button"
+                                tabIndex={0}
+                              >
+                                <strong>{b.sport}</strong>
+                                {b.time.split("-")[0]}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    }),
+                  ])
+                )}
+              </div>
+            </div>
+          )}
+
+          {calendarView === "day" && (
+            <div className={styles.daySchedule}>
               {calendarHours.length === 0 ? (
                 <div
                   style={{
-                    gridColumn: `1 / -1`,
-                    padding: "2rem 1rem",
+                    padding: "3rem 1.5rem",
                     textAlign: "center",
                     color: "var(--foreground-muted)",
                     fontSize: "0.88rem",
                   }}
                 >
-                  No open hours configured for this day. Set hours in Settings → Locations.
+                  This location has no open hours configured for this day of the week.
+                  <br />
+                  Set open hours in{" "}
+                  <strong>Settings → Locations</strong>.
                 </div>
               ) : (
-                calendarHours.flatMap((hour) => [
-                  <div key={`time-${hour}`} className={styles.timeLabel}>
-                    {formatHourLabel(hour)}
-                  </div>,
-                  ...weekDateKeys.map((dateKey) => {
-                    // Per-day availability: check the location's open mappings for this specific day
-                    const dayDateId = dateKeyToDateId(dateKey);
-                    const dayHours = getOperationalHoursForDay(
-                      activeLocation?.openTimeMappings ?? [],
-                      dayDateId
+                calendarHours.map((hour) => {
+                  const overlapping = dayViewBookings.filter((b) =>
+                    bookingOverlapsHour(b, hour)
+                  );
+                  const slotBookings = overlapping.filter(
+                    (b) => getBookingStartHour(b) === hour
+                  );
+                  const dayDateKey = toDateKey(
+                    focusDate.getFullYear(),
+                    focusDate.getMonth(),
+                    focusDate.getDate()
+                  );
+                  const isCovered =
+                    overlapping.length > 0 && slotBookings.length === 0;
+                  const isAvailable =
+                    overlapping.length === 0 &&
+                    isAdminRangeBookable(
+                      dayDateKey,
+                      hour,
+                      hour + 1,
+                      dayViewBookings
                     );
-                    const isClosedThisDay = !dayHours.includes(hour);
+                  const rowMinHeight = slotBookings.reduce(
+                    (max, b) => Math.max(max, dayRowMinHeightForBooking(b)),
+                    DAY_VIEW_ROW_BASE_PX
+                  );
 
-                    const dayBookings = getBookingsForDate(
-                      filteredBookings,
-                      dateKey
-                    );
-                    const overlapping = dayBookings.filter((b) =>
-                      bookingOverlapsHour(b, hour)
-                    );
-                    const slotBookings = overlapping.filter(
-                      (b) => getBookingStartHour(b) === hour
-                    );
-                    const isAvailable =
-                      !isClosedThisDay &&
-                      overlapping.length === 0 &&
-                      isAdminRangeBookable(
-                        dateKey,
-                        hour,
-                        hour + 1,
-                        slotDayBookings(dateKey)
-                      );
-                    return (
+                  return (
+                    <div
+                      key={hour}
+                      className={styles.dayRow}
+                      style={slotBookings.length > 0 ? { minHeight: rowMinHeight } : undefined}
+                    >
+                      <div className={styles.dayHour}>{formatHourLabel(hour)}</div>
                       <div
-                        key={`${dateKey}-${hour}`}
-                        className={`${styles.weekCell} ${
-                          isClosedThisDay ? styles.weekCellClosed ?? "" : ""
-                        } ${
-                          isAvailable ? styles.weekCellEmpty : ""
-                        } ${!isAvailable && slotBookings.length === 0 && !isClosedThisDay ? styles.weekCellCovered : ""}`}
+                        className={[
+                          styles.daySlot,
+                          isAvailable ? styles.daySlotEmpty : "",
+                          isCovered ? styles.daySlotCovered : "",
+                          slotBookings.length > 0 ? styles.daySlotBooked : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
                         role={isAvailable ? "button" : undefined}
                         tabIndex={isAvailable ? 0 : undefined}
                         title={
-                          isClosedThisDay
-                            ? "Closed"
-                            : isAvailable
+                          isAvailable
                             ? `Book or block ${formatHourLabel(hour)}`
                             : undefined
                         }
                         onClick={() => {
-                          if (isAvailable) openSlotBooking(dateKey, hour);
+                          if (isAvailable) openSlotBooking(dayDateKey, hour);
                         }}
                         onKeyDown={(e) => {
-                          if (
-                            isAvailable &&
-                            (e.key === "Enter" || e.key === " ")
-                          ) {
+                          if (isAvailable && (e.key === "Enter" || e.key === " ")) {
                             e.preventDefault();
-                            openSlotBooking(dateKey, hour);
+                            openSlotBooking(dayDateKey, hour);
                           }
                         }}
                       >
-                        {isClosedThisDay ? null : slotBookings.map((b) => {
-                          const status = BOOKING_STATUSES[b.status];
-                          return (
-                            <div
-                              key={b.id}
-                              className={styles.weekBooking}
-                              style={{
-                                borderLeftColor: status.color,
-                              }}
-                              title={`${b.sport} - ${b.customer}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openBookingDetail(b);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openBookingDetail(b);
-                                }
-                              }}
-                              role="button"
-                              tabIndex={0}
-                            >
-                              <strong>{b.sport}</strong>
-                              {b.time.split("-")[0]}
-                            </div>
-                          );
-                        })}
+                        {isAvailable ? (
+                          <span className={styles.slotPlaceholder}>
+                            <span className={styles.slotPlaceholderShort}>
+                              +
+                            </span>
+                            <span className={styles.slotPlaceholderText}>
+                              Book or block
+                            </span>
+                          </span>
+                        ) : null}
+                        {slotBookings.map((b) => (
+                          <BookingCard
+                            key={b.id}
+                            booking={b}
+                            variant="day"
+                            onSelect={openBookingDetail}
+                          />
+                        ))}
                       </div>
-                    );
-                  }),
-                ])
+                    </div>
+                  );
+                })
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {calendarView === "day" && (
-          <div className={styles.daySchedule}>
-            {calendarHours.length === 0 ? (
-              <div
-                style={{
-                  padding: "3rem 1.5rem",
-                  textAlign: "center",
-                  color: "var(--foreground-muted)",
-                  fontSize: "0.88rem",
-                }}
-              >
-                This location has no open hours configured for this day of the week.
-                <br />
-                Set open hours in{" "}
-                <strong>Settings → Locations</strong>.
-              </div>
-            ) : (
-              calendarHours.map((hour) => {
-              const overlapping = dayViewBookings.filter((b) =>
-                bookingOverlapsHour(b, hour)
-              );
-              const slotBookings = overlapping.filter(
-                (b) => getBookingStartHour(b) === hour
-              );
-              const dayDateKey = toDateKey(
-                focusDate.getFullYear(),
-                focusDate.getMonth(),
-                focusDate.getDate()
-              );
-              const isCovered =
-                overlapping.length > 0 && slotBookings.length === 0;
-              const isAvailable =
-                overlapping.length === 0 &&
-                isAdminRangeBookable(
-                  dayDateKey,
-                  hour,
-                  hour + 1,
-                  dayViewBookings
-                );
-              const rowMinHeight = slotBookings.reduce(
-                (max, b) => Math.max(max, dayRowMinHeightForBooking(b)),
-                DAY_VIEW_ROW_BASE_PX
-              );
-
-              return (
-                <div
-                  key={hour}
-                  className={styles.dayRow}
-                  style={slotBookings.length > 0 ? { minHeight: rowMinHeight } : undefined}
-                >
-                  <div className={styles.dayHour}>{formatHourLabel(hour)}</div>
-                  <div
-                    className={[
-                      styles.daySlot,
-                      isAvailable ? styles.daySlotEmpty : "",
-                      isCovered ? styles.daySlotCovered : "",
-                      slotBookings.length > 0 ? styles.daySlotBooked : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    role={isAvailable ? "button" : undefined}
-                    tabIndex={isAvailable ? 0 : undefined}
-                    title={
-                      isAvailable
-                        ? `Book or block ${formatHourLabel(hour)}`
-                        : undefined
-                    }
-                    onClick={() => {
-                      if (isAvailable) openSlotBooking(dayDateKey, hour);
-                    }}
-                    onKeyDown={(e) => {
-                      if (isAvailable && (e.key === "Enter" || e.key === " ")) {
-                        e.preventDefault();
-                        openSlotBooking(dayDateKey, hour);
-                      }
-                    }}
-                  >
-                    {isAvailable ? (
-                      <span className={styles.slotPlaceholder}>
-                        <span className={styles.slotPlaceholderShort}>
-                          +
-                        </span>
-                        <span className={styles.slotPlaceholderText}>
-                          Book or block
-                        </span>
+          {calendarView === "agenda" && (
+            <div className={styles.agendaList}>
+              {agendaDays.length === 0 ? (
+                <p className={styles.emptyState}>
+                  No bookings this week
+                  {selectedPitch?.name
+                    ? ` on ${selectedPitch.name}`
+                    : ` at ${locationFilter}`}
+                  .
+                </p>
+              ) : (
+                agendaDays.map(({ dateKey, bookings }) => (
+                  <div key={dateKey} className={styles.agendaDay}>
+                    <div className={styles.agendaDayHeader}>
+                      <h3>{formatShortDate(dateKey)}</h3>
+                      <span>
+                        {bookings.length}{" "}
+                        {bookings.length === 1 ? "booking" : "bookings"}
                       </span>
-                    ) : null}
-                    {slotBookings.map((b) => (
-                      <BookingCard
-                        key={b.id}
-                        booking={b}
-                        variant="day"
-                        onSelect={openBookingDetail}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })
-            )}
-          </div>
-        )}
-
-        {calendarView === "agenda" && (
-          <div className={styles.agendaList}>
-            {agendaDays.length === 0 ? (
-              <p className={styles.emptyState}>
-                No bookings this week
-                {selectedPitch?.name
-                  ? ` on ${selectedPitch.name}`
-                  : ` at ${locationFilter}`}
-                .
-              </p>
-            ) : (
-              agendaDays.map(({ dateKey, bookings }) => (
-                <div key={dateKey} className={styles.agendaDay}>
-                  <div className={styles.agendaDayHeader}>
-                    <h3>{formatShortDate(dateKey)}</h3>
-                    <span>
-                      {bookings.length}{" "}
-                      {bookings.length === 1 ? "booking" : "bookings"}
-                    </span>
-                  </div>
-                  <div className={styles.agendaDayBody}>
-                    {bookings.map((b) => {
-                      const status = BOOKING_STATUSES[b.status];
-                      return (
-                        <div
-                          key={b.id}
-                          className={styles.agendaRow}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => openBookingDetail(b)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              openBookingDetail(b);
-                            }
-                          }}
-                        >
-                          <span className={styles.agendaTime}>{b.time}</span>
-                          <div className={styles.agendaInfo}>
-                            <strong>
-                              {b.sport} · {b.court}
-                            </strong>
-                            <span>
-                              {b.customer} · {b.location}
-                            </span>
-                          </div>
-                          <span
-                            className={styles.statusBadge}
-                            style={{
-                              color: status.color,
-                              background: `${status.color}22`,
+                    </div>
+                    <div className={styles.agendaDayBody}>
+                      {bookings.map((b) => {
+                        const status = BOOKING_STATUSES[b.status];
+                        return (
+                          <div
+                            key={b.id}
+                            className={styles.agendaRow}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openBookingDetail(b)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openBookingDetail(b);
+                              }
                             }}
                           >
-                            {status.label}
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <span className={styles.agendaTime}>{b.time}</span>
+                            <div className={styles.agendaInfo}>
+                              <strong>
+                                {b.sport} · {b.court}
+                              </strong>
+                              <span>
+                                {b.customer} · {b.location}
+                              </span>
+                            </div>
+                            <span
+                              className={styles.statusBadge}
+                              style={{
+                                color: status.color,
+                                background: `${status.color}22`,
+                              }}
+                            >
+                              {status.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+                ))
+              )}
+            </div>
+          )}
 
         </div>
 

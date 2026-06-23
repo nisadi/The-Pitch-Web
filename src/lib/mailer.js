@@ -152,8 +152,17 @@ const resolveContactPhoneForLocation = async (locationName) => {
 export const sendBookingConfirmationEmail = async (toEmail, fullName, booking) => {
   try {
     const year = new Date().getFullYear();
-    const { ref, sport, location, date, time, amount } = booking;
+    const { ref, sport, location, date, time, amount, remark, discountType, discountValue, finalAmount } = booking;
     const contactPhone = await resolveContactPhoneForLocation(location);
+
+    let discountDisplay = null;
+    if (discountType === 'percentage' && discountValue) {
+      discountDisplay = `${discountValue}% discount added`;
+    } else if (discountType === 'fixed' && discountValue) {
+      discountDisplay = `Rs. ${typeof discountValue === 'number' ? discountValue.toFixed(2) : discountValue} discount added`;
+    }
+
+    const displayAmount = finalAmount !== undefined ? finalAmount : amount;
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -234,7 +243,9 @@ export const sendBookingConfirmationEmail = async (toEmail, fullName, booking) =
                 <tr>
                   <td style="padding:14px 16px;background-color:rgba(255,255,255,0.03);border-radius:0 0 8px 8px;">
                     <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#A1A1AA;text-transform:uppercase;margin-bottom:4px;">TOTAL AMOUNT</div>
-                    <div style="font-size:18px;font-weight:800;color:#ffffff;">Rs. ${typeof amount === 'number' ? amount.toFixed(2) : amount}</div>
+                    <div style="font-size:18px;font-weight:800;color:#ffffff;">Rs. ${typeof displayAmount === 'number' ? displayAmount.toFixed(2) : displayAmount}</div>
+                    ${discountDisplay ? `<div style="font-size:12px;font-weight:600;color:#A3FF00;margin-top:4px;">${discountDisplay}</div>` : ''}
+                    ${remark ? `<div style="font-size:13px;font-weight:400;color:#A1A1AA;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05);"><strong>Remark:</strong> ${remark}</div>` : ''}
                   </td>
                 </tr>
               </table>
