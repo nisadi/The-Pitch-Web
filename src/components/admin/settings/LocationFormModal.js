@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -33,27 +33,58 @@ function isSlotValid(startKey, endKey, slot) {
   return s !== null && e !== null && s < e;
 }
 
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2).toString().padStart(2, '0');
+  const m = (i % 2 === 0) ? '00' : '30';
+  return `${h}:${m}`;
+});
+
+function TimeSelect24({ id, value, onChange, ariaLabel, className }) {
+  const options = useMemo(() => {
+    if (!value) return TIME_OPTIONS;
+    if (!TIME_OPTIONS.includes(value)) {
+      const newOptions = [...TIME_OPTIONS, value];
+      newOptions.sort();
+      return newOptions;
+    }
+    return TIME_OPTIONS;
+  }, [value]);
+
+  return (
+    <select
+      id={id}
+      className={className}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label={ariaLabel}
+    >
+      <option value="" disabled>Time</option>
+      {options.map((time) => (
+        <option key={time} value={time}>{time}</option>
+      ))}
+    </select>
+  );
+}
+
 function TimeSlotRow({ slot, startKey, endKey, onUpdate, onRemove, prefix }) {
   const startId = `${prefix}-start`;
   const endId = `${prefix}-end`;
   return (
     <div className={styles.slotRow}>
-      <input
+      <TimeSelect24
         id={startId}
-        type="time"
         className={styles.slotTimeInput}
         value={slot[startKey] ?? ""}
-        onChange={(e) => onUpdate({ [startKey]: e.target.value })}
-        aria-label="Start time"
+        onChange={(val) => onUpdate({ [startKey]: val })}
+        ariaLabel="Start time"
       />
       <span className={styles.slotDash}>–</span>
-      <input
+      <TimeSelect24
         id={endId}
-        type="time"
         className={styles.slotTimeInput}
         value={slot[endKey] ?? ""}
-        onChange={(e) => onUpdate({ [endKey]: e.target.value })}
-        aria-label="End time"
+        onChange={(val) => onUpdate({ [endKey]: val })}
+        ariaLabel="End time"
       />
       <button
         type="button"
@@ -541,9 +572,8 @@ export default function LocationFormModal({
                     type="button"
                     role="tab"
                     aria-selected={selectedDay === idx}
-                    className={`${styles.dayTab} ${
-                      selectedDay === idx ? styles.dayTabActive : ""
-                    } ${hasOpen ? styles.dayTabHasOpen : ""}`}
+                    className={`${styles.dayTab} ${selectedDay === idx ? styles.dayTabActive : ""
+                      } ${hasOpen ? styles.dayTabHasOpen : ""}`}
                     onClick={() => setSelectedDay(idx)}
                   >
                     {label}
