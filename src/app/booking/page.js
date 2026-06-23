@@ -178,12 +178,8 @@ export default function BookingPage() {
       location: {
         id: selectedLocation.id,
         name: selectedLocation.name,
-        peak_start: selectedLocation.peak_start,
-        peak_end: selectedLocation.peak_end,
-        non_peak_start: selectedLocation.non_peak_start,
-        non_peak_end: selectedLocation.non_peak_end,
-        open_time: selectedLocation.open_time,
-        close_time: selectedLocation.close_time,
+        openTimeMappings: selectedLocation.openTimeMappings,
+        peakTimeMappings: selectedLocation.peakTimeMappings,
       },
       pitch: {
         id: selectedPitch.id,

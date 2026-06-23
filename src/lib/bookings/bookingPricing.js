@@ -8,16 +8,16 @@ function timeToMinutes(timeStr) {
   return hour * 60 + minute;
 }
 
-/**
- * True when the hour slot starting at `hour` (e.g. 9 → 9:00–10:00) begins
- * inside the given time period [periodStart, periodEnd).
- */
 export function isHourInTimePeriod(hour, periodStart, periodEnd) {
   const h = Number(hour);
   if (!Number.isFinite(h)) return false;
   const slotStart = h * 60;
   const start = timeToMinutes(periodStart);
-  const end = timeToMinutes(periodEnd);
+  let end = timeToMinutes(periodEnd);
+
+  // Treat 00:00 end time as midnight (24:00)
+  if (end === 0) end = 24 * 60;
+
   return slotStart >= start && slotStart < end;
 }
 

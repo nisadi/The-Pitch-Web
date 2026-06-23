@@ -29,7 +29,12 @@ function parseHHmm(str) {
 
 function isSlotValid(startKey, endKey, slot) {
   const s = parseHHmm(slot[startKey]);
-  const e = parseHHmm(slot[endKey]);
+  let e = parseHHmm(slot[endKey]);
+
+  if (e === 0 && s !== null && s >= 0) {
+    e = 24 * 60;
+  }
+
   return s !== null && e !== null && s < e;
 }
 

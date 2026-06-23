@@ -7,6 +7,7 @@ import { getLocations } from '@/services/locations';
 import { submitContactMessage } from '@/services/contact';
 import { getUser } from '@/services/auth';
 import { Select } from '@/components/ui/Select';
+import { buildScheduleSummary } from '@/lib/locations/locationTimeMapper';
 
 export default function ContactPage() {
   const [locations, setLocations] = useState([]);
@@ -175,8 +176,8 @@ export default function ContactPage() {
                       <span className={styles.itemLabel}>RECEPTION & BOOKINGS</span>
                       <span className={styles.itemValue}>{loc.phone || 'N/A'}</span>
                       <span className={styles.itemSub}>
-                        {loc.open_time && loc.close_time
-                          ? `Open: ${loc.open_time} – ${loc.close_time}`
+                        {loc.openTimeMappings?.length > 0
+                          ? `Hours: ${buildScheduleSummary(loc.openTimeMappings)}`
                           : 'Hours not available'}
                       </span>
                     </div>
