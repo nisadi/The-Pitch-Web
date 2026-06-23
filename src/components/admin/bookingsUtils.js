@@ -21,6 +21,10 @@ export function getOperationalHours(operationalStart, operationalEnd) {
   const start = parseTimeField(operationalStart);
   const end = parseTimeField(operationalEnd);
 
+  if (end.hour === 0 && end.minute === 0 && start.hour >= 0) {
+    end.hour = 24;
+  }
+
   const startHour = start.hour;
   let lastSlotHour = end.minute === 0 ? end.hour - 1 : end.hour;
 
@@ -52,6 +56,7 @@ export function getOperationalHoursForDay(openTimeMappings, dateId) {
 export function compareTimeStrings(start, end) {
   const a = parseTimeField(start);
   const b = parseTimeField(end);
+  if (b.hour === 0 && b.minute === 0 && (a.hour > 0 || a.minute > 0)) b.hour = 24;
   return a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
 }
 
@@ -68,10 +73,21 @@ export function isPeriodWithinOperational(
 ) {
   if (!isOperationalRangeValid(periodStart, periodEnd)) return false;
   if (!isOperationalRangeValid(operationalStart, operationalEnd)) return false;
-  return (
-    compareTimeStrings(operationalStart, periodStart) <= 0 &&
-    compareTimeStrings(periodEnd, operationalEnd) <= 0
-  );
+
+  const os = parseTimeField(operationalStart);
+  const oe = parseTimeField(operationalEnd);
+  if (oe.hour === 0 && oe.minute === 0 && (os.hour > 0 || os.minute > 0)) oe.hour = 24;
+
+  const ps = parseTimeField(periodStart);
+  const pe = parseTimeField(periodEnd);
+  if (pe.hour === 0 && pe.minute === 0 && (ps.hour > 0 || ps.minute > 0)) pe.hour = 24;
+
+  const osMin = os.hour * 60 + os.minute;
+  const oeMin = oe.hour * 60 + oe.minute;
+  const psMin = ps.hour * 60 + ps.minute;
+  const peMin = pe.hour * 60 + pe.minute;
+
+  return osMin <= psMin && peMin <= oeMin;
 }
 
 export function formatOperationalHoursDisplay(operationalStart, operationalEnd) {
@@ -119,6 +135,8 @@ export function bookingOverlapsHour(booking, hour) {
 
   const start = parseTimeField(booking.startTime);
   const end = parseTimeField(booking.endTime);
+  if (end.hour === 0 && end.minute === 0 && start.hour >= 0) end.hour = 24;
+
   const bookingStart = start.hour * 60 + start.minute;
   const bookingEnd = end.hour * 60 + end.minute;
   const slotStart = hour * 60;
