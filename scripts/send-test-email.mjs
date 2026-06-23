@@ -1,6 +1,6 @@
 /**
- * Test script to trigger sendBookingConfirmationSms via Next.js API route.
- * Usage: node scripts/send-test-sms.mjs [phone] [location]
+ * Test script to trigger sendBookingConfirmationEmail via Next.js API route.
+ * Usage: node scripts/send-test-email.mjs [email] [location]
  */
 import dotenv from "dotenv";
 import { existsSync } from "fs";
@@ -11,30 +11,31 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const envLocal = resolve(root, ".env.local");
 if (existsSync(envLocal)) dotenv.config({ path: envLocal });
 
-const phone = process.argv[2] || "+94 78 888 0773";
+const email = process.argv[2] || "rwsandaru8@gmail.com";
 const location = process.argv[3] || "Attidiya";
 
 const payload = {
-  phone,
-  customerName: "Michael Jude Shanujan",
-  reference: "BK-859172",
-  date: "2026-06-12",
-  time: "4:00 PM - 5:00 PM",
-  location: location,
-  sport: "Cricket",
-  court: "Cricket Nets 1",
-  totalAmount: 2850
+  email,
+  fullName: "Michael Jude Shanujan",
+  booking: {
+    ref: "BK-859172",
+    sport: "Cricket",
+    location: location,
+    date: "Fri, Jun 12, 2026",
+    time: "4:00 PM - 5:00 PM",
+    amount: 2850,
+  }
 };
 
-async function testSms() {
+async function testEmail() {
   const ports = [3000, 3001, 3002];
   let response = null;
   let portUsed = null;
 
   for (const port of ports) {
     try {
-      console.log(`Trying to send test SMS request to http://localhost:${port}/api/admin/bookings/send-confirmation-sms...`);
-      const res = await fetch(`http://localhost:${port}/api/admin/bookings/send-confirmation-sms`, {
+      console.log(`Trying to send test email request to http://localhost:${port}/api/send-booking-email...`);
+      const res = await fetch(`http://localhost:${port}/api/send-booking-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -57,12 +58,12 @@ async function testSms() {
   console.log("Result:", JSON.stringify(result, null, 2));
 
   if (response.ok && result.success) {
-    console.log("SUCCESS! Test SMS sent successfully.");
+    console.log("SUCCESS! Test email sent successfully.");
     process.exit(0);
   } else {
-    console.error("FAILED to send test SMS.");
+    console.error("FAILED to send test email.");
     process.exit(1);
   }
 }
 
-testSms();
+testEmail();

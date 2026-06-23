@@ -135,8 +135,10 @@ function readPendingBooking() {
   if (typeof window === "undefined") return null;
   try {
     const stored = sessionStorage.getItem("pendingBooking");
+    console.log("[Checkout Diagnostic] readPendingBooking raw stored:", stored);
     return stored ? JSON.parse(stored) : null;
-  } catch {
+  } catch (e) {
+    console.error("[Checkout Diagnostic] readPendingBooking error:", e);
     return null;
   }
 }
@@ -155,11 +157,15 @@ const DEFAULT_BOOKING = {
 };
 
 function createInitialBookingState() {
+  console.log("[Checkout Diagnostic] createInitialBookingState called");
   const parsed = readPendingBooking();
-  return parsed ? buildBookingStateFromPending(parsed) : DEFAULT_BOOKING;
+  const state = parsed ? buildBookingStateFromPending(parsed) : DEFAULT_BOOKING;
+  console.log("[Checkout Diagnostic] createInitialBookingState resolved state:", state);
+  return state;
 }
 
 export default function CheckoutPage() {
+  console.log("[Checkout Diagnostic] CheckoutPage rendering");
   const router = useRouter();
   const [paymentMethod, setPaymentMethod] = useState("credit");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -190,12 +196,15 @@ export default function CheckoutPage() {
   // ─── Check Auth Session on Mount ─────────────────────────────────────────────
   useEffect(() => {
     const checkUserSession = async () => {
+      console.log("[Checkout Diagnostic] checkUserSession running");
       const urlParams = new URLSearchParams(window.location.search);
       const result3ds = urlParams.get("result3ds");
       if (result3ds) return;
 
       const { session } = await getSession();
+      console.log("[Checkout Diagnostic] checkUserSession session exists:", !!session);
       if (!session) {
+        console.log("[Checkout Diagnostic] No session found, redirecting to login");
         router.push("/login?next=/checkout");
       }
     };
@@ -204,6 +213,7 @@ export default function CheckoutPage() {
 
   // ─── Load WebXPay Hosted Session scripts ─────────────────────────────────────
   useEffect(() => {
+    console.log("[Checkout Diagnostic] init payment gateway effect running, isInitialized:", isInitialized.current);
     if (isInitialized.current) return;
 
     const loadScript = (src) =>

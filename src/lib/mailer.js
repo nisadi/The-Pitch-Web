@@ -110,6 +110,38 @@ export const sendWelcomeEmail = async (toEmail, fullName) => {
   }
 };
 
+const resolveContactPhoneForLocation = async (locationName) => {
+  const defaultPhone =
+    process.env.PITCH_CONTACT_PHONE?.trim() ||
+    process.env.NEXT_PUBLIC_PITCH_CONTACT_PHONE?.trim() ||
+    "+94 77 748 1786";
+
+  if (!locationName) return defaultPhone;
+
+  try {
+    const { supabase } = await import("@/lib/supabase");
+    const { data } = await supabase
+      .from("locations")
+      .select("name, short_name, phone")
+      .eq("is_active", true);
+
+    if (data && data.length > 0) {
+      const match = data.find(
+        (loc) =>
+          loc.name?.toLowerCase() === locationName.toLowerCase() ||
+          loc.short_name?.toLowerCase() === locationName.toLowerCase()
+      );
+      if (match?.phone?.trim()) {
+        return match.phone.trim();
+      }
+    }
+  } catch (err) {
+    console.warn("[resolveContactPhoneForLocation] Error:", err);
+  }
+
+  return defaultPhone;
+};
+
 /**
  * Sends a booking confirmation email after a successful booking.
  * @param {string} toEmail
@@ -121,6 +153,7 @@ export const sendBookingConfirmationEmail = async (toEmail, fullName, booking) =
   try {
     const year = new Date().getFullYear();
     const { ref, sport, location, date, time, amount } = booking;
+    const contactPhone = await resolveContactPhoneForLocation(location);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -208,8 +241,8 @@ export const sendBookingConfirmationEmail = async (toEmail, fullName, booking) =
 
               <div style="border-top:1px solid rgba(255,255,255,0.08);margin-bottom:24px;"></div>
 
-              <p style="margin:0;font-size:13px;line-height:1.7;color:rgba(161,161,170,0.7);">
-                Have questions? Just contact support. See you on the pitch! ⚽
+              <p style="margin:0;font-size:13px;line-height:1.7;color:#A1A1AA;">
+                Have questions? Just contact support at <a href="tel:${contactPhone.replace(/\s+/g, '')}" style="color:#A3FF00;text-decoration:none;font-weight:600;">${contactPhone}</a>. See you on the pitch! ⚽
               </p>
 
             </td>

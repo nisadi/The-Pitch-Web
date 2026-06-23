@@ -138,6 +138,34 @@ async function deliverBookingSms(phone, smsBody) {
   }
 }
 
+async function resolveContactPhoneForLocation(locationName) {
+  const defaultPhone = getPitchContactPhone();
+  if (!locationName) return defaultPhone;
+
+  try {
+    const { supabase } = await import("@/lib/supabase");
+    const { data } = await supabase
+      .from("locations")
+      .select("name, short_name, phone")
+      .eq("is_active", true);
+
+    if (data && data.length > 0) {
+      const match = data.find(
+        (loc) =>
+          loc.name?.toLowerCase() === locationName.toLowerCase() ||
+          loc.short_name?.toLowerCase() === locationName.toLowerCase()
+      );
+      if (match?.phone?.trim()) {
+        return match.phone.trim();
+      }
+    }
+  } catch (err) {
+    console.warn("[resolveContactPhoneForLocation] Error:", err);
+  }
+
+  return defaultPhone;
+}
+
 export async function sendBookingConfirmationSms({
   phone,
   customerName,
@@ -149,6 +177,8 @@ export async function sendBookingConfirmationSms({
   court,
   totalAmount,
 }) {
+  const contactPhone = await resolveContactPhoneForLocation(location);
+
   const smsBody = buildBookingConfirmationSmsBody({
     customerName,
     reference,
@@ -158,6 +188,7 @@ export async function sendBookingConfirmationSms({
     sport,
     court,
     totalAmount,
+    contactPhone,
   });
 
   return deliverBookingSms(phone, smsBody);
@@ -173,6 +204,8 @@ export async function sendBookingCancellationSms({
   sport,
   court,
 }) {
+  const contactPhone = await resolveContactPhoneForLocation(location);
+
   const smsBody = buildBookingCancellationSmsBody({
     customerName,
     reference,
@@ -181,6 +214,7 @@ export async function sendBookingCancellationSms({
     location,
     sport,
     court,
+    contactPhone,
   });
 
   return deliverBookingSms(phone, smsBody);
