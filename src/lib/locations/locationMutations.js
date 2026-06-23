@@ -4,6 +4,10 @@ import {
   locationFromRow,
   locationToRow,
 } from "./locationMapper";
+import {
+  upsertOpenTimeMappings,
+  upsertPeakTimeMappings,
+} from "./locationTimeMapper";
 
 function locationDeleteKeys(location) {
   return new Set(
@@ -50,26 +54,43 @@ export async function upsertLocationClient(location) {
   const supabase = createClient();
   const row = locationToRow(location);
 
+  let data, error;
+
   if (location.dbId) {
-    const { data, error } = await supabase
+    ({ data, error } = await supabase
       .from("locations")
       .update(row)
       .eq("id", location.dbId)
       .select(LOCATION_COLUMNS)
-      .single();
-
-    if (error) throw error;
-    return locationFromRow(data);
+      .single());
+  } else {
+    ({ data, error } = await supabase
+      .from("locations")
+      .insert(row)
+      .select(LOCATION_COLUMNS)
+      .single());
   }
 
-  const { data, error } = await supabase
-    .from("locations")
-    .insert(row)
-    .select(LOCATION_COLUMNS)
-    .single();
-
   if (error) throw error;
-  return locationFromRow(data);
+  const saved = locationFromRow(data);
+
+  // Persist the time-mapping child rows (replace-all strategy).
+  // ON DELETE CASCADE means delete is handled automatically when the location
+  // itself is deleted, but we manage inserts/updates here.
+  if (saved.dbId) {
+    await upsertOpenTimeMappings(
+      saved.dbId,
+      location.openTimeMappings ?? []
+    );
+    await upsertPeakTimeMappings(
+      saved.dbId,
+      location.peakTimeMappings ?? []
+    );
+    saved.openTimeMappings = location.openTimeMappings ?? [];
+    saved.peakTimeMappings = location.peakTimeMappings ?? [];
+  }
+
+  return saved;
 }
 
 export async function deleteLocationClient(location) {
@@ -77,6 +98,7 @@ export async function deleteLocationClient(location) {
 
   await removeLocationFromPromos(supabase, location);
 
+  // Child time-mapping rows are deleted automatically via ON DELETE CASCADE.
   if (location.dbId) {
     const { error } = await supabase
       .from("locations")

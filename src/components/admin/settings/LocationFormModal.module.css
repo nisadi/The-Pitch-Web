@@ -402,4 +402,218 @@
   .saveBtn {
     width: 100%;
   }
+
+  .daySelector {
+    gap: 0.25rem;
+  }
+
+  .dayTab {
+    padding: 0.45rem 0.55rem;
+    font-size: 0.72rem;
+  }
 }
+
+/* ============================================================
+   Day-of-week selector tabs
+   ============================================================ */
+.daySelector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.dayTab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
+  color: var(--foreground-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  min-width: 44px;
+}
+
+.dayTab:hover {
+  border-color: rgba(163, 255, 0, 0.4);
+  color: var(--foreground);
+}
+
+.dayTabActive {
+  border-color: rgba(163, 255, 0, 0.7);
+  background: rgba(163, 255, 0, 0.1);
+  color: var(--foreground);
+}
+
+.dayTabHasOpen {
+  border-color: rgba(163, 255, 0, 0.4);
+}
+
+.dayTabDots {
+  display: flex;
+  gap: 0.2rem;
+  justify-content: center;
+}
+
+.dayTabDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: block;
+  opacity: 0.9;
+}
+
+/* ============================================================
+   Per-day panels (open + peak side by side)
+   ============================================================ */
+.dayPanels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .dayPanels {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Slot section (open / peak)
+   ============================================================ */
+.slotSection {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.slotSectionLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--foreground);
+  margin-bottom: 0;
+}
+
+.slotHint {
+  font-size: 0.75rem;
+  color: var(--foreground-muted);
+  line-height: 1.4;
+  margin-top: -0.15rem;
+}
+
+.slotList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.slotEmpty {
+  font-size: 0.78rem;
+  color: var(--foreground-muted);
+  font-style: italic;
+  padding: 0.25rem 0;
+}
+
+/* ============================================================
+   Individual slot row: [time] – [time] [remove]
+   ============================================================ */
+.slotRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.slotTimeInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 0.45rem 0.55rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.slotTimeInput:focus {
+  border-color: rgba(163, 255, 0, 0.5);
+  outline: none;
+}
+
+.slotDash {
+  font-size: 0.8rem;
+  color: var(--foreground-muted);
+  flex-shrink: 0;
+}
+
+.slotRemoveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  color: var(--foreground-muted);
+  background: transparent;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.slotRemoveBtn:hover {
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.08);
+}
+
+/* ============================================================
+   Add slot button
+   ============================================================ */
+.addSlotBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--foreground-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  align-self: flex-start;
+}
+
+.addSlotBtn:hover {
+  border-color: rgba(163, 255, 0, 0.5);
+  color: var(--primary);
+}
+
+/* ============================================================
+   Validation error message
+   ============================================================ */
+.validationError {
+  font-size: 0.8rem;
+  color: #ff6b6b;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 107, 107, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 107, 0.2);
+}
+

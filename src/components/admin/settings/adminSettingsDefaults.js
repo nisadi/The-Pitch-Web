@@ -1,5 +1,13 @@
 export const ADMIN_SETTINGS_STORAGE_KEY = "the_pitch_admin_settings_v1";
 
+// ---------------------------------------------------------------------------
+// Day-of-week: 0 = Monday … 6 = Sunday  (matches location_peaktimemapping.date_id)
+// ---------------------------------------------------------------------------
+
+/**
+ * Default location data used when Supabase is not configured.
+ * openTimeMappings / peakTimeMappings replace the old flat time columns.
+ */
 export const DEFAULT_ADMIN_SETTINGS = {
   locations: [
     {
@@ -11,12 +19,26 @@ export const DEFAULT_ADMIN_SETTINGS = {
       description: "Main indoor stadium with futsal and cricket nets.",
       image: "",
       sportIds: ["futsal", "cricket", "badminton"],
-      operationalStart: "08:00",
-      operationalEnd: "21:00",
-      nonPeakStart: "06:00",
-      nonPeakEnd: "12:00",
-      peakStart: "18:00",
-      peakEnd: "22:00",
+      // Mon–Fri: 08:00–21:00, Sat: 08:00–21:00, Sun: 09:00–18:00
+      openTimeMappings: [
+        { dateId: 0, openTime: "08:00", closeTime: "21:00" },
+        { dateId: 1, openTime: "08:00", closeTime: "21:00" },
+        { dateId: 2, openTime: "08:00", closeTime: "21:00" },
+        { dateId: 3, openTime: "08:00", closeTime: "21:00" },
+        { dateId: 4, openTime: "08:00", closeTime: "21:00" },
+        { dateId: 5, openTime: "08:00", closeTime: "21:00" },
+        { dateId: 6, openTime: "09:00", closeTime: "18:00" },
+      ],
+      // Mon–Sun: 18:00–22:00
+      peakTimeMappings: [
+        { dateId: 0, startTime: "18:00", endTime: "22:00" },
+        { dateId: 1, startTime: "18:00", endTime: "22:00" },
+        { dateId: 2, startTime: "18:00", endTime: "22:00" },
+        { dateId: 3, startTime: "18:00", endTime: "22:00" },
+        { dateId: 4, startTime: "18:00", endTime: "22:00" },
+        { dateId: 5, startTime: "18:00", endTime: "22:00" },
+        { dateId: 6, startTime: "17:00", endTime: "18:00" },
+      ],
       status: "active",
     },
     {
@@ -28,12 +50,24 @@ export const DEFAULT_ADMIN_SETTINGS = {
       description: "Coastal venue with multi-sport courts.",
       image: "",
       sportIds: ["futsal", "cricket"],
-      operationalStart: "07:00",
-      operationalEnd: "22:00",
-      nonPeakStart: "06:00",
-      nonPeakEnd: "12:00",
-      peakStart: "18:00",
-      peakEnd: "22:00",
+      openTimeMappings: [
+        { dateId: 0, openTime: "07:00", closeTime: "22:00" },
+        { dateId: 1, openTime: "07:00", closeTime: "22:00" },
+        { dateId: 2, openTime: "07:00", closeTime: "22:00" },
+        { dateId: 3, openTime: "07:00", closeTime: "22:00" },
+        { dateId: 4, openTime: "07:00", closeTime: "22:00" },
+        { dateId: 5, openTime: "07:00", closeTime: "22:00" },
+        { dateId: 6, openTime: "09:00", closeTime: "20:00" },
+      ],
+      peakTimeMappings: [
+        { dateId: 0, startTime: "18:00", endTime: "22:00" },
+        { dateId: 1, startTime: "18:00", endTime: "22:00" },
+        { dateId: 2, startTime: "18:00", endTime: "22:00" },
+        { dateId: 3, startTime: "18:00", endTime: "22:00" },
+        { dateId: 4, startTime: "18:00", endTime: "22:00" },
+        { dateId: 5, startTime: "18:00", endTime: "22:00" },
+        { dateId: 6, startTime: "17:00", endTime: "20:00" },
+      ],
       status: "active",
     },
     {
@@ -45,12 +79,24 @@ export const DEFAULT_ADMIN_SETTINGS = {
       description: "Full-size courts near the beach.",
       image: "",
       sportIds: ["futsal", "badminton"],
-      operationalStart: "08:00",
-      operationalEnd: "20:00",
-      nonPeakStart: "06:00",
-      nonPeakEnd: "12:00",
-      peakStart: "18:00",
-      peakEnd: "20:00",
+      openTimeMappings: [
+        { dateId: 0, openTime: "08:00", closeTime: "20:00" },
+        { dateId: 1, openTime: "08:00", closeTime: "20:00" },
+        { dateId: 2, openTime: "08:00", closeTime: "20:00" },
+        { dateId: 3, openTime: "08:00", closeTime: "20:00" },
+        { dateId: 4, openTime: "08:00", closeTime: "20:00" },
+        { dateId: 5, openTime: "08:00", closeTime: "20:00" },
+        { dateId: 6, openTime: "09:00", closeTime: "18:00" },
+      ],
+      peakTimeMappings: [
+        { dateId: 0, startTime: "18:00", endTime: "20:00" },
+        { dateId: 1, startTime: "18:00", endTime: "20:00" },
+        { dateId: 2, startTime: "18:00", endTime: "20:00" },
+        { dateId: 3, startTime: "18:00", endTime: "20:00" },
+        { dateId: 4, startTime: "18:00", endTime: "20:00" },
+        { dateId: 5, startTime: "18:00", endTime: "20:00" },
+        { dateId: 6, startTime: "16:00", endTime: "18:00" },
+      ],
       status: "active",
     },
   ],
@@ -118,13 +164,6 @@ export const DEFAULT_ADMIN_SETTINGS = {
   },
 };
 
-export const DEFAULT_OPERATIONAL_START = "08:00";
-export const DEFAULT_OPERATIONAL_END = "21:00";
-export const DEFAULT_NON_PEAK_START = "06:00";
-export const DEFAULT_NON_PEAK_END = "12:00";
-export const DEFAULT_PEAK_START = "18:00";
-export const DEFAULT_PEAK_END = "22:00";
-
 export function normalizeLocation(location) {
   return {
     ...location,
@@ -132,12 +171,12 @@ export function normalizeLocation(location) {
     description: location.description ?? "",
     image: location.image ?? "",
     sportIds: Array.isArray(location.sportIds) ? location.sportIds : [],
-    operationalStart: location.operationalStart || DEFAULT_OPERATIONAL_START,
-    operationalEnd: location.operationalEnd || DEFAULT_OPERATIONAL_END,
-    nonPeakStart: location.nonPeakStart || DEFAULT_NON_PEAK_START,
-    nonPeakEnd: location.nonPeakEnd || DEFAULT_NON_PEAK_END,
-    peakStart: location.peakStart || DEFAULT_PEAK_START,
-    peakEnd: location.peakEnd || DEFAULT_PEAK_END,
+    openTimeMappings: Array.isArray(location.openTimeMappings)
+      ? location.openTimeMappings
+      : [],
+    peakTimeMappings: Array.isArray(location.peakTimeMappings)
+      ? location.peakTimeMappings
+      : [],
   };
 }
 

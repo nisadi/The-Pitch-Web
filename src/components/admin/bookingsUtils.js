@@ -1,8 +1,8 @@
 import { toDateKey } from "./bookingsData";
 import {
-  DEFAULT_OPERATIONAL_END,
-  DEFAULT_OPERATIONAL_START,
-} from "./settings/adminSettingsDefaults";
+  getOpenSlotsForDay,
+  getOperationalWindowForDay,
+} from "@/lib/locations/locationTimeMapper";
 
 export function parseTimeField(timeStr) {
   const [hourPart, minutePart] = (timeStr || "00:00").split(":");
@@ -15,10 +15,9 @@ export function parseTimeField(timeStr) {
 }
 
 /** Booking slot start hours for week/day grid (e.g. 8 → 8.00-9.00 AM). */
-export function getOperationalHours(
-  operationalStart = DEFAULT_OPERATIONAL_START,
-  operationalEnd = DEFAULT_OPERATIONAL_END
-) {
+export function getOperationalHours(operationalStart, operationalEnd) {
+  if (!operationalStart || !operationalEnd) return [];
+
   const start = parseTimeField(operationalStart);
   const end = parseTimeField(operationalEnd);
 
@@ -33,6 +32,21 @@ export function getOperationalHours(
     { length: lastSlotHour - startHour + 1 },
     (_, index) => startHour + index
   );
+}
+
+/**
+ * Derive booking slot hour rows from openTimeMappings for a specific dateId
+ * (0=Mon … 6=Sun).  Returns an empty array when the location has no open
+ * hours configured for that day — the calendar will show an empty-day message.
+ *
+ * When a location has multiple open windows for a day (e.g. 08:00–12:00 and
+ * 16:00–21:00) the rows span the full range from the earliest open to the
+ * latest close so the grid stays contiguous.
+ */
+export function getOperationalHoursForDay(openTimeMappings, dateId) {
+  const window = getOperationalWindowForDay(openTimeMappings, dateId);
+  if (!window) return [];
+  return getOperationalHours(window.operationalStart, window.operationalEnd);
 }
 
 export function compareTimeStrings(start, end) {

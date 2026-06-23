@@ -4,19 +4,9 @@ import { useState } from "react";
 import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import LocationFormModal from "./LocationFormModal";
-import {
-  formatOperationalHoursDisplay,
-  isOperationalRangeValid,
-  isPeriodWithinOperational,
-} from "../bookingsUtils";
-import {
-  DEFAULT_NON_PEAK_END,
-  DEFAULT_NON_PEAK_START,
-  DEFAULT_PEAK_END,
-  DEFAULT_PEAK_START,
-} from "./adminSettingsDefaults";
 import { slugifyId } from "./adminSettingsDefaults";
 import { useAdminSettings } from "./adminSettingsContext";
+import { buildScheduleSummary } from "@/lib/locations/locationTimeMapper";
 import styles from "./AdminSettings.module.css";
 
 const CAN_ADD_LOCATIONS = true;
@@ -29,12 +19,8 @@ const EMPTY = {
   description: "",
   image: "",
   sportIds: [],
-  operationalStart: "08:00",
-  operationalEnd: "21:00",
-  nonPeakStart: DEFAULT_NON_PEAK_START,
-  nonPeakEnd: DEFAULT_NON_PEAK_END,
-  peakStart: DEFAULT_PEAK_START,
-  peakEnd: DEFAULT_PEAK_END,
+  openTimeMappings: [],
+  peakTimeMappings: [],
   status: "active",
 };
 
@@ -47,14 +33,25 @@ function locationToForm(location) {
     description: location.description ?? "",
     image: location.image ?? "",
     sportIds: Array.isArray(location.sportIds) ? [...location.sportIds] : [],
-    operationalStart: location.operationalStart ?? "08:00",
-    operationalEnd: location.operationalEnd ?? "21:00",
-    nonPeakStart: location.nonPeakStart ?? DEFAULT_NON_PEAK_START,
-    nonPeakEnd: location.nonPeakEnd ?? DEFAULT_NON_PEAK_END,
-    peakStart: location.peakStart ?? DEFAULT_PEAK_START,
-    peakEnd: location.peakEnd ?? DEFAULT_PEAK_END,
+    openTimeMappings: Array.isArray(location.openTimeMappings)
+      ? location.openTimeMappings.map((s) => ({ ...s }))
+      : [],
+    peakTimeMappings: Array.isArray(location.peakTimeMappings)
+      ? location.peakTimeMappings.map((s) => ({ ...s }))
+      : [],
     status: location.status ?? "active",
   };
+}
+
+function isSlotValid(startKey, endKey, slot) {
+  const parse = (v) => {
+    if (!v) return null;
+    const [h, m] = v.split(":").map(Number);
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+  };
+  const s = parse(slot[startKey]);
+  const e = parse(slot[endKey]);
+  return s !== null && e !== null && s < e;
 }
 
 export default function SettingsLocations() {
@@ -113,12 +110,8 @@ export default function SettingsLocations() {
       description: form.description.trim(),
       image: form.image ?? "",
       sportIds: form.sportIds ?? [],
-      operationalStart: form.operationalStart,
-      operationalEnd: form.operationalEnd,
-      nonPeakStart: form.nonPeakStart,
-      nonPeakEnd: form.nonPeakEnd,
-      peakStart: form.peakStart,
-      peakEnd: form.peakEnd,
+      openTimeMappings: form.openTimeMappings ?? [],
+      peakTimeMappings: form.peakTimeMappings ?? [],
       status: form.status,
     };
 
@@ -127,59 +120,40 @@ export default function SettingsLocations() {
       !payload.shortName ||
       !payload.address ||
       !payload.phone ||
-      !payload.sportIds.length ||
-      !payload.operationalStart ||
-      !payload.operationalEnd
+      !payload.sportIds.length
     ) {
       window.alert("Please fill in all required fields.");
       return;
     }
 
-    if (!isOperationalRangeValid(payload.operationalStart, payload.operationalEnd)) {
-      window.alert("Closing time must be after opening time.");
-      return;
-    }
-
-    if (!isOperationalRangeValid(payload.nonPeakStart, payload.nonPeakEnd)) {
-      window.alert("Non-peak end time must be after non-peak start time.");
-      return;
-    }
-
-    if (!isOperationalRangeValid(payload.peakStart, payload.peakEnd)) {
-      window.alert("Peak end time must be after peak start time.");
-      return;
-    }
-
-    if (
-      !isPeriodWithinOperational(
-        payload.nonPeakStart,
-        payload.nonPeakEnd,
-        payload.operationalStart,
-        payload.operationalEnd
-      )
-    ) {
+    if (payload.openTimeMappings.length === 0) {
       window.alert(
-        "Non-peak hours must fall within the venue operational hours."
+        "Please add at least one open-hours window (e.g. Monday 08:00–21:00)."
       );
       return;
     }
 
-    if (
-      !isPeriodWithinOperational(
-        payload.peakStart,
-        payload.peakEnd,
-        payload.operationalStart,
-        payload.operationalEnd
-      )
-    ) {
-      window.alert("Peak hours must fall within the venue operational hours.");
+    const invalidOpen = payload.openTimeMappings.find(
+      (s) => !isSlotValid("openTime", "closeTime", s)
+    );
+    if (invalidOpen) {
+      window.alert(
+        "One or more open-hours windows are invalid. Make sure the close time is after the open time."
+      );
       return;
     }
 
-    if (
-      !editingId &&
-      (!payload.image || payload.image.startsWith("data:"))
-    ) {
+    const invalidPeak = payload.peakTimeMappings.find(
+      (s) => !isSlotValid("startTime", "endTime", s)
+    );
+    if (invalidPeak) {
+      window.alert(
+        "One or more peak-hours windows are invalid. Make sure the end time is after the start time."
+      );
+      return;
+    }
+
+    if (!editingId && (!payload.image || payload.image.startsWith("data:"))) {
       window.alert("Please upload a location image.");
       return;
     }
@@ -262,82 +236,82 @@ export default function SettingsLocations() {
           <p className={styles.empty}>No locations configured.</p>
         ) : (
           <div className={styles.list}>
-            {locations.map((location) => (
-              <article key={location.id} className={styles.card}>
-                <div className={styles.cardTop}>
-                  <div>
-                    <div className={styles.cardTitle}>{location.name}</div>
-                    {location.description && (
-                      <p className={styles.cardMeta}>{location.description}</p>
-                    )}
-                    <p className={styles.cardMeta}>
-                      <MapPin size={14} style={{ display: "inline", marginRight: 4 }} />
-                      {location.address}
-                    </p>
-                    <p className={styles.cardMeta}>{location.phone}</p>
-                    <p className={styles.cardMeta}>
-                      Hours:{" "}
-                      {formatOperationalHoursDisplay(
-                        location.operationalStart,
-                        location.operationalEnd
+            {locations.map((location) => {
+              const scheduleSummary = buildScheduleSummary(
+                location.openTimeMappings
+              );
+              const peakCount = (location.peakTimeMappings ?? []).length;
+
+              return (
+                <article key={location.id} className={styles.card}>
+                  <div className={styles.cardTop}>
+                    <div>
+                      <div className={styles.cardTitle}>{location.name}</div>
+                      {location.description && (
+                        <p className={styles.cardMeta}>{location.description}</p>
                       )}
-                    </p>
-                    <p className={styles.cardMeta}>
-                      Off-peak:{" "}
-                      {formatOperationalHoursDisplay(
-                        location.nonPeakStart,
-                        location.nonPeakEnd
+                      <p className={styles.cardMeta}>
+                        <MapPin
+                          size={14}
+                          style={{ display: "inline", marginRight: 4 }}
+                        />
+                        {location.address}
+                      </p>
+                      <p className={styles.cardMeta}>{location.phone}</p>
+                      <p className={styles.cardMeta}>
+                        <strong>Open:</strong> {scheduleSummary}
+                      </p>
+                      {peakCount > 0 && (
+                        <p className={styles.cardMeta}>
+                          <strong>Peak windows:</strong> {peakCount} configured
+                        </p>
                       )}
-                      {" · "}
-                      Peak:{" "}
-                      {formatOperationalHoursDisplay(
-                        location.peakStart,
-                        location.peakEnd
+                      {(location.sportIds?.length ?? 0) > 0 && (
+                        <div className={styles.tagList}>
+                          {location.sportIds.map((sportId) => {
+                            const sport = sports.find(
+                              (item) => item.id === sportId
+                            );
+                            return (
+                              <span key={sportId} className={styles.tag}>
+                                {sport?.name ?? sportId}
+                              </span>
+                            );
+                          })}
+                        </div>
                       )}
-                    </p>
-                    {(location.sportIds?.length ?? 0) > 0 && (
-                      <div className={styles.tagList}>
-                        {location.sportIds.map((sportId) => {
-                          const sport = sports.find((item) => item.id === sportId);
-                          return (
-                            <span key={sportId} className={styles.tag}>
-                              {sport?.name ?? sportId}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
+                    </div>
+                    <div className={styles.cardActions}>
+                      <span
+                        className={`${styles.badge} ${
+                          location.status === "active"
+                            ? styles.badgeActive
+                            : styles.badgeInactive
+                        }`}
+                      >
+                        {location.status}
+                      </span>
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        onClick={() => startEdit(location)}
+                        aria-label={`Edit ${location.name}`}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        onClick={() => requestDelete(location)}
+                        aria-label={`Delete ${location.name}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                  <div className={styles.cardActions}>
-                    <span
-                      className={`${styles.badge} ${
-                        location.status === "active"
-                          ? styles.badgeActive
-                          : styles.badgeInactive
-                      }`}
-                    >
-                      {location.status}
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.iconBtn}
-                      onClick={() => startEdit(location)}
-                      aria-label={`Edit ${location.name}`}
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.iconBtn}
-                      onClick={() => requestDelete(location)}
-                      aria-label={`Delete ${location.name}`}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

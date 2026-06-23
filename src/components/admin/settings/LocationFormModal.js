@@ -7,17 +7,123 @@ import {
   CloudUpload,
   Info,
   Lightbulb,
+  Plus,
   Save,
+  Trash2,
 } from "lucide-react";
-import {
-  isOperationalRangeValid,
-  isPeriodWithinOperational,
-} from "../bookingsUtils";
 import { uploadLocationImage } from "@/lib/storage/uploadLocationImage";
 import styles from "./LocationFormModal.module.css";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+// 0 = Monday … 6 = Sunday
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function parseHHmm(str) {
+  if (!str) return null;
+  const [h, m] = str.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
+function isSlotValid(startKey, endKey, slot) {
+  const s = parseHHmm(slot[startKey]);
+  const e = parseHHmm(slot[endKey]);
+  return s !== null && e !== null && s < e;
+}
+
+function TimeSlotRow({ slot, startKey, endKey, onUpdate, onRemove, prefix }) {
+  const startId = `${prefix}-start`;
+  const endId = `${prefix}-end`;
+  return (
+    <div className={styles.slotRow}>
+      <input
+        id={startId}
+        type="time"
+        className={styles.slotTimeInput}
+        value={slot[startKey] ?? ""}
+        onChange={(e) => onUpdate({ [startKey]: e.target.value })}
+        aria-label="Start time"
+      />
+      <span className={styles.slotDash}>–</span>
+      <input
+        id={endId}
+        type="time"
+        className={styles.slotTimeInput}
+        value={slot[endKey] ?? ""}
+        onChange={(e) => onUpdate({ [endKey]: e.target.value })}
+        aria-label="End time"
+      />
+      <button
+        type="button"
+        className={styles.slotRemoveBtn}
+        onClick={onRemove}
+        aria-label="Remove slot"
+        title="Remove this slot"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
+function DayTimeSlotsEditor({
+  title,
+  hint,
+  slots,
+  selectedDay,
+  startKey,
+  endKey,
+  emptyLabel,
+  addLabel,
+  defaultSlot,
+  onAddSlot,
+  onUpdateSlot,
+  onRemoveSlot,
+}) {
+  const daySlots = slots.filter((s) => s.dateId === selectedDay);
+
+  return (
+    <div className={styles.slotSection}>
+      <p className={styles.slotSectionLabel}>{title}</p>
+      {hint && <p className={styles.slotHint}>{hint}</p>}
+      {daySlots.length === 0 ? (
+        <p className={styles.slotEmpty}>{emptyLabel}</p>
+      ) : (
+        <div className={styles.slotList}>
+          {daySlots.map((slot, localIdx) => {
+            const globalIdx = slots.findIndex(
+              (s, i) =>
+                s.dateId === selectedDay &&
+                slots.filter((x, j) => x.dateId === selectedDay && j < i)
+                  .length === localIdx
+            );
+            return (
+              <TimeSlotRow
+                key={localIdx}
+                slot={slot}
+                startKey={startKey}
+                endKey={endKey}
+                prefix={`slot-${selectedDay}-${localIdx}-${title.toLowerCase().replace(/\s+/g, "-")}`}
+                onUpdate={(patch) => onUpdateSlot(selectedDay, localIdx, patch)}
+                onRemove={() => onRemoveSlot(selectedDay, localIdx)}
+              />
+            );
+          })}
+        </div>
+      )}
+      <button
+        type="button"
+        className={styles.addSlotBtn}
+        onClick={() => onAddSlot(selectedDay, defaultSlot)}
+      >
+        <Plus size={13} />
+        {addLabel}
+      </button>
+    </div>
+  );
+}
 
 export default function LocationFormModal({
   open,
@@ -35,6 +141,7 @@ export default function LocationFormModal({
   const previewUrlRef = useRef(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [selectedDay, setSelectedDay] = useState(0); // 0=Mon
   const isEdit = mode === "edit";
 
   useEffect(() => {
@@ -62,6 +169,7 @@ export default function LocationFormModal({
       }
       setPreviewUrl("");
       setUploadingImage(false);
+      setSelectedDay(0);
       return;
     }
 
@@ -80,8 +188,12 @@ export default function LocationFormModal({
 
   if (!open) return null;
 
-  const displayImage = previewUrl || (form.image && !form.image.startsWith("data:") ? form.image : "");
+  const displayImage =
+    previewUrl || (form.image && !form.image.startsWith("data:") ? form.image : "");
 
+  // ---------------------------------------------------------------------------
+  // Image handlers
+  // ---------------------------------------------------------------------------
   const handleImageChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -145,6 +257,9 @@ export default function LocationFormModal({
     onSubmit();
   };
 
+  // ---------------------------------------------------------------------------
+  // Sports
+  // ---------------------------------------------------------------------------
   const activeSports = sports.filter((sport) => sport.status === "active");
   const selectedSportIds = form.sportIds ?? [];
 
@@ -155,31 +270,97 @@ export default function LocationFormModal({
     onChange({ sportIds: next });
   };
 
+  // ---------------------------------------------------------------------------
+  // Open time slots CRUD
+  // ---------------------------------------------------------------------------
+  const openTimeMappings = form.openTimeMappings ?? [];
+  const peakTimeMappings = form.peakTimeMappings ?? [];
+
+  function addOpenSlot(dateId, defaultSlot = { openTime: "08:00", closeTime: "21:00" }) {
+    onChange({
+      openTimeMappings: [...openTimeMappings, { dateId, ...defaultSlot }],
+    });
+  }
+
+  function updateOpenSlot(dateId, localIdx, patch) {
+    let dayCount = -1;
+    const next = openTimeMappings.map((s) => {
+      if (s.dateId !== dateId) return s;
+      dayCount++;
+      return dayCount === localIdx ? { ...s, ...patch } : s;
+    });
+    onChange({ openTimeMappings: next });
+  }
+
+  function removeOpenSlot(dateId, localIdx) {
+    let dayCount = -1;
+    const next = openTimeMappings.filter((s) => {
+      if (s.dateId !== dateId) return true;
+      dayCount++;
+      return dayCount !== localIdx;
+    });
+    onChange({ openTimeMappings: next });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Peak time slots CRUD
+  // ---------------------------------------------------------------------------
+  function addPeakSlot(dateId, defaultSlot = { startTime: "18:00", endTime: "22:00" }) {
+    onChange({
+      peakTimeMappings: [...peakTimeMappings, { dateId, ...defaultSlot }],
+    });
+  }
+
+  function updatePeakSlot(dateId, localIdx, patch) {
+    let dayCount = -1;
+    const next = peakTimeMappings.map((s) => {
+      if (s.dateId !== dateId) return s;
+      dayCount++;
+      return dayCount === localIdx ? { ...s, ...patch } : s;
+    });
+    onChange({ peakTimeMappings: next });
+  }
+
+  function removePeakSlot(dateId, localIdx) {
+    let dayCount = -1;
+    const next = peakTimeMappings.filter((s) => {
+      if (s.dateId !== dateId) return true;
+      dayCount++;
+      return dayCount !== localIdx;
+    });
+    onChange({ peakTimeMappings: next });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Validation
+  // ---------------------------------------------------------------------------
+  const openSlotsAllValid = openTimeMappings.every((s) =>
+    isSlotValid("openTime", "closeTime", s)
+  );
+  const peakSlotsAllValid = peakTimeMappings.every((s) =>
+    isSlotValid("startTime", "endTime", s)
+  );
+  const hasAtLeastOneOpenSlot = openTimeMappings.length > 0;
+
   const canSave =
     form.name.trim() &&
     form.shortName.trim() &&
     form.address.trim() &&
     form.phone.trim() &&
     selectedSportIds.length > 0 &&
-    form.operationalStart &&
-    form.operationalEnd &&
-    isOperationalRangeValid(form.operationalStart, form.operationalEnd) &&
-    isOperationalRangeValid(form.nonPeakStart, form.nonPeakEnd) &&
-    isOperationalRangeValid(form.peakStart, form.peakEnd) &&
-    isPeriodWithinOperational(
-      form.nonPeakStart,
-      form.nonPeakEnd,
-      form.operationalStart,
-      form.operationalEnd
-    ) &&
-    isPeriodWithinOperational(
-      form.peakStart,
-      form.peakEnd,
-      form.operationalStart,
-      form.operationalEnd
-    ) &&
+    hasAtLeastOneOpenSlot &&
+    openSlotsAllValid &&
+    peakSlotsAllValid &&
     (isEdit || Boolean(form.image)) &&
     !uploadingImage;
+
+  // Indicators per day in the tab bar
+  function dayHasOpen(dateId) {
+    return openTimeMappings.some((s) => s.dateId === dateId);
+  }
+  function dayHasPeak(dateId) {
+    return peakTimeMappings.some((s) => s.dateId === dateId);
+  }
 
   return createPortal(
     <div
@@ -228,6 +409,9 @@ export default function LocationFormModal({
             </span>
           </div>
 
+          {/* ---------------------------------------------------------------- */}
+          {/* Location details                                                  */}
+          {/* ---------------------------------------------------------------- */}
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>Location details</h3>
 
@@ -334,117 +518,102 @@ export default function LocationFormModal({
             </div>
           </section>
 
+          {/* ---------------------------------------------------------------- */}
+          {/* Open & Peak hours — per day of week                              */}
+          {/* ---------------------------------------------------------------- */}
           <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Operational hours</h3>
-            <p className={styles.hint} style={{ marginBottom: "0.75rem" }}>
-              Set when this venue is open. The bookings calendar week and day
-              views use these times for the selected location.
+            <h3 className={styles.sectionTitle}>Open &amp; Peak hours</h3>
+            <p className={styles.hint} style={{ marginBottom: "0.9rem" }}>
+              Configure when this venue is open and when peak pricing applies,
+              per day of the week. Select a day then add one or more time
+              windows. Days with no open slots will not appear in the booking
+              calendar.
             </p>
 
-            <div className={styles.formRow}>
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="loc-modal-op-start">
-                  Opens at <span className={styles.required}>*</span>
-                </label>
-                <input
-                  id="loc-modal-op-start"
-                  type="time"
-                  className={styles.input}
-                  value={form.operationalStart ?? "08:00"}
-                  onChange={(e) =>
-                    onChange({ operationalStart: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="loc-modal-op-end">
-                  Closes at <span className={styles.required}>*</span>
-                </label>
-                <input
-                  id="loc-modal-op-end"
-                  type="time"
-                  className={styles.input}
-                  value={form.operationalEnd ?? "21:00"}
-                  onChange={(e) => onChange({ operationalEnd: e.target.value })}
-                  required
-                />
-              </div>
+            {/* Day selector tabs */}
+            <div className={styles.daySelector} role="tablist" aria-label="Day of week">
+              {DAY_LABELS.map((label, idx) => {
+                const hasOpen = dayHasOpen(idx);
+                const hasPeak = dayHasPeak(idx);
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedDay === idx}
+                    className={`${styles.dayTab} ${
+                      selectedDay === idx ? styles.dayTabActive : ""
+                    } ${hasOpen ? styles.dayTabHasOpen : ""}`}
+                    onClick={() => setSelectedDay(idx)}
+                  >
+                    {label}
+                    {(hasOpen || hasPeak) && (
+                      <span className={styles.dayTabDots}>
+                        {hasOpen && (
+                          <span
+                            className={styles.dayTabDot}
+                            style={{ background: "var(--primary)" }}
+                            title="Has open hours"
+                          />
+                        )}
+                        {hasPeak && (
+                          <span
+                            className={styles.dayTabDot}
+                            style={{ background: "#f59e0b" }}
+                            title="Has peak hours"
+                          />
+                        )}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
-            <h4 className={styles.subsectionTitle}>Peak &amp; non-peak periods</h4>
-            <p className={styles.hint} style={{ marginBottom: "0.75rem" }}>
-              Define when off-peak and peak pricing apply (set rates per pitch under
-              Settings → Pitches). Each period must fall within the venue open hours
-              above.
-            </p>
+            <div className={styles.dayPanels}>
+              {/* Open hours for selected day */}
+              <DayTimeSlotsEditor
+                title="Open hours"
+                hint="When is this venue open on this day?"
+                slots={openTimeMappings}
+                selectedDay={selectedDay}
+                startKey="openTime"
+                endKey="closeTime"
+                emptyLabel="No open hours set — this venue is considered closed on this day."
+                addLabel="Add open window"
+                defaultSlot={{ openTime: "08:00", closeTime: "21:00" }}
+                onAddSlot={addOpenSlot}
+                onUpdateSlot={updateOpenSlot}
+                onRemoveSlot={removeOpenSlot}
+              />
 
-            <p className={styles.periodLabel}>Non-peak hours</p>
-            <div className={styles.formRow}>
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="loc-modal-np-start">
-                  Starts at <span className={styles.required}>*</span>
-                </label>
-                <input
-                  id="loc-modal-np-start"
-                  type="time"
-                  className={styles.input}
-                  value={form.nonPeakStart ?? "06:00"}
-                  onChange={(e) =>
-                    onChange({ nonPeakStart: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="loc-modal-np-end">
-                  Ends at <span className={styles.required}>*</span>
-                </label>
-                <input
-                  id="loc-modal-np-end"
-                  type="time"
-                  className={styles.input}
-                  value={form.nonPeakEnd ?? "12:00"}
-                  onChange={(e) => onChange({ nonPeakEnd: e.target.value })}
-                  required
-                />
-              </div>
+              {/* Peak hours for selected day */}
+              <DayTimeSlotsEditor
+                title="Peak hours"
+                hint="Peak pricing applies during these windows. Non-peak is everything else within open hours."
+                slots={peakTimeMappings}
+                selectedDay={selectedDay}
+                startKey="startTime"
+                endKey="endTime"
+                emptyLabel="No peak windows — all open hours are treated as off-peak."
+                addLabel="Add peak window"
+                defaultSlot={{ startTime: "18:00", endTime: "22:00" }}
+                onAddSlot={addPeakSlot}
+                onUpdateSlot={updatePeakSlot}
+                onRemoveSlot={removePeakSlot}
+              />
             </div>
 
-            <p className={styles.periodLabel}>Peak hours</p>
-            <div className={styles.formRow}>
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="loc-modal-peak-start">
-                  Starts at <span className={styles.required}>*</span>
-                </label>
-                <input
-                  id="loc-modal-peak-start"
-                  type="time"
-                  className={styles.input}
-                  value={form.peakStart ?? "18:00"}
-                  onChange={(e) => onChange({ peakStart: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="loc-modal-peak-end">
-                  Ends at <span className={styles.required}>*</span>
-                </label>
-                <input
-                  id="loc-modal-peak-end"
-                  type="time"
-                  className={styles.input}
-                  value={form.peakEnd ?? "22:00"}
-                  onChange={(e) => onChange({ peakEnd: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
+            {!hasAtLeastOneOpenSlot && (
+              <p className={styles.validationError}>
+                At least one open-hours window is required across all days.
+              </p>
+            )}
           </section>
 
+          {/* ---------------------------------------------------------------- */}
+          {/* Available sports                                                  */}
+          {/* ---------------------------------------------------------------- */}
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>Available sports</h3>
             <div className={styles.field}>
@@ -489,8 +658,11 @@ export default function LocationFormModal({
             </div>
           </section>
 
+          {/* ---------------------------------------------------------------- */}
+          {/* Contact & address                                                 */}
+          {/* ---------------------------------------------------------------- */}
           <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Contact & address</h3>
+            <h3 className={styles.sectionTitle}>Contact &amp; address</h3>
 
             <div className={styles.field}>
               <label className={styles.label} htmlFor="loc-modal-address">
@@ -545,9 +717,10 @@ export default function LocationFormModal({
             <div>
               <p className={styles.tipsTitle}>Tips</p>
               <p>
-                Peak hours typically include evenings and weekends. Inactive
-                locations won&apos;t appear in the header selector. You can update
-                rates anytime.
+                Add multiple open windows per day (e.g. 08:00–12:00 and
+                16:00–21:00). Peak hours drive higher pricing — set rates per
+                pitch under Settings → Pitches. Days with no open hours
+                will show no time rows in the calendar.
               </p>
             </div>
           </div>

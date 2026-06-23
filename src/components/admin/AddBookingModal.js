@@ -12,6 +12,7 @@ import {
   calculateBookingTotalAmount,
   getBookingAmountBreakdown,
 } from "@/lib/bookings/bookingPricing";
+import { dateKeyToDateId } from "@/lib/locations/locationTimeMapper";
 import {
   filterBookingsForPitch,
   firstAvailableStartHour,
@@ -233,29 +234,34 @@ export default function AddBookingModal({
 
   const amountBreakdown = useMemo(() => {
     if (form.type === "block" || !selectedPitch) return null;
+    const dateId = form.booking_date ? dateKeyToDateId(form.booking_date) : null;
     return getBookingAmountBreakdown({
       startHour: form.start_hour,
       endHour: form.end_hour,
       location: locationWithPeriods,
       peakHourRate: selectedPitch.peakHourRate,
       nonPeakHourRate: selectedPitch.nonPeakHourRate,
+      dateId,
     });
   }, [
     form.type,
     form.start_hour,
     form.end_hour,
+    form.booking_date,
     selectedPitch,
     locationWithPeriods,
   ]);
 
   useEffect(() => {
     if (!open || form.type === "block" || !selectedPitch) return;
+    const dateId = form.booking_date ? dateKeyToDateId(form.booking_date) : null;
     const total = calculateBookingTotalAmount({
       startHour: form.start_hour,
       endHour: form.end_hour,
       location: locationWithPeriods,
       peakHourRate: selectedPitch.peakHourRate,
       nonPeakHourRate: selectedPitch.nonPeakHourRate,
+      dateId,
     });
     setForm((prev) => ({
       ...prev,

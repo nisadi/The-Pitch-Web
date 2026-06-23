@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/client";
 import { LOCATION_COLUMNS, locationFromRow } from "./locationMapper";
+import {
+  fetchOpenTimeMappingsBatch,
+  fetchPeakTimeMappingsBatch,
+} from "./locationTimeMapper";
 
 function sortLocations(list) {
   return [...list].sort((a, b) => a.name.localeCompare(b.name));
@@ -14,9 +18,22 @@ export async function fetchLocationsFromSupabase() {
 
   if (error) throw error;
 
-  return sortLocations(
-    (data ?? []).map(locationFromRow).filter(Boolean)
-  );
+  const locations = (data ?? []).map(locationFromRow).filter(Boolean);
+
+  // Batch-fetch time mappings to avoid N+1 queries
+  if (locations.length) {
+    const dbIds = locations.map((l) => l.dbId).filter(Boolean);
+    const [openMap, peakMap] = await Promise.all([
+      fetchOpenTimeMappingsBatch(dbIds),
+      fetchPeakTimeMappingsBatch(dbIds),
+    ]);
+    for (const loc of locations) {
+      loc.openTimeMappings = openMap[loc.dbId] ?? [];
+      loc.peakTimeMappings = peakMap[loc.dbId] ?? [];
+    }
+  }
+
+  return sortLocations(locations);
 }
 
 export function subscribeToLocations(onPayload) {
@@ -59,6 +76,14 @@ export function applyLocationRealtimeEvent(locations, payload) {
   const exists = locations.some(
     (item) => item.dbId === location.dbId || item.id === location.id
   );
+
+  // Preserve time mappings from the existing record on realtime events —
+  // the postgres_changes payload does not include child-table rows.
+  const existing = locations.find(
+    (item) => item.dbId === location.dbId || item.id === location.id
+  );
+  location.openTimeMappings = existing?.openTimeMappings ?? [];
+  location.peakTimeMappings = existing?.peakTimeMappings ?? [];
 
   if (event === "INSERT" && !exists) {
     return sortLocations([...locations, location]);

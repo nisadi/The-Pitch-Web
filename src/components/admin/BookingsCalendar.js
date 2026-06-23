@@ -19,6 +19,7 @@ import {
   DAY_VIEW_ROW_BASE_PX,
   getBookingStartHour,
   getOperationalHours,
+  getOperationalHoursForDay,
   getWeekDateKeys,
   sortBookingsByTime,
 } from "./bookingsUtils";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/bookings/bookingMutations";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { resolveCalendarLocation } from "@/lib/locations/resolveAdminLocation";
+import { dateKeyToDateId } from "@/lib/locations/locationTimeMapper";
 import styles from "./BookingsCalendar.module.css";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -192,14 +194,22 @@ export default function BookingsCalendar() {
     [activeLocation?.dbId]
   );
 
-  const calendarHours = useMemo(
-    () =>
-      getOperationalHours(
-        activeLocation?.operationalStart,
-        activeLocation?.operationalEnd
-      ),
-    [activeLocation]
-  );
+  // calendarHours: derive from openTimeMappings for the currently viewed day.
+  // Returns [] when no open hours are configured for that day — the UI will
+  // show an appropriate "not open" message rather than empty time rows.
+  const calendarHours = useMemo(() => {
+    const openMappings = activeLocation?.openTimeMappings;
+    if (!openMappings) return [];
+
+    // For day/week/agenda views use selectedDate; month view falls back to today.
+    const dateKey = selectedDate || toDateKey(
+      focusDate.getFullYear(),
+      focusDate.getMonth(),
+      focusDate.getDate()
+    );
+    const dateId = dateKeyToDateId(dateKey);
+    return getOperationalHoursForDay(openMappings, dateId);
+  }, [activeLocation, selectedDate, focusDate]);
 
   const filteredBookings = useMemo(() => {
     let list = filterByLocation(bookings, locationFilter).filter(
@@ -883,11 +893,32 @@ export default function BookingsCalendar() {
               })}
             </div>
             <div className={styles.weekBody}>
-              {calendarHours.flatMap((hour) => [
-                <div key={`time-${hour}`} className={styles.timeLabel}>
-                  {formatHourLabel(hour)}
-                </div>,
-                ...weekDateKeys.map((dateKey) => {
+              {calendarHours.length === 0 ? (
+                <div
+                  style={{
+                    gridColumn: `1 / -1`,
+                    padding: "2rem 1rem",
+                    textAlign: "center",
+                    color: "var(--foreground-muted)",
+                    fontSize: "0.88rem",
+                  }}
+                >
+                  No open hours configured for this day. Set hours in Settings → Locations.
+                </div>
+              ) : (
+                calendarHours.flatMap((hour) => [
+                  <div key={`time-${hour}`} className={styles.timeLabel}>
+                    {formatHourLabel(hour)}
+                  </div>,
+                  ...weekDateKeys.map((dateKey) => {
+                    // Per-day availability: check the location's open mappings for this specific day
+                    const dayDateId = dateKeyToDateId(dateKey);
+                    const dayHours = getOperationalHoursForDay(
+                      activeLocation?.openTimeMappings ?? [],
+                      dayDateId
+                    );
+                    const isClosedThisDay = !dayHours.includes(hour);
+
                     const dayBookings = getBookingsForDate(
                       filteredBookings,
                       dateKey
@@ -899,6 +930,7 @@ export default function BookingsCalendar() {
                       (b) => getBookingStartHour(b) === hour
                     );
                     const isAvailable =
+                      !isClosedThisDay &&
                       overlapping.length === 0 &&
                       isAdminRangeBookable(
                         dateKey,
@@ -910,12 +942,16 @@ export default function BookingsCalendar() {
                       <div
                         key={`${dateKey}-${hour}`}
                         className={`${styles.weekCell} ${
+                          isClosedThisDay ? styles.weekCellClosed ?? "" : ""
+                        } ${
                           isAvailable ? styles.weekCellEmpty : ""
-                        } ${!isAvailable && slotBookings.length === 0 ? styles.weekCellCovered : ""}`}
+                        } ${!isAvailable && slotBookings.length === 0 && !isClosedThisDay ? styles.weekCellCovered : ""}`}
                         role={isAvailable ? "button" : undefined}
                         tabIndex={isAvailable ? 0 : undefined}
                         title={
-                          isAvailable
+                          isClosedThisDay
+                            ? "Closed"
+                            : isAvailable
                             ? `Book or block ${formatHourLabel(hour)}`
                             : undefined
                         }
@@ -932,7 +968,7 @@ export default function BookingsCalendar() {
                           }
                         }}
                       >
-                        {slotBookings.map((b) => {
+                        {isClosedThisDay ? null : slotBookings.map((b) => {
                           const status = BOOKING_STATUSES[b.status];
                           return (
                             <div
@@ -963,15 +999,31 @@ export default function BookingsCalendar() {
                         })}
                       </div>
                     );
-                }),
-              ])}
+                  }),
+                ])
+              )}
             </div>
           </div>
         )}
 
         {calendarView === "day" && (
           <div className={styles.daySchedule}>
-            {calendarHours.map((hour) => {
+            {calendarHours.length === 0 ? (
+              <div
+                style={{
+                  padding: "3rem 1.5rem",
+                  textAlign: "center",
+                  color: "var(--foreground-muted)",
+                  fontSize: "0.88rem",
+                }}
+              >
+                This location has no open hours configured for this day of the week.
+                <br />
+                Set open hours in{" "}
+                <strong>Settings → Locations</strong>.
+              </div>
+            ) : (
+              calendarHours.map((hour) => {
               const overlapping = dayViewBookings.filter((b) =>
                 bookingOverlapsHour(b, hour)
               );
@@ -1052,7 +1104,8 @@ export default function BookingsCalendar() {
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
         )}
 
