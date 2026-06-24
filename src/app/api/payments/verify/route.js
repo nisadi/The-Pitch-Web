@@ -23,6 +23,7 @@
 
 import { createAdminClient, isAdminClientConfigured } from "@/lib/supabase/admin";
 import { sendPaymentConfirmationEmail, sendBookingConfirmationEmail } from "@/lib/mailer";
+import { sendBookingConfirmationSms } from "@/lib/sms/bookingConfirmationSms";
 import { attachPromoToBooking } from "@/lib/promos/bookingPromo";
 import {
   calculatePromoDiscount,
@@ -49,12 +50,16 @@ async function resolveEmailContext(supabaseAdmin, bookingDetails) {
   let sportName = 'Sport';
   let locationName = 'Location';
 
+  let phone = '';
+  let courtName = 'Court';
+
   // Fetch user profile
   if (bookingDetails.user_id) {
     const { data: userData } = await supabaseAdmin.auth.admin.getUserById(bookingDetails.user_id);
     if (userData?.user) {
       email = userData.user.email || '';
       fullName = userData.user.user_metadata?.full_name || email.split('@')[0] || 'there';
+      phone = userData.user.user_metadata?.phone_number || userData.user.user_metadata?.phone || userData.user.phone || '';
     }
   }
 
@@ -78,7 +83,17 @@ async function resolveEmailContext(supabaseAdmin, bookingDetails) {
     if (locData) locationName = locData.name;
   }
 
-  return { email, fullName, sportName, locationName };
+  // Fetch court/pitch name
+  if (bookingDetails.pitch_id) {
+    const { data: pitchData } = await supabaseAdmin
+      .from('pitches')
+      .select('name')
+      .eq('id', bookingDetails.pitch_id)
+      .single();
+    if (pitchData) courtName = pitchData.name;
+  }
+
+  return { email, fullName, phone, sportName, locationName, courtName };
 }
 
 export async function POST(request) {
@@ -234,7 +249,8 @@ export async function POST(request) {
                 booking_date: bookingDetails.booking_date,
                 start_time: bookingDetails.start_time,
                 end_time: bookingDetails.end_time,
-                total_amount: grandTotal,
+                total_amount: Number(bookingDetails.total_amount) || 0,
+                final_amount: grandTotal,
                 booking_status: 'confirmed',
                 payment_status: 'paid',
               },
@@ -261,17 +277,20 @@ export async function POST(request) {
               }
             }
 
-            // 5b. Send confirmation emails (fire-and-forget — don't block the response)
+            // 5b. Send confirmation emails and SMS (fire-and-forget — don't block the response)
             try {
-              const { email, fullName, sportName, locationName } =
+              // Ensure pitch_id is passed to resolveEmailContext if it was resolved locally
+              bookingDetails.pitch_id = pitchId;
+              const { email, fullName, phone, sportName, locationName, courtName } =
                 await resolveEmailContext(supabaseAdmin, bookingDetails);
 
+              const orderRef = result.decoded.orderNumber
+                || result.decoded.webxOrderReference
+                || `#TP-${bookingData.id || Math.floor(10000 + Math.random() * 90000)}-X`;
+              const bookingRef = `#TP-${bookingData.id || Math.floor(10000 + Math.random() * 90000)}-X`;
+              const timeSlot = `${bookingDetails.start_time} - ${bookingDetails.end_time}`;
+
               if (email) {
-                const orderRef = result.decoded.orderNumber
-                  || result.decoded.webxOrderReference
-                  || `#TP-${bookingData.id || Math.floor(10000 + Math.random() * 90000)}-X`;
-                const bookingRef = `#TP-${bookingData.id || Math.floor(10000 + Math.random() * 90000)}-X`;
-                const timeSlot = `${bookingDetails.start_time} - ${bookingDetails.end_time}`;
 
                 // Send payment confirmation email
                 sendPaymentConfirmationEmail(email, fullName, {
@@ -302,8 +321,25 @@ export async function POST(request) {
               } else {
                 console.warn('[verify] No user email found — skipping confirmation emails.');
               }
+
+              if (phone) {
+                sendBookingConfirmationSms({
+                  phone,
+                  customerName: fullName,
+                  reference: bookingRef,
+                  date: bookingDetails.booking_date,
+                  time: timeSlot,
+                  location: locationName,
+                  sport: sportName,
+                  court: courtName,
+                  finalAmount: grandTotal,
+                }).catch((err) => {
+                  console.error('[verify] Failed to send booking confirmation SMS:', err);
+                });
+                console.log(`[verify] Confirmation SMS queued for ${phone}`);
+              }
             } catch (emailErr) {
-              console.error('[verify] Error resolving email context:', emailErr);
+              console.error('[verify] Error resolving email/sms context:', emailErr);
               // Don't fail the payment/booking response if email lookup fails
             }
           }
