@@ -3,7 +3,7 @@ import { createAdminClient, isAdminClientConfigured } from "@/lib/supabase/admin
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { userFromRoleRow } from "@/lib/users/usersDefaults";
 
-export async function GET() {
+export async function GET(request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ users: [] });
   }
@@ -12,6 +12,30 @@ export async function GET() {
     return NextResponse.json({ users: [] });
   }
 
+  const { searchParams } = new URL(request.url);
+  const phone = (searchParams.get("phone") ?? "").trim();
+
+  // --- Phone lookup: used by AddBookingModal to check if a customer exists ---
+  if (phone) {
+    try {
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, full_name, email, phone")
+        .eq("phone", phone)
+        .maybeSingle();
+
+      if (error) throw error;
+      return NextResponse.json({ user: data ?? null });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err?.message ?? "Failed to look up user by phone" },
+        { status: 500 }
+      );
+    }
+  }
+
+  // --- Default: list all admin role users ---
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
