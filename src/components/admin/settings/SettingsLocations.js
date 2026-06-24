@@ -50,7 +50,12 @@ function isSlotValid(startKey, endKey, slot) {
     return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
   };
   const s = parse(slot[startKey]);
-  const e = parse(slot[endKey]);
+  let e = parse(slot[endKey]);
+
+  if (e === 0 && s !== null && s >= 0) {
+    e = 24 * 60;
+  }
+
   return s !== null && e !== null && s < e;
 }
 
