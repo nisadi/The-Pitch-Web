@@ -27,8 +27,8 @@ import {
   getActivePitchesForLocation,
 } from "@/lib/pitches/pitchMapper";
 import { useAdminSettings } from "./settings/adminSettingsContext";
-import { getBookingsForDate } from "./bookingsData";
-import { formatHourLabel } from "./bookingsUtils";
+import { getBookingsForDate, toDateKey } from "./bookingsData";
+import { formatHourLabel, getOperationalHoursForDay, dateFromKey } from "./bookingsUtils";
 import modalStyles from "./settings/LocationFormModal.module.css";
 
 const EMPTY_FORM = {
@@ -262,24 +262,98 @@ export default function AddBookingModal({
   useEffect(() => {
     if (!open || form.type === "block" || !selectedPitch) return;
     
+    const isWithinOpenHours = (dateKey, startH, endH) => {
+      if (!dateKey || !startH) return false;
+      const d = dateFromKey(dateKey);
+      const dateId = (d.getDay() + 6) % 7;
+      const ops = getOperationalHoursForDay(locationWithPeriods.openTimeMappings, dateId);
+      if (!ops || ops.length === 0) return false;
+      for (let h = Math.floor(Number(startH)); h < Number(endH); h++) {
+        if (!ops.includes(h)) return false;
+      }
+      return true;
+    };
+
     let total = 0;
     if (form.recurrence_type === "monthly") {
-      const sum = form.custom_dates.reduce((acc, cd) => {
-        const dId = cd.booking_date ? dateKeyToDateId(cd.booking_date) : null;
-        return acc + calculateBookingTotalAmount({
-          startHour: cd.start_hour,
-          endHour: cd.end_hour,
-          location: locationWithPeriods,
-          peakHourRate: selectedPitch.peakHourRate,
-          nonPeakHourRate: selectedPitch.nonPeakHourRate,
-          dateId: dId,
-        });
-      }, 0);
-      total = sum * 6;
+      const getNthDayOfMonth = (year, month, dayOfWeek, weekStr) => {
+        let date = new Date(year, month, 1);
+        let count = 0;
+        let lastFound = null;
+        while (date.getMonth() === month) {
+          if (date.getDay() === dayOfWeek) {
+            count++;
+            lastFound = new Date(date);
+            if (weekStr === "1st" && count === 1) return date;
+            if (weekStr === "2nd" && count === 2) return date;
+            if (weekStr === "3rd" && count === 3) return date;
+            if (weekStr === "4th" && count === 4) return date;
+          }
+          date.setDate(date.getDate() + 1);
+        }
+        if (weekStr === "last" && lastFound) return lastFound;
+        return null;
+      };
+
+      form.custom_dates.forEach((cd) => {
+        const startHour = Number(cd.start_hour);
+        const endHour = Number(cd.end_hour) || startHour + 1;
+        let currentDate = form.booking_date ? dateFromKey(form.booking_date) : new Date();
+        let generated = 0;
+        let y = currentDate.getFullYear();
+        let m = currentDate.getMonth();
+
+        while (generated < 6) {
+          const d = getNthDayOfMonth(y, m, cd.day, cd.week);
+          if (d) {
+            const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+            if (!isPastDateKey(key) || generated > 0) {
+              if (isWithinOpenHours(key, startHour, endHour)) {
+                const dId = dateKeyToDateId(key);
+                total += calculateBookingTotalAmount({
+                  startHour,
+                  endHour,
+                  location: locationWithPeriods,
+                  peakHourRate: selectedPitch.peakHourRate,
+                  nonPeakHourRate: selectedPitch.nonPeakHourRate,
+                  dateId: dId,
+                });
+              }
+              generated++;
+            }
+          }
+          m++;
+          if (m > 11) {
+            m = 0;
+            y++;
+          }
+        }
+      });
+    } else if (form.recurrence_type === "daily") {
+      if (form.booking_date && form.start_hour) {
+        let currentDate = dateFromKey(form.booking_date);
+        const startHour = Number(form.start_hour);
+        const endHour = Number(form.end_hour) || startHour + 1;
+        
+        for (let i = 0; i < 90; i++) {
+          const key = toDateKey(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          if (isWithinOpenHours(key, startHour, endHour)) {
+            const dId = dateKeyToDateId(key);
+            total += calculateBookingTotalAmount({
+              startHour,
+              endHour,
+              location: locationWithPeriods,
+              peakHourRate: selectedPitch.peakHourRate,
+              nonPeakHourRate: selectedPitch.nonPeakHourRate,
+              dateId: dId,
+            });
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
     } else {
-      const occurrences = form.recurrence_type === "daily" ? 90 : 1;
       const dateId = form.booking_date ? dateKeyToDateId(form.booking_date) : null;
-      const baseTotal = calculateBookingTotalAmount({
+      total = calculateBookingTotalAmount({
         startHour: form.start_hour,
         endHour: form.end_hour,
         location: locationWithPeriods,
@@ -287,7 +361,6 @@ export default function AddBookingModal({
         nonPeakHourRate: selectedPitch.nonPeakHourRate,
         dateId,
       });
-      total = baseTotal * occurrences;
     }
 
     setForm((prev) => ({
@@ -304,6 +377,7 @@ export default function AddBookingModal({
     locationWithPeriods,
     form.recurrence_type,
     form.custom_dates,
+    form.booking_date,
   ]);
 
   useEffect(() => {
