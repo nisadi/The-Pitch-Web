@@ -38,7 +38,7 @@ function isSlotValid(startKey, endKey, slot) {
   return s !== null && e !== null && s < e;
 }
 
-const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+const TIME_OPTIONS = Array.from({ length: 49 }, (_, i) => {
   const h = Math.floor(i / 2).toString().padStart(2, '0');
   const m = (i % 2 === 0) ? '00' : '30';
   return `${h}:${m}`;
