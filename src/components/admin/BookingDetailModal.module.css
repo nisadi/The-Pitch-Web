@@ -234,3 +234,120 @@
     justify-content: center;
   }
 }
+
+/* ── Payment Information Section ─────────────────────────────────────────── */
+.paymentSection {
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.paymentSectionTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--foreground-muted);
+  margin: 0 0 0.1rem;
+}
+
+.paymentGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1.25rem;
+  font-size: 0.85rem;
+}
+
+.paymentMethodBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.paymentMethodBadge[data-method="cash"] {
+  background: rgba(234, 179, 8, 0.12);
+  color: #eab308;
+  border-color: rgba(234, 179, 8, 0.3);
+}
+
+.paymentMethodBadge[data-method="card"] {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.paymentStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.txnRef {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.78rem;
+  color: var(--foreground-muted);
+  background: var(--background);
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+}
+
+/* ── Refund Eligibility Notice ───────────────────────────────────────────── */
+.refundNotice {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.45rem 0.75rem;
+  border-radius: 7px;
+  margin-top: 0.25rem;
+}
+
+.refundNotice[data-eligible="true"] {
+  background: rgba(34, 197, 94, 0.08);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.refundNotice[data-eligible="false"] {
+  background: rgba(239, 68, 68, 0.07);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ── Refund Button ───────────────────────────────────────────────────────── */
+.btnRefund {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: var(--transition);
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #a855f7;
+  margin-left: auto;
+}
+
+.btnRefund:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.22);
+}
+
+.btnRefund:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+

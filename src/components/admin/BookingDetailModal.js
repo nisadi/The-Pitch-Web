@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarClock, X } from "lucide-react";
+import { CalendarClock, RotateCcw, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { pitchSupportsSport } from "@/lib/pitches/pitchMapper";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/bookings/bookingRange";
 import { BOOKING_STATUSES, getBookingsForDate } from "./bookingsData";
 import { formatHourLabel, formatShortDate, parseTimeField } from "./bookingsUtils";
+import RefundConfirmModal from "./RefundConfirmModal";
 import styles from "./BookingDetailModal.module.css";
 
 const PAYMENT_LABELS = {
@@ -24,12 +25,67 @@ const PAYMENT_LABELS = {
   refunded: "Refunded",
 };
 
+const PAYMENT_STATUS_COLORS = {
+  paid: "#22c55e",
+  unpaid: "#eab308",
+  pending: "#eab308",
+  failed: "#ef4444",
+  refunded: "#a855f7",
+};
+
+/**
+ * Returns true when a refund is eligible:
+ *  - paymentStatus is "paid"
+ *  - bookingStatus is NOT cancelled/blocked
+ *  - appointment start is > 24 hours from now (card only; cash can refund anytime)
+ */
+function isRefundEligible(booking) {
+  if (!booking) return false;
+  const { paymentStatus, bookingStatus, date, startTime, paymentMethod } = booking;
+
+  if (paymentStatus !== "paid") return false;
+  if (["cancelled", "blocked", "refunded"].includes(bookingStatus)) return false;
+
+  if (paymentMethod !== "cash" && date && startTime) {
+    const [sh, sm] = (startTime || "00:00").split(":").map(Number);
+    const apptStart = new Date(
+      `${date}T${String(sh).padStart(2, "0")}:${String(sm || 0).padStart(2, "0")}:00`
+    );
+    const hoursUntil = (apptStart.getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntil < 24) return false;
+  }
+
+  return true;
+}
+
+/** Human-readable reason the refund button is disabled */
+function refundIneligibleReason(booking) {
+  if (!booking) return "";
+  const { paymentStatus, bookingStatus, date, startTime, paymentMethod } = booking;
+
+  if (paymentStatus === "refunded") return "Already refunded";
+  if (paymentStatus !== "paid") return "Payment not completed";
+  if (["cancelled", "blocked"].includes(bookingStatus)) return "Appointment not active";
+
+  if (paymentMethod !== "cash" && date && startTime) {
+    const [sh, sm] = (startTime || "00:00").split(":").map(Number);
+    const apptStart = new Date(
+      `${date}T${String(sh).padStart(2, "0")}:${String(sm || 0).padStart(2, "0")}:00`
+    );
+    const hoursUntil = (apptStart.getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntil < 24) return "Within 24 hrs of appointment";
+  }
+
+  return "";
+}
+
 export default function BookingDetailModal({
   open,
   booking,
   onClose,
   onCancel,
   onReschedule,
+  onRefund,
   location,
   sports = [],
   slotHours = [],
@@ -38,6 +94,8 @@ export default function BookingDetailModal({
 }) {
   const formId = useId();
   const [showReschedule, setShowReschedule] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
   const [pitches, setPitches] = useState([]);
   const [rescheduleForm, setRescheduleForm] = useState({
     booking_date: "",
@@ -186,6 +244,23 @@ export default function BookingDetailModal({
   const isCancelled = booking.bookingStatus === "cancelled";
   const canModify = !isCancelled;
 
+  const refundEligible = isRefundEligible(booking);
+  const refundBlockReason = refundIneligibleReason(booking);
+  const paymentStatusColor =
+    PAYMENT_STATUS_COLORS[booking.paymentStatus] ?? "var(--foreground-muted)";
+  const showRefundButton =
+    booking.paymentStatus !== "unpaid" && booking.paymentStatus !== "pending";
+
+  const handleRefundConfirm = async (cancelBooking) => {
+    setRefundSubmitting(true);
+    try {
+      await onRefund?.(booking, cancelBooking);
+      setShowRefundModal(false);
+    } finally {
+      setRefundSubmitting(false);
+    }
+  };
+
   const handleRescheduleSubmit = (event) => {
     event.preventDefault();
     onReschedule(booking.id, {
@@ -196,7 +271,7 @@ export default function BookingDetailModal({
     });
   };
 
-  return createPortal(
+  const portal = createPortal(
     <div
       className={styles.overlay}
       role="presentation"
@@ -242,6 +317,7 @@ export default function BookingDetailModal({
         </header>
 
         <div className={styles.body}>
+          {/* ── Booking Details ───────────────────────────────────────── */}
           <div className={styles.details}>
             <div>
               <span className={styles.detailLabel}>Customer</span>
@@ -265,8 +341,7 @@ export default function BookingDetailModal({
             ) : null}
             <div>
               <span className={styles.detailLabel}>Payment</span>
-              {PAYMENT_LABELS[booking.paymentStatus] ??
-                booking.paymentStatus}
+              {PAYMENT_LABELS[booking.paymentStatus] ?? booking.paymentStatus}
             </div>
             <div>
               <span className={styles.detailLabel}>Amount</span>
@@ -302,6 +377,71 @@ export default function BookingDetailModal({
             </div>
           </div>
 
+          {/* ── Payment Information Section ───────────────────────────── */}
+          <div className={styles.paymentSection}>
+            <h3 className={styles.paymentSectionTitle}>Payment Information</h3>
+            <div className={styles.paymentGrid}>
+              <div>
+                <span className={styles.detailLabel}>Method</span>
+                <span
+                  className={styles.paymentMethodBadge}
+                  data-method={booking.paymentMethod ?? "card"}
+                >
+                  {booking.paymentMethod === "cash" ? "Cash" : "Card"}
+                </span>
+              </div>
+              <div>
+                <span className={styles.detailLabel}>Status</span>
+                <span
+                  className={styles.paymentStatusBadge}
+                  style={{
+                    color: paymentStatusColor,
+                    background: `${paymentStatusColor}18`,
+                    borderColor: `${paymentStatusColor}35`,
+                  }}
+                >
+                  {PAYMENT_LABELS[booking.paymentStatus] ?? booking.paymentStatus ?? "—"}
+                </span>
+              </div>
+              {booking.transactionId ? (
+                <div className={styles.detailFull}>
+                  <span className={styles.detailLabel}>Transaction Ref</span>
+                  <code className={styles.txnRef}>{booking.transactionId}</code>
+                </div>
+              ) : null}
+              {booking.paidAt ? (
+                <div>
+                  <span className={styles.detailLabel}>Payment Date</span>
+                  <span>
+                    {new Date(booking.paidAt).toLocaleString("en-LK", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </span>
+                </div>
+              ) : null}
+              {booking.paymentStatus === "refunded" ? (
+                <div className={styles.detailFull}>
+                  <span className={styles.detailLabel}>Refund Status</span>
+                  <span style={{ color: "#a855f7", fontWeight: 600 }}>Refunded</span>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Refund eligibility notice */}
+            {showRefundButton && booking.paymentStatus !== "refunded" ? (
+              <div
+                className={styles.refundNotice}
+                data-eligible={refundEligible}
+              >
+                {refundEligible
+                  ? "This appointment is eligible for a full refund."
+                  : `Refund unavailable: ${refundBlockReason}.`}
+              </div>
+            ) : null}
+          </div>
+
+          {/* ── Reschedule Panel ──────────────────────────────────────── */}
           {showReschedule && canModify ? (
             <form
               className={styles.reschedulePanel}
@@ -520,9 +660,37 @@ export default function BookingDetailModal({
               </button>
             </>
           ) : null}
+
+          {/* Refund button — shown when payment exists and not already refunded */}
+          {showRefundButton && booking.paymentStatus !== "refunded" ? (
+            <button
+              type="button"
+              id={`${formId}-refund-btn`}
+              className={styles.btnRefund}
+              disabled={!refundEligible || submitting || refundSubmitting}
+              title={!refundEligible ? refundBlockReason : "Process a full refund"}
+              onClick={() => setShowRefundModal(true)}
+            >
+              <RotateCcw size={15} />
+              {refundSubmitting ? "Refunding…" : "Refund"}
+            </button>
+          ) : null}
         </footer>
       </div>
     </div>,
     document.body
+  );
+
+  return (
+    <>
+      {portal}
+      <RefundConfirmModal
+        open={showRefundModal}
+        booking={booking}
+        onClose={() => setShowRefundModal(false)}
+        onConfirm={handleRefundConfirm}
+        submitting={refundSubmitting}
+      />
+    </>
   );
 }

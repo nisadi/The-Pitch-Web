@@ -414,6 +414,79 @@ export default function BookingsCalendar() {
     }
   };
 
+  /**
+   * Handle refund for a booking.
+   * @param {object} booking - the booking object from state
+   * @param {boolean} cancelBooking - true = cancel appointment after refund
+   */
+  const handleRefundBooking = async (booking, cancelBooking) => {
+    const isCash = booking.paymentMethod === "cash";
+    const refundAmount = booking.finalAmount > 0 ? booking.finalAmount : booking.totalAmount;
+
+    try {
+      if (isCash) {
+        // Cash refund: just update DB status without calling gateway
+        const res = await fetch(`/api/admin/bookings/${booking.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: cancelBooking ? "refund_and_cancel" : "refund_keep",
+          }),
+        });
+        const payload = await res.json();
+        if (!res.ok) {
+          window.alert(payload.error ?? "Could not process cash refund.");
+          return;
+        }
+        // Update UI state
+        if (cancelBooking) {
+          setBookings((prev) => prev.filter((b) => b.id !== booking.id));
+          closeBookingDetail();
+        } else {
+          upsertBookingInList(payload.booking ?? { ...booking, paymentStatus: "refunded" });
+        }
+        window.alert(
+          cancelBooking
+            ? "Cash refund recorded and appointment cancelled."
+            : "Cash refund recorded. Appointment remains active."
+        );
+      } else {
+        // Card refund: call WebXPay gateway
+        const res = await fetch("/api/payments/refund", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_refference_number: booking.transactionId || booking.id,
+            refund_amount: refundAmount,
+            refund_reason_id: 2, // Customer Cancelled
+            cancel_booking: cancelBooking,
+          }),
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+          window.alert(
+            payload.explanation ?? payload.error ?? "Refund request failed."
+          );
+          return;
+        }
+        // Update UI state based on cancelBooking option
+        if (cancelBooking) {
+          setBookings((prev) => prev.filter((b) => b.id !== booking.id));
+          closeBookingDetail();
+        } else {
+          upsertBookingInList({ ...booking, paymentStatus: "refunded" });
+        }
+        window.alert(
+          cancelBooking
+            ? "Refund submitted and appointment cancelled."
+            : "Refund submitted. Appointment remains active."
+        );
+      }
+    } catch (err) {
+      window.alert(err?.message ?? "An error occurred during the refund.");
+    }
+  };
+
   const handleAddBooking = async (form) => {
     if (!activeLocation?.dbId) {
       window.alert(
@@ -1161,16 +1234,17 @@ export default function BookingsCalendar() {
       />
 
       <BookingDetailModal
-        open={Boolean(detailBooking)}
+        open={!!detailBooking}
         booking={detailBooking}
         onClose={closeBookingDetail}
         onCancel={handleCancelBooking}
         onReschedule={handleRescheduleBooking}
-        submitting={detailSubmitting}
+        onRefund={handleRefundBooking}
         location={activeLocation}
         sports={sports}
         slotHours={calendarHours}
         bookingsForCalendar={filteredBookings}
+        submitting={detailSubmitting}
       />
     </div>
   );
