@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/client";
-import { CUSTOMER_SELECT, customerFromRow } from "./customerMapper";
+import {
+  ADMIN_BOOKING_USER_ID,
+  CUSTOMER_SELECT,
+  GUEST_BOOKING_SELECT,
+  customerFromRow,
+  guestCustomersFromBookings,
+} from "./customerMapper";
 
 const CHANNEL_NAME = "customers-admin";
 
@@ -17,15 +23,35 @@ async function removeExistingChannels(supabase, channelName) {
 
 export async function fetchCustomersFromSupabase() {
   const supabase = createClient();
-  const { data, error } = await supabase
+
+  // 1. Fetch regular (self-registered) users with their bookings
+  const { data: userData, error: userError } = await supabase
     .from("users")
     .select(CUSTOMER_SELECT)
+    .neq("id", ADMIN_BOOKING_USER_ID)
     .eq("role", "user")
     .order("full_name");
 
-  if (error) throw error;
+  if (userError) throw userError;
 
-  return sortCustomers((data ?? []).map(customerFromRow).filter(Boolean));
+  const regularCustomers = (userData ?? [])
+    .map(customerFromRow)
+    .filter(Boolean);
+
+  // 2. Fetch admin-created bookings (under the fixed admin user ID)
+  const { data: guestBookings, error: guestError } = await supabase
+    .from("bookings")
+    .select(GUEST_BOOKING_SELECT)
+    .eq("user_id", ADMIN_BOOKING_USER_ID)
+    .not("guest_name", "is", null);
+
+  if (guestError) {
+    console.warn("Could not fetch guest bookings:", guestError.message);
+  }
+
+  const guestCustomers = guestCustomersFromBookings(guestBookings ?? []);
+
+  return sortCustomers([...regularCustomers, ...guestCustomers]);
 }
 
 /**

@@ -1,5 +1,8 @@
 const INACTIVE_AFTER_DAYS = 60;
 
+/** All admin-placed bookings are stored under this fixed user ID. */
+export const ADMIN_BOOKING_USER_ID = "dd12bb16-7b06-4483-adbc-57509529c1f4";
+
 export const CUSTOMER_SELECT = `
   id,
   full_name,
@@ -16,6 +19,20 @@ export const CUSTOMER_SELECT = `
     locations ( short_name, name ),
     payments ( amount, payment_status )
   )
+`;
+
+/** Columns fetched for guest-style bookings (admin-created). */
+export const GUEST_BOOKING_SELECT = `
+  id,
+  booking_date,
+  booking_status,
+  payment_status,
+  total_amount,
+  guest_name,
+  guest_email,
+  guest_phone,
+  locations ( short_name, name ),
+  payments ( amount, payment_status )
 `;
 
 function customerIdFromUuid(id) {
@@ -118,5 +135,56 @@ export function customerFromRow(row) {
     lastVisit: stats.lastVisit,
     status: deriveStatus(stats.lastVisit, joinedDate, stats.bookingsCount),
     joinedDate,
+    isGuestCustomer: false,
   };
+}
+
+/**
+ * Build virtual customer records from admin-created bookings.
+ * Each unique (guest_name, guest_email, guest_phone) triplet becomes one entry.
+ */
+export function guestCustomersFromBookings(bookings) {
+  /** Map key → { keyFields, bookings[] } */
+  const groups = new Map();
+
+  for (const booking of bookings ?? []) {
+    const name = booking.guest_name?.trim() || "";
+    const email = booking.guest_email?.trim() || "";
+    const phone = booking.guest_phone?.trim() || "";
+    if (!name) continue; // skip blocked slots with no guest info
+
+    const key = `${name.toLowerCase()}|${email.toLowerCase()}|${phone}`;
+    if (!groups.has(key)) {
+      groups.set(key, { name, email, phone, bookings: [] });
+    }
+    groups.get(key).bookings.push(booking);
+  }
+
+  const customers = [];
+  for (const { name, email, phone, bookings: guestBookings } of groups.values()) {
+    const stats = aggregateBookings(guestBookings);
+    const firstBookingDate = guestBookings
+      .map((b) => splitDateKey(b.booking_date))
+      .filter(Boolean)
+      .sort()
+      .at(0) || "";
+
+    customers.push({
+      id: `GCU-${name.replace(/\s+/g, "").slice(0, 4).toUpperCase()}-${phone.replace(/\D/g, "").slice(-4) || "0000"}`,
+      dbId: null,
+      name,
+      phone,
+      email,
+      location: stats.location,
+      locations: stats.locations,
+      bookingsCount: stats.bookingsCount,
+      totalSpent: stats.totalSpent,
+      lastVisit: stats.lastVisit,
+      status: deriveStatus(stats.lastVisit, firstBookingDate, stats.bookingsCount),
+      joinedDate: firstBookingDate,
+      isGuestCustomer: true,
+    });
+  }
+
+  return customers;
 }
