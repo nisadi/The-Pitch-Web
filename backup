@@ -1,0 +1,338 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import styles from "./login.module.css";
+import { motion } from "framer-motion";
+import { signIn } from "@/services/auth";
+
+import {
+    Mail,
+    Lock,
+    Eye,
+    EyeOff,
+    ArrowRight,
+    ShieldCheck,
+} from "lucide-react";
+
+export default function LoginPage() {
+    const [showPassword, setShowPassword] = useState(false);
+    const [formData, setFormData] = useState({ email: "", password: "" });
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+
+        const { user, error: signInError } = await signIn(formData.email, formData.password);
+
+        if (signInError) {
+            setError(signInError.message);
+            setLoading(false);
+        } else {
+            router.push("/");
+        }
+    };
+
+    const fadeInUp = {
+        initial: { opacity: 0, y: 30 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.6 },
+    };
+
+    return (
+        <div className={styles.container}>
+            <motion.div {...fadeInUp} className={styles.card}>
+                {/* LEFT SIDE */}
+                <div className={styles.leftSide}>
+                    <div className={styles.brand}>THE PITCH</div>
+
+                    <h1>WELCOME BACK</h1>
+
+                    <p>
+                        Access your bookings, memberships and training sessions.
+                    </p>
+
+                    <div className={styles.featureBox}>
+                        <ShieldCheck size={18} />
+                        Secure athlete login experience
+                    </div>
+                </div>
+
+                {/* RIGHT SIDE */}
+                <form className={styles.rightSide} onSubmit={handleSubmit}>
+                    <h2>LOGIN</h2>
+
+                    {error && <p className={styles.errorMsg} style={{color: 'red', fontSize: '14px', marginBottom: '10px'}}>{error}</p>}
+
+                    <div className={styles.formGroup}>
+                        <label>EMAIL ADDRESS</label>
+
+                        <div className={styles.inputWrapper}>
+                            <Mail size={18} />
+
+                            <input
+                                type="email"
+                                name="email"
+                                placeholder="Enter your email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>PASSWORD</label>
+
+                        <div className={styles.inputWrapper}>
+                            <Lock size={18} />
+
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                placeholder="Enter your password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
+                            />
+
+                            <button
+                                type="button"
+                                className={styles.eyeBtn}
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? (
+                                    <EyeOff size={18} />
+                                ) : (
+                                    <Eye size={18} />
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className={styles.rowBetween}>
+                        <label className={styles.checkbox}>
+                            <input type="checkbox" />
+                            Remember me
+                        </label>
+                        <Link href="#">Forgot Password?</Link>
+                    </div>
+
+                    <button type="submit" className={styles.loginBtn} disabled={loading}>
+                        {loading ? "LOGGING IN..." : "LOGIN"}
+                        <ArrowRight size={18} />
+                    </button>
+
+                    <p className={styles.bottomText}>
+                        Don&apos;t have an account?
+                        <Link href="/signup"> Sign Up</Link>
+                    </p>
+                </form>
+            </motion.div>
+        </div>
+    );
+}
+
+this one was nisadi and sandunies
+
+
+login.module.css - nisadi and sandaunies
+
+.container {
+    --primary: #184d28;
+    --primary-light: #2f6d3d;
+    --accent: #b24708;
+    --bg: #f5f5f3;
+
+    width: 100%;
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 5%;
+}
+
+.card {
+    width: 100%;
+    max-width: 1100px;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.06);
+}
+
+.leftSide {
+    background: linear-gradient(135deg, #184d28, #2f6d3d);
+    color: white;
+    padding: 4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.brand {
+    font-size: 0.9rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    margin-bottom: 2rem;
+}
+
+.leftSide h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    font-weight: 900;
+}
+
+.leftSide p {
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 2rem;
+}
+
+.featureBox {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.rightSide {
+    padding: 4rem;
+}
+
+.rightSide h2 {
+    color: var(--primary);
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    font-weight: 900;
+}
+
+.formGroup {
+    margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+    display: block;
+    margin-bottom: 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #666;
+    letter-spacing: 0.5px;
+}
+
+.inputWrapper {
+    height: 54px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    gap: 0.7rem;
+}
+
+.inputWrapper svg {
+    color: #777;
+}
+
+.inputWrapper input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.95rem;
+    background: transparent;
+}
+
+.eyeBtn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.rowBetween {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.rowBetween a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.loginBtn {
+    width: 100%;
+    height: 54px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.loginBtn:hover {
+    background: #963b05;
+}
+
+.bottomText {
+    margin-top: 1.5rem;
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.bottomText a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 800;
+}
+
+@media (max-width: 900px) {
+    .card {
+        grid-template-columns: 1fr;
+    }
+
+    .leftSide,
+    .rightSide {
+        padding: 3rem 2rem;
+    }
+
+    .leftSide h1 {
+        font-size: 2.3rem;
+    }
+}
