@@ -2,7 +2,6 @@
   font-family: var(--font-outfit);
   background-color: #F5F7F5;
   color: #000000;
-  min-height: 100vh;
   margin-top: calc(-1 * var(--navbar-height));
 }
 

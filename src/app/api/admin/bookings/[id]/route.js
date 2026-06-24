@@ -58,6 +58,18 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ booking: calendarBookingFromRow(data) });
     }
 
+    if (action === "mark_paid") {
+      const { data, error } = await supabase
+        .from("bookings")
+        .update({ payment_status: "paid" })
+        .eq("id", id)
+        .select(BOOKING_CALENDAR_SELECT)
+        .single();
+
+      if (error) throw error;
+      return NextResponse.json({ booking: calendarBookingFromRow(data) });
+    }
+
     if (action === "reschedule") {
       const booking_date = body.booking_date ?? existing.booking_date;
       const start_hour =

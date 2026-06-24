@@ -12,6 +12,7 @@ import {
   calculateBookingTotalAmount,
   getBookingAmountBreakdown,
 } from "@/lib/bookings/bookingPricing";
+import { dateKeyToDateId } from "@/lib/locations/locationTimeMapper";
 import {
   filterBookingsForPitch,
   firstAvailableStartHour,
@@ -26,8 +27,8 @@ import {
   getActivePitchesForLocation,
 } from "@/lib/pitches/pitchMapper";
 import { useAdminSettings } from "./settings/adminSettingsContext";
-import { getBookingsForDate } from "./bookingsData";
-import { formatHourLabel } from "./bookingsUtils";
+import { getBookingsForDate, toDateKey } from "./bookingsData";
+import { formatHourLabel, getOperationalHoursForDay, dateFromKey } from "./bookingsUtils";
 import modalStyles from "./settings/LocationFormModal.module.css";
 
 const EMPTY_FORM = {
@@ -45,6 +46,8 @@ const EMPTY_FORM = {
   discount_type: "none",
   discount_value: "",
   final_amount: "",
+  recurrence_type: "none",
+  custom_dates: [],
 };
 
 function formatTimeValue(decimalHour) {
@@ -89,6 +92,11 @@ export default function AddBookingModal({
   const [submitError, setSubmitError] = useState("");
   const [loadingPitches, setLoadingPitches] = useState(false);
   const [endInput, setEndInput] = useState("");
+  const [customWeek, setCustomWeek] = useState("1st");
+  const [customDay, setCustomDay] = useState("1");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [customEndInput, setCustomEndInput] = useState("");
   const { pitches: settingsPitches, refreshPitches, locations: settingsLocations } =
     useAdminSettings();
 
@@ -233,33 +241,131 @@ export default function AddBookingModal({
 
   const amountBreakdown = useMemo(() => {
     if (form.type === "block" || !selectedPitch) return null;
+    const dateId = form.booking_date ? dateKeyToDateId(form.booking_date) : null;
     return getBookingAmountBreakdown({
       startHour: form.start_hour,
       endHour: form.end_hour,
       location: locationWithPeriods,
       peakHourRate: selectedPitch.peakHourRate,
       nonPeakHourRate: selectedPitch.nonPeakHourRate,
+      dateId,
     });
   }, [
     form.type,
     form.start_hour,
     form.end_hour,
+    form.booking_date,
     selectedPitch,
     locationWithPeriods,
   ]);
 
   useEffect(() => {
     if (!open || form.type === "block" || !selectedPitch) return;
-    const total = calculateBookingTotalAmount({
-      startHour: form.start_hour,
-      endHour: form.end_hour,
-      location: locationWithPeriods,
-      peakHourRate: selectedPitch.peakHourRate,
-      nonPeakHourRate: selectedPitch.nonPeakHourRate,
-    });
+    
+    const isWithinOpenHours = (dateKey, startH, endH) => {
+      if (!dateKey || !startH) return false;
+      const d = dateFromKey(dateKey);
+      const dateId = (d.getDay() + 6) % 7;
+      const ops = getOperationalHoursForDay(locationWithPeriods.openTimeMappings, dateId);
+      if (!ops || ops.length === 0) return false;
+      for (let h = Math.floor(Number(startH)); h < Number(endH); h++) {
+        if (!ops.includes(h)) return false;
+      }
+      return true;
+    };
+
+    let total = 0;
+    if (form.recurrence_type === "monthly") {
+      const getNthDayOfMonth = (year, month, dayOfWeek, weekStr) => {
+        let date = new Date(year, month, 1);
+        let count = 0;
+        let lastFound = null;
+        while (date.getMonth() === month) {
+          if (date.getDay() === dayOfWeek) {
+            count++;
+            lastFound = new Date(date);
+            if (weekStr === "1st" && count === 1) return date;
+            if (weekStr === "2nd" && count === 2) return date;
+            if (weekStr === "3rd" && count === 3) return date;
+            if (weekStr === "4th" && count === 4) return date;
+          }
+          date.setDate(date.getDate() + 1);
+        }
+        if (weekStr === "last" && lastFound) return lastFound;
+        return null;
+      };
+
+      form.custom_dates.forEach((cd) => {
+        const startHour = Number(cd.start_hour);
+        const endHour = Number(cd.end_hour) || startHour + 1;
+        let currentDate = form.booking_date ? dateFromKey(form.booking_date) : new Date();
+        let generated = 0;
+        let y = currentDate.getFullYear();
+        let m = currentDate.getMonth();
+
+        while (generated < 6) {
+          const d = getNthDayOfMonth(y, m, cd.day, cd.week);
+          if (d) {
+            const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+            if (!isPastDateKey(key) || generated > 0) {
+              if (isWithinOpenHours(key, startHour, endHour)) {
+                const dId = dateKeyToDateId(key);
+                total += calculateBookingTotalAmount({
+                  startHour,
+                  endHour,
+                  location: locationWithPeriods,
+                  peakHourRate: selectedPitch.peakHourRate,
+                  nonPeakHourRate: selectedPitch.nonPeakHourRate,
+                  dateId: dId,
+                });
+              }
+              generated++;
+            }
+          }
+          m++;
+          if (m > 11) {
+            m = 0;
+            y++;
+          }
+        }
+      });
+    } else if (form.recurrence_type === "daily") {
+      if (form.booking_date && form.start_hour) {
+        let currentDate = dateFromKey(form.booking_date);
+        const startHour = Number(form.start_hour);
+        const endHour = Number(form.end_hour) || startHour + 1;
+        
+        for (let i = 0; i < 90; i++) {
+          const key = toDateKey(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          if (isWithinOpenHours(key, startHour, endHour)) {
+            const dId = dateKeyToDateId(key);
+            total += calculateBookingTotalAmount({
+              startHour,
+              endHour,
+              location: locationWithPeriods,
+              peakHourRate: selectedPitch.peakHourRate,
+              nonPeakHourRate: selectedPitch.nonPeakHourRate,
+              dateId: dId,
+            });
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
+    } else {
+      const dateId = form.booking_date ? dateKeyToDateId(form.booking_date) : null;
+      total = calculateBookingTotalAmount({
+        startHour: form.start_hour,
+        endHour: form.end_hour,
+        location: locationWithPeriods,
+        peakHourRate: selectedPitch.peakHourRate,
+        nonPeakHourRate: selectedPitch.nonPeakHourRate,
+        dateId,
+      });
+    }
+
     setForm((prev) => ({
       ...prev,
-      total_amount: total > 0 ? String(total) : prev.total_amount,
+      total_amount: total > 0 ? String(total) : (form.recurrence_type === "monthly" && form.custom_dates.length === 0 ? "" : prev.total_amount),
     }));
   }, [
     open,
@@ -269,6 +375,9 @@ export default function AddBookingModal({
     form.pitch_id,
     selectedPitch,
     locationWithPeriods,
+    form.recurrence_type,
+    form.custom_dates,
+    form.booking_date,
   ]);
 
   useEffect(() => {
@@ -379,6 +488,12 @@ export default function AddBookingModal({
       customer_email: "",
       customer_phone: "",
       total_amount: "",
+      remark: "",
+      discount_type: "none",
+      discount_value: "",
+      final_amount: "",
+      recurrence_type: "none",
+      custom_dates: [],
     });
     setEndInput(defaultEnd != null ? formatTimeValue(defaultEnd) : "");
   }, [
@@ -568,20 +683,22 @@ export default function AddBookingModal({
   };
 
   const isBlock = form.type === "block";
-  const isRangeValid = isAdminRangeBookable(
-    form.booking_date,
-    Number(form.start_hour),
-    Number(form.end_hour),
-    pitchDayBookings
-  );
+  const isMonthly = form.recurrence_type === "monthly";
+
+  const isRangeValid = isMonthly
+    ? form.custom_dates.length > 0
+    : isAdminRangeBookable(
+        form.booking_date,
+        Number(form.start_hour),
+        Number(form.end_hour),
+        pitchDayBookings
+      );
 
   const hasCustomer = isBlock || String(form.customer_name ?? "").trim();
 
   const canSubmit =
     locationWithPeriods?.dbId &&
-    form.booking_date &&
-    form.start_hour &&
-    form.end_hour &&
+    (isMonthly ? form.custom_dates.length > 0 : (form.booking_date && form.start_hour && form.end_hour)) &&
     form.sport_id &&
     isUuid(form.sport_id) &&
     form.pitch_id &&
@@ -605,7 +722,7 @@ export default function AddBookingModal({
             : !form.pitch_id
               ? "Select a pitch/court."
               : !isRangeValid
-                ? "Pick a valid future time range that does not overlap existing bookings."
+                ? (isMonthly ? "Add at least one custom date." : "Pick a valid future time range that does not overlap existing bookings.")
                 : !hasCustomer
                   ? "Please enter the customer name."
                   : "");
@@ -658,160 +775,321 @@ export default function AddBookingModal({
           </div>
 
           <div className={modalStyles.field}>
-            <label className={modalStyles.label} htmlFor={`${formId}-date`}>
-              Date
+            <label className={modalStyles.label}>
+              Recurrence
             </label>
-            <input
-              id={`${formId}-date`}
-              type="date"
-              className={modalStyles.input}
-              required
-              min={minDate}
-              value={form.booking_date}
-              onChange={(e) => {
-                const nextDate = e.target.value;
-                const pitchBookings = filterBookingsForPitch(
-                  getBookingsForDate(bookingsForCalendar, nextDate),
-                  form.pitch_id
-                );
-                const nextStart = isSlotBookable(
-                  nextDate,
-                  Number(form.start_hour)
-                ) &&
-                getValidEndHours(
-                  nextDate,
-                  Number(form.start_hour),
-                  slotHours,
-                  pitchBookings
-                ).length > 0
-                  ? form.start_hour
-                  : firstAvailableStartHour(
-                      nextDate,
-                      slotHours,
-                      pitchBookings
-                    );
-                const ends = nextStart
-                  ? getValidEndHours(
-                      nextDate,
-                      Number(nextStart),
-                      slotHours,
-                      pitchBookings
-                    )
-                  : [];
-                patch({
-                  booking_date: nextDate,
-                  start_hour: nextStart,
-                  end_hour: ends.length ? String(ends[0]) : "",
-                });
-              }}
-            />
+            <div style={{ display: "flex", gap: "0.25rem", background: "var(--sidebar-bg, #1a1a1a)", padding: "4px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+              {[
+                { id: "none", label: "Off" },
+                { id: "daily", label: "Daily" },
+                { id: "monthly", label: "Monthly" }
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => patch({ recurrence_type: opt.id })}
+                  style={{
+                    flex: 1,
+                    padding: "0.4rem 0.5rem",
+                    borderRadius: "4px",
+                    border: "none",
+                    background: form.recurrence_type === opt.id ? "var(--bg-card, #2a2a2a)" : "transparent",
+                    color: form.recurrence_type === opt.id ? "var(--foreground, #fff)" : "var(--muted, #888)",
+                    fontWeight: form.recurrence_type === opt.id ? "600" : "normal",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className={modalStyles.field}>
-            <span className={modalStyles.label}>Time range</span>
-            <div className={modalStyles.formRow}>
+          {form.recurrence_type !== "monthly" ? (
+            <>
               <div className={modalStyles.field}>
-                <label
-                  className={modalStyles.label}
-                  htmlFor={`${formId}-start`}
-                  style={{ fontSize: "0.72rem" }}
-                >
-                  Starts
-                </label>
-                <select
-                  id={`${formId}-start`}
-                  className={modalStyles.input}
-                  required
-                  value={form.start_hour}
-                  onChange={(e) => handleStartChange(e.target.value)}
-                >
-                  {bookableStartOptions.length === 0 ? (
-                    <option value="">
-                      {form.pitch_id
-                        ? "No available slots for this court"
-                        : "Select a pitch first"}
-                    </option>
-                  ) : (
-                    bookableStartOptions.map(({ hour, label }) => (
-                      <option key={hour} value={String(hour)}>
-                        {label}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-              <div className={modalStyles.field}>
-                <label
-                  className={modalStyles.label}
-                  htmlFor={`${formId}-end`}
-                  style={{ fontSize: "0.72rem" }}
-                >
-                  Ends at
+                <label className={modalStyles.label} htmlFor={`${formId}-date`}>
+                  Date
                 </label>
                 <input
-                  id={`${formId}-end`}
-                  type="text"
-                  placeholder="23:30"
-                  pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
-                  maxLength={5}
+                  id={`${formId}-date`}
+                  type="date"
                   className={modalStyles.input}
                   required
-                  disabled={!form.start_hour}
-                  value={endInput}
+                  min={minDate}
+                  value={form.booking_date}
                   onChange={(e) => {
-                    let val = e.target.value.replace(/[^0-9:]/g, "");
-                    // Auto-insert colon if they type 2 digits
-                    if (val.length === 2 && !val.includes(':') && endInput.length < val.length) {
-                      val += ':';
-                    }
-                    setEndInput(val);
-
-                    // Update form.end_hour live when input looks like a valid time
-                    const parts = val.split(":");
-                    if (parts.length === 2 && parts[1].length === 2) {
-                      const hour = parseInt(parts[0], 10);
-                      const min = parseInt(parts[1], 10);
-                      if (Number.isFinite(hour) && Number.isFinite(min) && hour >= 0 && hour <= 24 && min >= 0 && min <= 59) {
-                        patch({ end_hour: String(hour + min / 60) });
-                      }
-                    }
-                  }}
-                  onBlur={() => {
-                    const [hh, mm] = endInput.split(":");
-                    const hour = parseInt(hh, 10);
-                    const min = parseInt(mm || "0", 10);
-                    
-                    if (Number.isFinite(hour) && hour >= 0 && hour <= 24) {
-                      const decimal = hour + (Number.isFinite(min) ? min / 60 : 0);
-                      patch({ end_hour: String(decimal) });
-                      setEndInput(formatTimeValue(decimal));
-                    } else {
-                      patch({ end_hour: "" });
-                      setEndInput("");
-                    }
+                    const nextDate = e.target.value;
+                    const pitchBookings = filterBookingsForPitch(
+                      getBookingsForDate(bookingsForCalendar, nextDate),
+                      form.pitch_id
+                    );
+                    const nextStart = isSlotBookable(
+                      nextDate,
+                      Number(form.start_hour)
+                    ) &&
+                    getValidEndHours(
+                      nextDate,
+                      Number(form.start_hour),
+                      slotHours,
+                      pitchBookings
+                    ).length > 0
+                      ? form.start_hour
+                      : firstAvailableStartHour(
+                          nextDate,
+                          slotHours,
+                          pitchBookings
+                        );
+                    const ends = nextStart
+                      ? getValidEndHours(
+                          nextDate,
+                          Number(nextStart),
+                          slotHours,
+                          pitchBookings
+                        )
+                      : [];
+                    patch({
+                      booking_date: nextDate,
+                      start_hour: nextStart,
+                      end_hour: ends.length ? String(ends[0]) : "",
+                    });
                   }}
                 />
               </div>
+
+              <div className={modalStyles.field}>
+                <span className={modalStyles.label}>Time range</span>
+                <div className={modalStyles.formRow}>
+                  <div className={modalStyles.field}>
+                    <label
+                      className={modalStyles.label}
+                      htmlFor={`${formId}-start`}
+                      style={{ fontSize: "0.72rem" }}
+                    >
+                      Starts
+                    </label>
+                    <select
+                      id={`${formId}-start`}
+                      className={modalStyles.input}
+                      required
+                      value={form.start_hour}
+                      onChange={(e) => handleStartChange(e.target.value)}
+                    >
+                      {bookableStartOptions.length === 0 ? (
+                        <option value="">
+                          {form.pitch_id
+                            ? "No available slots for this court"
+                            : "Select a pitch first"}
+                        </option>
+                      ) : (
+                        bookableStartOptions.map(({ hour, label }) => (
+                          <option key={hour} value={String(hour)}>
+                            {label}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                  <div className={modalStyles.field}>
+                    <label
+                      className={modalStyles.label}
+                      htmlFor={`${formId}-end`}
+                      style={{ fontSize: "0.72rem" }}
+                    >
+                      Ends at
+                    </label>
+                    <input
+                      id={`${formId}-end`}
+                      type="text"
+                      placeholder="23:30"
+                      pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+                      maxLength={5}
+                      className={modalStyles.input}
+                      required
+                      disabled={!form.start_hour}
+                      value={endInput}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/[^0-9:]/g, "");
+                        // Auto-insert colon if they type 2 digits
+                        if (val.length === 2 && !val.includes(':') && endInput.length < val.length) {
+                          val += ':';
+                        }
+                        setEndInput(val);
+
+                        // Update form.end_hour live when input looks like a valid time
+                        const parts = val.split(":");
+                        if (parts.length === 2 && parts[1].length === 2) {
+                          const hour = parseInt(parts[0], 10);
+                          const min = parseInt(parts[1], 10);
+                          if (Number.isFinite(hour) && Number.isFinite(min) && hour >= 0 && hour <= 24 && min >= 0 && min <= 59) {
+                            patch({ end_hour: String(hour + min / 60) });
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        const [hh, mm] = endInput.split(":");
+                        const hour = parseInt(hh, 10);
+                        const min = parseInt(mm || "0", 10);
+                        
+                        if (Number.isFinite(hour) && hour >= 0 && hour <= 24) {
+                          const decimal = hour + (Number.isFinite(min) ? min / 60 : 0);
+                          patch({ end_hour: String(decimal) });
+                          setEndInput(formatTimeValue(decimal));
+                        } else {
+                          patch({ end_hour: "" });
+                          setEndInput("");
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                {rangePreview ? (
+                  <p
+                    className={modalStyles.hint}
+                    style={{ marginTop: "0.5rem", marginBottom: 0 }}
+                  >
+                    {rangePreview.duration}{" "}
+                    {rangePreview.duration === 1 ? "hour" : "hours"} ·{" "}
+                    {rangePreview.label}
+                  </p>
+                ) : (
+                  <p
+                    className={modalStyles.hint}
+                    style={{ marginTop: "0.5rem", marginBottom: 0 }}
+                  >
+                    Choose start and end times. Multi-hour bookings block every hour
+                    in between.
+                  </p>
+                )}
+                {form.recurrence_type === "daily" && (
+                  <p className={modalStyles.hint} style={{ marginTop: "0.5rem", color: "var(--primary, #A3FF00)" }}>
+                    This booking will be created for 90 consecutive days starting from the selected date.
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className={modalStyles.field}>
+              <span className={modalStyles.label}>Custom Dates (Repeats 6 months)</span>
+              <p className={modalStyles.hint} style={{ marginBottom: "0.5rem" }}>Select the week and day of the week to repeat for the next 6 months.</p>
+              
+              {form.custom_dates.map((cd, i) => {
+                const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                return (
+                  <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", alignItems: "center" }}>
+                    <div className={modalStyles.input} style={{ flex: 1, padding: "0.5rem", fontSize: "0.85rem", height: "auto" }}>
+                      {cd.week} {dayNames[cd.day]} | {formatHourLabel(cd.start_hour)} - {formatEndHourLabel(cd.end_hour)}
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => patch({ custom_dates: form.custom_dates.filter((_, idx) => idx !== i) })} 
+                      className={modalStyles.backBtn} 
+                      style={{ padding: "0 0.5rem", height: "38px", margin: 0 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
+              
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end", marginTop: "0.5rem", padding: "0.5rem", background: "var(--sidebar-bg, #1a1a1a)", border: "1px solid var(--border)", borderRadius: "6px", flexWrap: "wrap" }}>
+                 <div style={{ flex: 1, minWidth: "80px" }}>
+                   <label style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.2rem", color: "var(--foreground)" }}>Week</label>
+                   <select className={modalStyles.input} value={customWeek} onChange={(e) => setCustomWeek(e.target.value)}>
+                     <option value="1st">1st</option>
+                     <option value="2nd">2nd</option>
+                     <option value="3rd">3rd</option>
+                     <option value="4th">4th</option>
+                     <option value="last">Last</option>
+                   </select>
+                 </div>
+                 <div style={{ flex: 1, minWidth: "100px" }}>
+                   <label style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.2rem", color: "var(--foreground)" }}>Day</label>
+                   <select className={modalStyles.input} value={customDay} onChange={(e) => setCustomDay(e.target.value)}>
+                     <option value="1">Monday</option>
+                     <option value="2">Tuesday</option>
+                     <option value="3">Wednesday</option>
+                     <option value="4">Thursday</option>
+                     <option value="5">Friday</option>
+                     <option value="6">Saturday</option>
+                     <option value="0">Sunday</option>
+                   </select>
+                 </div>
+                 <div style={{ flex: 1, minWidth: "80px" }}>
+                   <label style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.2rem", color: "var(--foreground)" }}>Start</label>
+                   <select className={modalStyles.input} value={customStart} onChange={(e) => {
+                     setCustomStart(e.target.value);
+                     setCustomEnd("");
+                     setCustomEndInput("");
+                   }}>
+                     <option value="">Time</option>
+                     {slotHours.map(hour => <option key={hour} value={String(hour)}>{formatHourLabel(hour)}</option>)}
+                   </select>
+                 </div>
+                 <div style={{ flex: 1, minWidth: "80px" }}>
+                   <label style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.2rem", color: "var(--foreground)" }}>End</label>
+                   <input
+                     type="text"
+                     placeholder="23:30"
+                     pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+                     maxLength={5}
+                     className={modalStyles.input}
+                     disabled={!customStart}
+                     value={customEndInput}
+                     onChange={(e) => {
+                       let val = e.target.value.replace(/[^0-9:]/g, "");
+                       if (val.length === 2 && !val.includes(':') && customEndInput.length < val.length) {
+                         val += ':';
+                       }
+                       setCustomEndInput(val);
+
+                       const parts = val.split(":");
+                       if (parts.length === 2 && parts[1].length === 2) {
+                         const hour = parseInt(parts[0], 10);
+                         const min = parseInt(parts[1], 10);
+                         if (Number.isFinite(hour) && Number.isFinite(min) && hour >= 0 && hour <= 24 && min >= 0 && min <= 59) {
+                           setCustomEnd(String(hour + min / 60));
+                         }
+                       }
+                     }}
+                     onBlur={() => {
+                       const [hh, mm] = customEndInput.split(":");
+                       const hour = parseInt(hh, 10);
+                       const min = parseInt(mm || "0", 10);
+                       
+                       if (Number.isFinite(hour) && hour >= 0 && hour <= 24) {
+                         const decimal = hour + (Number.isFinite(min) ? min / 60 : 0);
+                         setCustomEnd(String(decimal));
+                         setCustomEndInput(formatTimeValue(decimal));
+                       } else {
+                         setCustomEnd("");
+                         setCustomEndInput("");
+                       }
+                     }}
+                   />
+                 </div>
+                 <button 
+                    type="button" 
+                    className={modalStyles.saveBtn} 
+                    style={{ padding: "0 1rem", height: "42px" }} 
+                    onClick={() => {
+                      if (customWeek && customDay && customStart && customEnd && Number(customStart) < Number(customEnd)) {
+                        patch({ custom_dates: [...form.custom_dates, { week: customWeek, day: Number(customDay), start_hour: Number(customStart), end_hour: Number(customEnd) }] });
+                        setCustomStart("");
+                        setCustomEnd("");
+                        setCustomEndInput("");
+                      } else {
+                        alert("Please select a valid week, day, and time range.");
+                      }
+                    }}
+                 >
+                    Add
+                 </button>
+              </div>
             </div>
-            {rangePreview ? (
-              <p
-                className={modalStyles.hint}
-                style={{ marginTop: "0.5rem", marginBottom: 0 }}
-              >
-                {rangePreview.duration}{" "}
-                {rangePreview.duration === 1 ? "hour" : "hours"} ·{" "}
-                {rangePreview.label}
-              </p>
-            ) : (
-              <p
-                className={modalStyles.hint}
-                style={{ marginTop: "0.5rem", marginBottom: 0 }}
-              >
-                Choose start and end times. Multi-hour bookings block every hour
-                in between.
-              </p>
-            )}
-          </div>
+          )}
 
           <div className={modalStyles.field}>
             <label className={modalStyles.label} htmlFor={`${formId}-sport`}>

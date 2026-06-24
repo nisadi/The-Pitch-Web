@@ -33,18 +33,24 @@ export function buildBookingConfirmationSmsBody({
   sport,
   court,
   totalAmount,
+  remark,
+  discountType,
+  discountValue,
+  finalAmount,
   contactPhone = getPitchContactPhone(),
 }) {
-  const name = customerName?.trim();
+  const name = customerName?.trim().split(' ')[0];
   const greeting = name ? `Hi ${name}, ` : "";
+
+  const displayAmount = finalAmount !== undefined ? finalAmount : totalAmount;
+
   const lines = [
-    `${greeting}your booking at The Pitch is confirmed.`,
-    reference ? `Ref: ${reference}` : null,
+    `${greeting}your booking is confirmed.`,
     date ? `Date: ${formatBookingDate(date)}` : null,
     time ? `Time: ${time}` : null,
     location ? `Venue: ${location}` : null,
     sport && court ? `${sport} · ${court}` : sport || court || null,
-    formatAmountLkr(totalAmount) ? `Amount: ${formatAmountLkr(totalAmount)}` : null,
+    formatAmountLkr(displayAmount) ? `Amount: ${formatAmountLkr(displayAmount)}` : null,
     `Enquiries: ${contactPhone}`,
   ].filter(Boolean);
 
@@ -176,6 +182,10 @@ export async function sendBookingConfirmationSms({
   sport,
   court,
   totalAmount,
+  remark,
+  discountType,
+  discountValue,
+  finalAmount,
 }) {
   const contactPhone = await resolveContactPhoneForLocation(location);
 
@@ -188,6 +198,10 @@ export async function sendBookingConfirmationSms({
     sport,
     court,
     totalAmount,
+    remark,
+    discountType,
+    discountValue,
+    finalAmount,
     contactPhone,
   });
 

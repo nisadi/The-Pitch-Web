@@ -207,16 +207,9 @@ export async function insertCalendarBooking(supabase, payload) {
     };
   }
 
-  const userId = await resolveBookingUserId(supabase, {
-    fallbackUserId: payload.fallbackUserId,
-  });
-  if (!userId) {
-    return {
-      error:
-        "No user record available to attach the booking. Add a customer in Admin or set ADMIN_BOOKING_USER_ID.",
-      status: 500,
-    };
-  }
+  // All admin-created bookings are attached to the fixed admin user ID.
+  const ADMIN_USER_ID = "dd12bb16-7b06-4483-adbc-57509529c1f4";
+  const userId = ADMIN_USER_ID;
 
   const isBlock = type === "block";
   const durationHours = end - start;

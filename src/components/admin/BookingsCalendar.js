@@ -19,6 +19,7 @@ import {
   DAY_VIEW_ROW_BASE_PX,
   getBookingStartHour,
   getOperationalHours,
+  getOperationalHoursForDay,
   getWeekDateKeys,
   sortBookingsByTime,
 } from "./bookingsUtils";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/bookings/bookingMutations";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { resolveCalendarLocation } from "@/lib/locations/resolveAdminLocation";
+import { dateKeyToDateId } from "@/lib/locations/locationTimeMapper";
 import styles from "./BookingsCalendar.module.css";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -63,7 +65,7 @@ function BookingCard({ booking, onSelect, variant = "default" }) {
       className={
         isDay ?
           `${styles.inlineBooking} ${styles.inlineBookingDay}`
-        : styles.inlineBooking
+          : styles.inlineBooking
       }
       style={{ borderLeftColor: status.color }}
       role="button"
@@ -192,14 +194,22 @@ export default function BookingsCalendar() {
     [activeLocation?.dbId]
   );
 
-  const calendarHours = useMemo(
-    () =>
-      getOperationalHours(
-        activeLocation?.operationalStart,
-        activeLocation?.operationalEnd
-      ),
-    [activeLocation]
-  );
+  // calendarHours: derive from openTimeMappings for the currently viewed day.
+  // Returns [] when no open hours are configured for that day — the UI will
+  // show an appropriate "not open" message rather than empty time rows.
+  const calendarHours = useMemo(() => {
+    const openMappings = activeLocation?.openTimeMappings;
+    if (!openMappings) return [];
+
+    // For day/week/agenda views use selectedDate; month view falls back to today.
+    const dateKey = selectedDate || toDateKey(
+      focusDate.getFullYear(),
+      focusDate.getMonth(),
+      focusDate.getDate()
+    );
+    const dateId = dateKeyToDateId(dateKey);
+    return getOperationalHoursForDay(openMappings, dateId);
+  }, [activeLocation, selectedDate, focusDate]);
 
   const filteredBookings = useMemo(() => {
     let list = filterByLocation(bookings, locationFilter).filter(
@@ -414,6 +424,28 @@ export default function BookingsCalendar() {
     }
   };
 
+  const handleMarkPaid = async (bookingId) => {
+    setDetailSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark_paid" }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        window.alert(payload.error ?? "Could not mark booking as paid.");
+        return;
+      }
+      upsertBookingInList(payload.booking);
+      setDetailBooking(payload.booking);
+    } catch (err) {
+      window.alert(err?.message ?? "Could not mark booking as paid.");
+    } finally {
+      setDetailSubmitting(false);
+    }
+  };
+
   /**
    * Handle refund for a booking.
    * @param {object} booking - the booking object from state
@@ -495,77 +527,184 @@ export default function BookingsCalendar() {
       return;
     }
 
-    const start = Number(form.start_hour);
-    const end = Number(form.end_hour) || start + 1;
-    const dayBookings = getBookingsForDate(filteredBookings, form.booking_date);
-
-    if (
-      isPastDateKey(form.booking_date) ||
-      !isAdminRangeBookable(form.booking_date, start, end, dayBookings)
-    ) {
-      window.alert(
-        "Cannot book or block a past time, or a range that overlaps another booking."
-      );
-      return;
-    }
-
     setSubmittingBooking(true);
     try {
-      const requestBody = {
+      const payloads = [];
+      let occurrences = 1;
+      if (form.recurrence_type === "daily") occurrences = 90;
+      else if (form.recurrence_type === "monthly") occurrences = (form.custom_dates?.length || 0) * 6 || 1;
+
+      const sliceTotal = (amt) => {
+        const num = Number(amt);
+        if (!Number.isFinite(num) || num <= 0) return amt;
+        return String(Math.max(0, Math.round(num / occurrences)));
+      };
+
+      const basePayload = {
         type: form.type,
         location_id: activeLocation.dbId,
         sport_id: form.sport_id,
         pitch_id: form.pitch_id,
-        booking_date: form.booking_date,
-        start_hour: start,
-        end_hour: end,
         customer_name: form.customer_name,
         customer_email: form.customer_email,
         customer_phone: form.customer_phone,
-        total_amount: form.total_amount,
+        total_amount: sliceTotal(form.total_amount),
         remark: form.remark,
         discount_type: form.discount_type,
         discount_value: form.discount_value,
-        final_amount: form.final_amount,
+        final_amount: sliceTotal(form.final_amount),
       };
 
-      let booking = null;
-      let errorMessage = null;
-
-      if (isSupabaseConfigured()) {
-        const clientResult = await createCalendarBookingClient(requestBody);
-        if (clientResult.booking) {
-          booking = clientResult.booking;
-        } else {
-          errorMessage = clientResult.error;
+      const isWithinOpenHours = (dateKey, startH, endH) => {
+        const d = dateFromKey(dateKey);
+        // Map getDay() (0=Sun..6=Sat) to dateId (0=Mon..6=Sun)
+        const dateId = (d.getDay() + 6) % 7;
+        const ops = getOperationalHoursForDay(activeLocation.openTimeMappings, dateId);
+        if (!ops || ops.length === 0) return false;
+        
+        for (let h = Math.floor(startH); h < endH; h++) {
+          if (!ops.includes(h)) return false;
         }
-      }
+        return true;
+      };
 
-      if (!booking && !errorMessage) {
-        const res = await fetch("/api/admin/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
+      if (form.recurrence_type === "monthly") {
+        const getNthDayOfMonth = (year, month, dayOfWeek, weekStr) => {
+          let date = new Date(year, month, 1);
+          let count = 0;
+          let lastFound = null;
+          while (date.getMonth() === month) {
+            if (date.getDay() === dayOfWeek) {
+              count++;
+              lastFound = new Date(date);
+              if (weekStr === "1st" && count === 1) return date;
+              if (weekStr === "2nd" && count === 2) return date;
+              if (weekStr === "3rd" && count === 3) return date;
+              if (weekStr === "4th" && count === 4) return date;
+            }
+            date.setDate(date.getDate() + 1);
+          }
+          if (weekStr === "last" && lastFound) return lastFound;
+          return null;
+        };
+
+        form.custom_dates.forEach((cd) => {
+          const startHour = cd.start_hour;
+          const endHour = cd.end_hour || startHour + 1;
+          
+          let currentDate = form.booking_date ? dateFromKey(form.booking_date) : new Date();
+          let generated = 0;
+          let y = currentDate.getFullYear();
+          let m = currentDate.getMonth();
+
+          while (generated < 6) {
+            const d = getNthDayOfMonth(y, m, cd.day, cd.week);
+            if (d) {
+              const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+              if (!isPastDateKey(key) || generated > 0) {
+                if (isWithinOpenHours(key, startHour, endHour)) {
+                  payloads.push({
+                    ...basePayload,
+                    booking_date: key,
+                    start_hour: startHour,
+                    end_hour: endHour,
+                  });
+                }
+                generated++;
+              }
+            } else {
+              // If there's no such day in this month (e.g. 4th Monday), we just move to the next month
+            }
+            
+            m++;
+            if (m > 11) {
+              m = 0;
+              y++;
+            }
+          }
         });
-        const payload = await res.json();
-        if (res.ok && payload.booking) {
-          booking = payload.booking;
-        } else {
-          errorMessage = payload.error ?? "Could not save booking.";
+      } else if (form.recurrence_type === "daily") {
+        let currentDate = dateFromKey(form.booking_date);
+        const startHour = Number(form.start_hour);
+        const endHour = Number(form.end_hour) || startHour + 1;
+        for (let i = 0; i < 90; i++) {
+          const key = toDateKey(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          if (isWithinOpenHours(key, startHour, endHour)) {
+            payloads.push({
+              ...basePayload,
+              booking_date: key,
+              start_hour: startHour,
+              end_hour: endHour,
+            });
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
         }
+      } else {
+        payloads.push({
+          ...basePayload,
+          booking_date: form.booking_date,
+          start_hour: Number(form.start_hour),
+          end_hour: Number(form.end_hour) || Number(form.start_hour) + 1,
+        });
       }
 
-      if (!booking) {
-        window.alert(
-          errorMessage ??
-            "Could not save booking. Apply migration 00036_bookings_admin_anon_mutations.sql or set SUPABASE_SERVICE_ROLE_KEY."
-        );
+      const createdBookings = [];
+      let encounteredError = null;
+
+      for (const reqBody of payloads) {
+        let booking = null;
+        let errorMessage = null;
+
+        if (isSupabaseConfigured()) {
+          const clientResult = await createCalendarBookingClient(reqBody);
+          if (clientResult.booking) {
+            booking = clientResult.booking;
+          } else {
+            errorMessage = clientResult.error;
+          }
+        }
+
+        if (!booking && !errorMessage) {
+          const res = await fetch("/api/admin/bookings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(reqBody),
+          });
+          const payload = await res.json();
+          if (res.ok && payload.booking) {
+            booking = payload.booking;
+          } else {
+            errorMessage = payload.error ?? "Could not save booking.";
+          }
+        }
+
+        if (!booking) {
+          encounteredError = errorMessage ?? "Could not save booking.";
+          break;
+        }
+        createdBookings.push(booking);
+      }
+
+      if (encounteredError) {
+        // Rollback
+        for (const b of createdBookings) {
+          try {
+            await cancelCalendarBookingClient(b.id);
+          } catch (e) {
+            console.error("Rollback failed for", b.id, e);
+          }
+        }
+        window.alert(`Process stopped and rolled back due to error: ${encounteredError}`);
         return;
       }
 
       setBookings((prev) => {
-        const next = prev.filter((b) => b.id !== booking.id);
-        return [...next, booking];
+        let next = [...prev];
+        for (const booking of createdBookings) {
+          next = next.filter((b) => b.id !== booking.id);
+          next.push(booking);
+        }
+        return next;
       });
 
       closeAddBookingModal();
@@ -576,9 +715,12 @@ export default function BookingsCalendar() {
 
       if (form.type === "block") {
         window.alert(
-          "Slot blocked. It will stay unavailable until you cancel the block."
+          payloads.length > 1
+            ? `${payloads.length} slots blocked successfully.`
+            : "Slot blocked. It will stay unavailable until you cancel the block."
         );
-      } else {
+      } else if (createdBookings.length > 0) {
+        const firstBooking = createdBookings[0];
         const phone = String(form.customer_phone ?? "").trim();
         if (phone) {
           try {
@@ -590,13 +732,17 @@ export default function BookingsCalendar() {
                 body: JSON.stringify({
                   phone,
                   customerName: form.customer_name,
-                  reference: booking.reference,
-                  date: booking.date,
-                  time: booking.time,
-                  location: booking.location,
-                  sport: booking.sport,
-                  court: booking.court,
-                  totalAmount: booking.totalAmount,
+                  reference: firstBooking.reference + (payloads.length > 1 ? ` (+${payloads.length - 1} more)` : ""),
+                  date: firstBooking.date + (payloads.length > 1 ? " (Series)" : ""),
+                  time: firstBooking.time,
+                  location: firstBooking.location,
+                  sport: firstBooking.sport,
+                  court: firstBooking.court,
+                  totalAmount: form.total_amount,
+                  remark: form.remark,
+                  discountType: form.discount_type,
+                  discountValue: form.discount_value,
+                  finalAmount: form.final_amount,
                 }),
               }
             );
@@ -605,15 +751,47 @@ export default function BookingsCalendar() {
               if (!smsResult.skipped) {
                 console.warn("[booking SMS]", smsResult.error);
                 window.alert(
-                  `Booking saved, but the confirmation SMS could not be sent: ${smsResult.error ?? "Unknown error"}`
+                  `Bookings saved, but the confirmation SMS could not be sent: ${smsResult.error ?? "Unknown error"}`
                 );
               }
             }
           } catch (smsErr) {
             console.warn("[booking SMS]", smsErr);
             window.alert(
-              `Booking saved, but the confirmation SMS could not be sent: ${smsErr?.message ?? "Network error"}`
+              `Bookings saved, but the confirmation SMS could not be sent: ${smsErr?.message ?? "Network error"}`
             );
+          }
+        }
+
+        const email = String(form.customer_email ?? "").trim();
+        if (email) {
+          try {
+            const emailRes = await fetch("/api/send-booking-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email,
+                fullName: form.customer_name || "there",
+                booking: {
+                  ref: firstBooking.reference + (payloads.length > 1 ? ` (+${payloads.length - 1} more)` : ""),
+                  sport: firstBooking.sport,
+                  location: firstBooking.location,
+                  date: firstBooking.date + (payloads.length > 1 ? " (Series)" : ""),
+                  time: firstBooking.time,
+                  amount: form.total_amount,
+                  remark: form.remark,
+                  discountType: form.discount_type,
+                  discountValue: form.discount_value,
+                  finalAmount: form.final_amount,
+                },
+              }),
+            });
+            const emailResult = await emailRes.json();
+            if (!emailRes.ok || !emailResult.success) {
+              console.warn("[booking Email]", emailResult.error);
+            }
+          } catch (emailErr) {
+            console.warn("[booking Email]", emailErr);
           }
         }
       }
@@ -770,10 +948,10 @@ export default function BookingsCalendar() {
           filteredBookings,
           calendarView === "day"
             ? toDateKey(
-                focusDate.getFullYear(),
-                focusDate.getMonth(),
-                focusDate.getDate()
-              )
+              focusDate.getFullYear(),
+              focusDate.getMonth(),
+              focusDate.getDate()
+            )
             : selectedDate
         )
       ),
@@ -864,127 +1042,269 @@ export default function BookingsCalendar() {
         ) : null}
 
         <div className={styles.calendarBody}>
-        {calendarView === "month" && (
-          <div className={styles.monthView}>
-            <div className={styles.weekdays}>
-              {WEEKDAYS.map((day) => (
-                <span key={day} className={styles.weekday}>
-                  {day}
-                </span>
-              ))}
-            </div>
-            <div className={styles.daysGrid}>
-              {monthDays.map(({ day, dateKey, outside }) => {
-                const dayBookings = getBookingsForDate(
-                  filteredBookings,
-                  dateKey
-                );
-                const isPast = !outside && isPastDateKey(dateKey);
-                const isSelected = !isPast && selectedDate === dateKey;
-                const isToday = todayKey === dateKey;
+          {calendarView === "month" && (
+            <div className={styles.monthView}>
+              <div className={styles.weekdays}>
+                {WEEKDAYS.map((day) => (
+                  <span key={day} className={styles.weekday}>
+                    {day}
+                  </span>
+                ))}
+              </div>
+              <div className={styles.daysGrid}>
+                {monthDays.map(({ day, dateKey, outside }) => {
+                  const dayBookings = getBookingsForDate(
+                    filteredBookings,
+                    dateKey
+                  );
+                  const isPast = !outside && isPastDateKey(dateKey);
+                  const isSelected = !isPast && selectedDate === dateKey;
+                  const isToday = todayKey === dateKey;
 
-                return (
-                  <button
-                    key={dateKey + (outside ? "-out" : "")}
-                    type="button"
-                    disabled={outside}
-                    className={[
-                      styles.dayCell,
-                      outside ? styles.dayCellOutside : "",
-                      isPast ? styles.dayCellPast : "",
-                      isToday ? styles.dayCellToday : "",
-                      isSelected ? styles.dayCellSelected : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={() => !outside && openDayView(dateKey)}
-                  >
-                    <span className={styles.dayNumber}>{day}</span>
-                    {dayBookings.length > 0 && (
-                      <>
-                        <div className={styles.dayDots}>
-                          {dayBookings.slice(0, 3).map((b) => (
-                            <span
-                              key={b.id}
-                              className={styles.dot}
-                              style={{
-                                background:
-                                  BOOKING_STATUSES[b.status]?.color,
-                              }}
-                            />
-                          ))}
-                        </div>
-                        {dayBookings.length > 3 && (
-                          <span className={styles.dayCount}>
-                            +{dayBookings.length - 3}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {calendarView === "week" && (
-          <div className={styles.weekGrid}>
-            <div className={styles.weekHeader}>
-              <div />
-              {weekDateKeys.map((dateKey) => {
-                const d = dateFromKey(dateKey);
-                const isToday = dateKey === todayKey;
-                const isSelected = dateKey === selectedDate;
-                return (
-                  <div key={dateKey} className={styles.weekHeaderCell}>
+                  return (
                     <button
+                      key={dateKey + (outside ? "-out" : "")}
                       type="button"
+                      disabled={outside}
                       className={[
-                        isToday ? styles.weekHeaderToday : "",
-                        isSelected ? styles.weekHeaderSelected : "",
+                        styles.dayCell,
+                        outside ? styles.dayCellOutside : "",
+                        isPast ? styles.dayCellPast : "",
+                        isToday ? styles.dayCellToday : "",
+                        isSelected ? styles.dayCellSelected : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
-                      onClick={() => selectDate(dateKey)}
+                      onClick={() => !outside && openDayView(dateKey)}
                     >
-                      <span>{WEEKDAYS[d.getDay()]}</span>
-                      <strong>{d.getDate()}</strong>
+                      <span className={styles.dayNumber}>{day}</span>
+                      {dayBookings.length > 0 && (
+                        <>
+                          <div className={styles.dayDots}>
+                            {dayBookings.slice(0, 3).map((b) => (
+                              <span
+                                key={b.id}
+                                className={styles.dot}
+                                style={{
+                                  background:
+                                    BOOKING_STATUSES[b.status]?.color,
+                                }}
+                              />
+                            ))}
+                          </div>
+                          {dayBookings.length > 3 && (
+                            <span className={styles.dayCount}>
+                              +{dayBookings.length - 3}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-            <div className={styles.weekBody}>
-              {calendarHours.flatMap((hour) => [
-                <div key={`time-${hour}`} className={styles.timeLabel}>
-                  {formatHourLabel(hour)}
-                </div>,
-                ...weekDateKeys.map((dateKey) => {
-                    const dayBookings = getBookingsForDate(
-                      filteredBookings,
-                      dateKey
-                    );
-                    const overlapping = dayBookings.filter((b) =>
-                      bookingOverlapsHour(b, hour)
-                    );
-                    const slotBookings = overlapping.filter(
-                      (b) => getBookingStartHour(b) === hour
-                    );
-                    const isAvailable =
-                      overlapping.length === 0 &&
-                      isAdminRangeBookable(
-                        dateKey,
-                        hour,
-                        hour + 1,
-                        slotDayBookings(dateKey)
+          )}
+
+          {calendarView === "week" && (
+            <div className={styles.weekGrid}>
+              <div className={styles.weekHeader}>
+                <div />
+                {weekDateKeys.map((dateKey) => {
+                  const d = dateFromKey(dateKey);
+                  const isToday = dateKey === todayKey;
+                  const isSelected = dateKey === selectedDate;
+                  return (
+                    <div key={dateKey} className={styles.weekHeaderCell}>
+                      <button
+                        type="button"
+                        className={[
+                          isToday ? styles.weekHeaderToday : "",
+                          isSelected ? styles.weekHeaderSelected : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        onClick={() => selectDate(dateKey)}
+                      >
+                        <span>{WEEKDAYS[d.getDay()]}</span>
+                        <strong>{d.getDate()}</strong>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className={styles.weekBody}>
+                {calendarHours.length === 0 ? (
+                  <div
+                    style={{
+                      gridColumn: `1 / -1`,
+                      padding: "2rem 1rem",
+                      textAlign: "center",
+                      color: "var(--foreground-muted)",
+                      fontSize: "0.88rem",
+                    }}
+                  >
+                    No open hours configured for this day. Set hours in Settings → Locations.
+                  </div>
+                ) : (
+                  calendarHours.flatMap((hour) => [
+                    <div key={`time-${hour}`} className={styles.timeLabel}>
+                      {formatHourLabel(hour)}
+                    </div>,
+                    ...weekDateKeys.map((dateKey) => {
+                      // Per-day availability: check the location's open mappings for this specific day
+                      const dayDateId = dateKeyToDateId(dateKey);
+                      const dayHours = getOperationalHoursForDay(
+                        activeLocation?.openTimeMappings ?? [],
+                        dayDateId
                       );
-                    return (
+                      const isClosedThisDay = !dayHours.includes(hour);
+
+                      const dayBookings = getBookingsForDate(
+                        filteredBookings,
+                        dateKey
+                      );
+                      const overlapping = dayBookings.filter((b) =>
+                        bookingOverlapsHour(b, hour)
+                      );
+                      const slotBookings = overlapping.filter(
+                        (b) => getBookingStartHour(b) === hour
+                      );
+                      const isAvailable =
+                        !isClosedThisDay &&
+                        overlapping.length === 0 &&
+                        isAdminRangeBookable(
+                          dateKey,
+                          hour,
+                          hour + 1,
+                          slotDayBookings(dateKey)
+                        );
+                      return (
+                        <div
+                          key={`${dateKey}-${hour}`}
+                          className={`${styles.weekCell} ${isClosedThisDay ? styles.weekCellClosed ?? "" : ""
+                            } ${isAvailable ? styles.weekCellEmpty : ""
+                            } ${!isAvailable && slotBookings.length === 0 && !isClosedThisDay ? styles.weekCellCovered : ""}`}
+                          role={isAvailable ? "button" : undefined}
+                          tabIndex={isAvailable ? 0 : undefined}
+                          title={
+                            isClosedThisDay
+                              ? "Closed"
+                              : isAvailable
+                                ? `Book or block ${formatHourLabel(hour)}`
+                                : undefined
+                          }
+                          onClick={() => {
+                            if (isAvailable) openSlotBooking(dateKey, hour);
+                          }}
+                          onKeyDown={(e) => {
+                            if (
+                              isAvailable &&
+                              (e.key === "Enter" || e.key === " ")
+                            ) {
+                              e.preventDefault();
+                              openSlotBooking(dateKey, hour);
+                            }
+                          }}
+                        >
+                          {isClosedThisDay ? null : slotBookings.map((b) => {
+                            const status = BOOKING_STATUSES[b.status];
+                            return (
+                              <div
+                                key={b.id}
+                                className={styles.weekBooking}
+                                style={{
+                                  borderLeftColor: status.color,
+                                }}
+                                title={`${b.sport} - ${b.customer}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openBookingDetail(b);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openBookingDetail(b);
+                                  }
+                                }}
+                                role="button"
+                                tabIndex={0}
+                              >
+                                <strong>{b.sport}</strong>
+                                {b.time.split("-")[0]}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    }),
+                  ])
+                )}
+              </div>
+            </div>
+          )}
+
+          {calendarView === "day" && (
+            <div className={styles.daySchedule}>
+              {calendarHours.length === 0 ? (
+                <div
+                  style={{
+                    padding: "3rem 1.5rem",
+                    textAlign: "center",
+                    color: "var(--foreground-muted)",
+                    fontSize: "0.88rem",
+                  }}
+                >
+                  This location has no open hours configured for this day of the week.
+                  <br />
+                  Set open hours in{" "}
+                  <strong>Settings → Locations</strong>.
+                </div>
+              ) : (
+                calendarHours.map((hour) => {
+                  const overlapping = dayViewBookings.filter((b) =>
+                    bookingOverlapsHour(b, hour)
+                  );
+                  const slotBookings = overlapping.filter(
+                    (b) => getBookingStartHour(b) === hour
+                  );
+                  const dayDateKey = toDateKey(
+                    focusDate.getFullYear(),
+                    focusDate.getMonth(),
+                    focusDate.getDate()
+                  );
+                  const isCovered =
+                    overlapping.length > 0 && slotBookings.length === 0;
+                  const isAvailable =
+                    overlapping.length === 0 &&
+                    isAdminRangeBookable(
+                      dayDateKey,
+                      hour,
+                      hour + 1,
+                      dayViewBookings
+                    );
+                  const rowMinHeight = slotBookings.reduce(
+                    (max, b) => Math.max(max, dayRowMinHeightForBooking(b)),
+                    DAY_VIEW_ROW_BASE_PX
+                  );
+
+                  return (
+                    <div
+                      key={hour}
+                      className={styles.dayRow}
+                      style={slotBookings.length > 0 ? { minHeight: rowMinHeight } : undefined}
+                    >
+                      <div className={styles.dayHour}>{formatHourLabel(hour)}</div>
                       <div
-                        key={`${dateKey}-${hour}`}
-                        className={`${styles.weekCell} ${
-                          isAvailable ? styles.weekCellEmpty : ""
-                        } ${!isAvailable && slotBookings.length === 0 ? styles.weekCellCovered : ""}`}
+                        className={[
+                          styles.daySlot,
+                          isAvailable ? styles.daySlotEmpty : "",
+                          isCovered ? styles.daySlotCovered : "",
+                          slotBookings.length > 0 ? styles.daySlotBooked : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
                         role={isAvailable ? "button" : undefined}
                         tabIndex={isAvailable ? 0 : undefined}
                         title={
@@ -993,206 +1313,105 @@ export default function BookingsCalendar() {
                             : undefined
                         }
                         onClick={() => {
-                          if (isAvailable) openSlotBooking(dateKey, hour);
+                          if (isAvailable) openSlotBooking(dayDateKey, hour);
                         }}
                         onKeyDown={(e) => {
-                          if (
-                            isAvailable &&
-                            (e.key === "Enter" || e.key === " ")
-                          ) {
+                          if (isAvailable && (e.key === "Enter" || e.key === " ")) {
                             e.preventDefault();
-                            openSlotBooking(dateKey, hour);
+                            openSlotBooking(dayDateKey, hour);
                           }
                         }}
                       >
-                        {slotBookings.map((b) => {
-                          const status = BOOKING_STATUSES[b.status];
-                          return (
-                            <div
-                              key={b.id}
-                              className={styles.weekBooking}
-                              style={{
-                                borderLeftColor: status.color,
-                              }}
-                              title={`${b.sport} - ${b.customer}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openBookingDetail(b);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openBookingDetail(b);
-                                }
-                              }}
-                              role="button"
-                              tabIndex={0}
-                            >
-                              <strong>{b.sport}</strong>
-                              {b.time.split("-")[0]}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                }),
-              ])}
-            </div>
-          </div>
-        )}
-
-        {calendarView === "day" && (
-          <div className={styles.daySchedule}>
-            {calendarHours.map((hour) => {
-              const overlapping = dayViewBookings.filter((b) =>
-                bookingOverlapsHour(b, hour)
-              );
-              const slotBookings = overlapping.filter(
-                (b) => getBookingStartHour(b) === hour
-              );
-              const dayDateKey = toDateKey(
-                focusDate.getFullYear(),
-                focusDate.getMonth(),
-                focusDate.getDate()
-              );
-              const isCovered =
-                overlapping.length > 0 && slotBookings.length === 0;
-              const isAvailable =
-                overlapping.length === 0 &&
-                isAdminRangeBookable(
-                  dayDateKey,
-                  hour,
-                  hour + 1,
-                  dayViewBookings
-                );
-              const rowMinHeight = slotBookings.reduce(
-                (max, b) => Math.max(max, dayRowMinHeightForBooking(b)),
-                DAY_VIEW_ROW_BASE_PX
-              );
-
-              return (
-                <div
-                  key={hour}
-                  className={styles.dayRow}
-                  style={slotBookings.length > 0 ? { minHeight: rowMinHeight } : undefined}
-                >
-                  <div className={styles.dayHour}>{formatHourLabel(hour)}</div>
-                  <div
-                    className={[
-                      styles.daySlot,
-                      isAvailable ? styles.daySlotEmpty : "",
-                      isCovered ? styles.daySlotCovered : "",
-                      slotBookings.length > 0 ? styles.daySlotBooked : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    role={isAvailable ? "button" : undefined}
-                    tabIndex={isAvailable ? 0 : undefined}
-                    title={
-                      isAvailable
-                        ? `Book or block ${formatHourLabel(hour)}`
-                        : undefined
-                    }
-                    onClick={() => {
-                      if (isAvailable) openSlotBooking(dayDateKey, hour);
-                    }}
-                    onKeyDown={(e) => {
-                      if (isAvailable && (e.key === "Enter" || e.key === " ")) {
-                        e.preventDefault();
-                        openSlotBooking(dayDateKey, hour);
-                      }
-                    }}
-                  >
-                    {isAvailable ? (
-                      <span className={styles.slotPlaceholder}>
-                        <span className={styles.slotPlaceholderShort}>
-                          +
-                        </span>
-                        <span className={styles.slotPlaceholderText}>
-                          Book or block
-                        </span>
-                      </span>
-                    ) : null}
-                    {slotBookings.map((b) => (
-                      <BookingCard
-                        key={b.id}
-                        booking={b}
-                        variant="day"
-                        onSelect={openBookingDetail}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {calendarView === "agenda" && (
-          <div className={styles.agendaList}>
-            {agendaDays.length === 0 ? (
-              <p className={styles.emptyState}>
-                No bookings this week
-                {selectedPitch?.name
-                  ? ` on ${selectedPitch.name}`
-                  : ` at ${locationFilter}`}
-                .
-              </p>
-            ) : (
-              agendaDays.map(({ dateKey, bookings }) => (
-                <div key={dateKey} className={styles.agendaDay}>
-                  <div className={styles.agendaDayHeader}>
-                    <h3>{formatShortDate(dateKey)}</h3>
-                    <span>
-                      {bookings.length}{" "}
-                      {bookings.length === 1 ? "booking" : "bookings"}
-                    </span>
-                  </div>
-                  <div className={styles.agendaDayBody}>
-                    {bookings.map((b) => {
-                      const status = BOOKING_STATUSES[b.status];
-                      return (
-                        <div
-                          key={b.id}
-                          className={styles.agendaRow}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => openBookingDetail(b)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              openBookingDetail(b);
-                            }
-                          }}
-                        >
-                          <span className={styles.agendaTime}>{b.time}</span>
-                          <div className={styles.agendaInfo}>
-                            <strong>
-                              {b.sport} · {b.court}
-                            </strong>
-                            <span>
-                              {b.customer} · {b.location}
+                        {isAvailable ? (
+                          <span className={styles.slotPlaceholder}>
+                            <span className={styles.slotPlaceholderShort}>
+                              +
                             </span>
-                          </div>
-                          <span
-                            className={styles.statusBadge}
-                            style={{
-                              color: status.color,
-                              background: `${status.color}22`,
+                            <span className={styles.slotPlaceholderText}>
+                              Book or block
+                            </span>
+                          </span>
+                        ) : null}
+                        {slotBookings.map((b) => (
+                          <BookingCard
+                            key={b.id}
+                            booking={b}
+                            variant="day"
+                            onSelect={openBookingDetail}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {calendarView === "agenda" && (
+            <div className={styles.agendaList}>
+              {agendaDays.length === 0 ? (
+                <p className={styles.emptyState}>
+                  No bookings this week
+                  {selectedPitch?.name
+                    ? ` on ${selectedPitch.name}`
+                    : ` at ${locationFilter}`}
+                  .
+                </p>
+              ) : (
+                agendaDays.map(({ dateKey, bookings }) => (
+                  <div key={dateKey} className={styles.agendaDay}>
+                    <div className={styles.agendaDayHeader}>
+                      <h3>{formatShortDate(dateKey)}</h3>
+                      <span>
+                        {bookings.length}{" "}
+                        {bookings.length === 1 ? "booking" : "bookings"}
+                      </span>
+                    </div>
+                    <div className={styles.agendaDayBody}>
+                      {bookings.map((b) => {
+                        const status = BOOKING_STATUSES[b.status];
+                        return (
+                          <div
+                            key={b.id}
+                            className={styles.agendaRow}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openBookingDetail(b)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openBookingDetail(b);
+                              }
                             }}
                           >
-                            {status.label}
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <span className={styles.agendaTime}>{b.time}</span>
+                            <div className={styles.agendaInfo}>
+                              <strong>
+                                {b.sport} · {b.court}
+                              </strong>
+                              <span>
+                                {b.customer} · {b.location}
+                              </span>
+                            </div>
+                            <span
+                              className={styles.statusBadge}
+                              style={{
+                                color: status.color,
+                                background: `${status.color}22`,
+                              }}
+                            >
+                              {status.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+                ))
+              )}
+            </div>
+          )}
 
         </div>
 
@@ -1239,6 +1458,7 @@ export default function BookingsCalendar() {
         onClose={closeBookingDetail}
         onCancel={handleCancelBooking}
         onReschedule={handleRescheduleBooking}
+        onMarkPaid={handleMarkPaid}
         onRefund={handleRefundBooking}
         location={activeLocation}
         sports={sports}

@@ -1,8 +1,8 @@
 import { toDateKey } from "./bookingsData";
 import {
-  DEFAULT_OPERATIONAL_END,
-  DEFAULT_OPERATIONAL_START,
-} from "./settings/adminSettingsDefaults";
+  getOpenSlotsForDay,
+  getOperationalWindowForDay,
+} from "@/lib/locations/locationTimeMapper";
 
 export function parseTimeField(timeStr) {
   const [hourPart, minutePart] = (timeStr || "00:00").split(":");
@@ -15,12 +15,15 @@ export function parseTimeField(timeStr) {
 }
 
 /** Booking slot start hours for week/day grid (e.g. 8 → 8.00-9.00 AM). */
-export function getOperationalHours(
-  operationalStart = DEFAULT_OPERATIONAL_START,
-  operationalEnd = DEFAULT_OPERATIONAL_END
-) {
+export function getOperationalHours(operationalStart, operationalEnd) {
+  if (!operationalStart || !operationalEnd) return [];
+
   const start = parseTimeField(operationalStart);
   const end = parseTimeField(operationalEnd);
+
+  if (end.hour === 0 && end.minute === 0 && start.hour >= 0) {
+    end.hour = 24;
+  }
 
   const startHour = start.hour;
   let lastSlotHour = end.minute === 0 ? end.hour - 1 : end.hour;
@@ -35,9 +38,25 @@ export function getOperationalHours(
   );
 }
 
+/**
+ * Derive booking slot hour rows from openTimeMappings for a specific dateId
+ * (0=Mon … 6=Sun).  Returns an empty array when the location has no open
+ * hours configured for that day — the calendar will show an empty-day message.
+ *
+ * When a location has multiple open windows for a day (e.g. 08:00–12:00 and
+ * 16:00–21:00) the rows span the full range from the earliest open to the
+ * latest close so the grid stays contiguous.
+ */
+export function getOperationalHoursForDay(openTimeMappings, dateId) {
+  const window = getOperationalWindowForDay(openTimeMappings, dateId);
+  if (!window) return [];
+  return getOperationalHours(window.operationalStart, window.operationalEnd);
+}
+
 export function compareTimeStrings(start, end) {
   const a = parseTimeField(start);
   const b = parseTimeField(end);
+  if (b.hour === 0 && b.minute === 0 && (a.hour > 0 || a.minute > 0)) b.hour = 24;
   return a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
 }
 
@@ -54,10 +73,21 @@ export function isPeriodWithinOperational(
 ) {
   if (!isOperationalRangeValid(periodStart, periodEnd)) return false;
   if (!isOperationalRangeValid(operationalStart, operationalEnd)) return false;
-  return (
-    compareTimeStrings(operationalStart, periodStart) <= 0 &&
-    compareTimeStrings(periodEnd, operationalEnd) <= 0
-  );
+
+  const os = parseTimeField(operationalStart);
+  const oe = parseTimeField(operationalEnd);
+  if (oe.hour === 0 && oe.minute === 0 && (os.hour > 0 || os.minute > 0)) oe.hour = 24;
+
+  const ps = parseTimeField(periodStart);
+  const pe = parseTimeField(periodEnd);
+  if (pe.hour === 0 && pe.minute === 0 && (ps.hour > 0 || ps.minute > 0)) pe.hour = 24;
+
+  const osMin = os.hour * 60 + os.minute;
+  const oeMin = oe.hour * 60 + oe.minute;
+  const psMin = ps.hour * 60 + ps.minute;
+  const peMin = pe.hour * 60 + pe.minute;
+
+  return osMin <= psMin && peMin <= oeMin;
 }
 
 export function formatOperationalHoursDisplay(operationalStart, operationalEnd) {
@@ -105,6 +135,8 @@ export function bookingOverlapsHour(booking, hour) {
 
   const start = parseTimeField(booking.startTime);
   const end = parseTimeField(booking.endTime);
+  if (end.hour === 0 && end.minute === 0 && start.hour >= 0) end.hour = 24;
+
   const bookingStart = start.hour * 60 + start.minute;
   const bookingEnd = end.hour * 60 + end.minute;
   const slotStart = hour * 60;
@@ -149,10 +181,11 @@ export function getWeekDateKeys(reference) {
   });
 }
 
-/** Hour slot label for calendar rows, e.g. 08:00 – 09:00 */
+/** Hour slot label for calendar rows and booking modal (e.g. 08:00) */
 export function formatHourLabel(hour) {
+  if (hour === 24) return "24:00";
   const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(hour)}:00 – ${pad(hour + 1)}:00`;
+  return `${pad(hour)}:00`;
 }
 
 export function formatShortDate(dateKey) {

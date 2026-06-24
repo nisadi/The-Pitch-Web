@@ -20,8 +20,7 @@ export function isEsmsConfigured() {
 export async function sendEnquiryReplySms({
   phone,
   message,
-  referenceCode,
-  enquiryQuestion,
+  locationName,
   contactPhone,
 }) {
   if (!isEsmsConfigured()) {
@@ -37,8 +36,7 @@ export async function sendEnquiryReplySms({
   }
 
   const smsBody = buildEnquiryReplySmsBody({
-    referenceCode,
-    enquiryQuestion,
+    locationName,
     reply: message,
     contactPhone,
   });

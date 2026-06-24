@@ -1,18 +1,21 @@
 import { getBookingStartHour } from "@/components/admin/bookingsUtils";
 import { normalizeLocation } from "@/components/admin/settings/adminSettingsDefaults";
 import { locationFromRow } from "@/lib/locations/locationMapper";
+import { dateKeyToDateId } from "@/lib/locations/locationTimeMapper";
 import { normalizePitch } from "@/lib/pitches/pitchMapper";
 import { getBookingAmountBreakdown } from "./bookingPricing";
 
 function normalizeLocationForPricing(location) {
   if (!location) return null;
-  if (location.peakStart != null || location.peak_start != null) {
-    if (location.peakStart != null) {
-      return normalizeLocation(location);
-    }
+  if (location.peakTimeMappings != null || location.openTimeMappings != null) {
+    // Already in the new format
+    return location;
+  }
+  // Legacy: row might have the old flat fields
+  if (location.peak_start != null) {
     return locationFromRow(location);
   }
-  return locationFromRow(location) ?? normalizeLocation(location);
+  return normalizeLocation(location);
 }
 
 function normalizePitchForPricing(pitch) {
@@ -61,6 +64,14 @@ export function formatSessionRateLabel(breakdown) {
 
 /**
  * Session fee from pitch peak/off-peak rates and location time windows.
+ *
+ * @param {object} opts
+ * @param {object} opts.location    - normalised location with peakTimeMappings
+ * @param {object} opts.pitch
+ * @param {string} opts.slot        - slot label string (fallback if start/endHour absent)
+ * @param {number} opts.startHour
+ * @param {number} opts.endHour
+ * @param {string|null} opts.bookingDate  - "YYYY-MM-DD" used to derive dateId
  */
 export function resolveSessionPricing({
   location,
@@ -68,10 +79,14 @@ export function resolveSessionPricing({
   slot,
   startHour,
   endHour,
+  bookingDate = null,
 }) {
   const hours = parseBookingSlotHours(slot, startHour, endHour);
   const loc = normalizeLocationForPricing(location);
   const p = normalizePitchForPricing(pitch);
+
+  // Derive dateId from the booking date for day-specific peak windows
+  const dateId = bookingDate ? dateKeyToDateId(bookingDate) : null;
 
   if (!loc || !p) {
     return {
@@ -88,6 +103,7 @@ export function resolveSessionPricing({
     location: loc,
     peakHourRate: p.peakHourRate,
     nonPeakHourRate: p.nonPeakHourRate,
+    dateId,
   });
 
   return {

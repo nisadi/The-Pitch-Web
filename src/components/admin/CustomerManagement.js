@@ -520,6 +520,14 @@ export default function CustomerManagement() {
       return false;
     }
 
+    const location = settingsLocations.find(
+      (l) =>
+        String(l.id) === String(targetRow.location_id) ||
+        (l.name && targetRow.location && l.name.toLowerCase() === targetRow.location.toLowerCase())
+    );
+    const locationName = location?.name || targetRow.location || "The Pitch";
+    const contactPhone = location?.phone || "";
+
     setEventReplySending(true);
     try {
       const response = await fetch("/api/admin/enquiries/send-sms", {
@@ -528,8 +536,8 @@ export default function CustomerManagement() {
         body: JSON.stringify({
           phone: smsPhone,
           message,
-          referenceCode: targetRow.id,
-          enquiryQuestion: targetRow.message,
+          locationName,
+          contactPhone,
         }),
       });
       const smsResult = await response.json();
@@ -607,6 +615,14 @@ export default function CustomerManagement() {
       return false;
     }
 
+    const location = settingsLocations.find(
+      (l) =>
+        String(l.id) === String(targetRow.location_id) ||
+        (l.name && targetRow.location && l.name.toLowerCase() === targetRow.location.toLowerCase())
+    );
+    const locationName = location?.name || targetRow.location || "The Pitch";
+    const contactPhone = location?.phone || "";
+
     setReplySending(true);
     try {
       const response = await fetch("/api/admin/enquiries/send-sms", {
@@ -615,8 +631,8 @@ export default function CustomerManagement() {
         body: JSON.stringify({
           phone: smsPhone,
           message,
-          referenceCode: targetRow.id,
-          enquiryQuestion: targetRow.message,
+          locationName,
+          contactPhone,
         }),
       });
       const smsResult = await response.json();

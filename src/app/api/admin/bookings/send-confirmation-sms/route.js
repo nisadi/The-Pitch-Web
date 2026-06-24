@@ -23,6 +23,10 @@ export async function POST(request) {
       sport: body.sport,
       court: body.court,
       totalAmount: body.totalAmount,
+      remark: body.remark,
+      discountType: body.discountType,
+      discountValue: body.discountValue,
+      finalAmount: body.finalAmount,
     });
 
     if (!result.success && !result.skipped) {

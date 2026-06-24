@@ -1,13 +1,13 @@
 import {
   DEFAULT_ADMIN_SETTINGS,
-  DEFAULT_NON_PEAK_END,
-  DEFAULT_NON_PEAK_START,
-  DEFAULT_PEAK_END,
-  DEFAULT_PEAK_START,
 } from "@/components/admin/settings/adminSettingsDefaults";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { LOCATION_COLUMNS, locationFromRow } from "./locationMapper";
+import {
+  fetchOpenTimeMappings,
+  fetchPeakTimeMappings,
+} from "./locationTimeMapper";
 
 export function findLocationInList(locations, { locationId, filterValue }) {
   if (!locations?.length) return null;
@@ -25,7 +25,7 @@ export function findLocationInList(locations, { locationId, filterValue }) {
   );
 }
 
-/** Merge defaults when Supabase row is missing sport_ids or hours. */
+/** Merge defaults when a location is missing expected fields. */
 export function enrichLocationWithDefaults(location) {
   if (!location) return null;
 
@@ -40,16 +40,9 @@ export function enrichLocationWithDefaults(location) {
       location.sportIds?.length > 0
         ? location.sportIds
         : (defaults?.sportIds ?? []),
-    operationalStart:
-      location.operationalStart || defaults?.operationalStart || "08:00",
-    operationalEnd:
-      location.operationalEnd || defaults?.operationalEnd || "21:00",
-    nonPeakStart:
-      location.nonPeakStart || defaults?.nonPeakStart || DEFAULT_NON_PEAK_START,
-    nonPeakEnd:
-      location.nonPeakEnd || defaults?.nonPeakEnd || DEFAULT_NON_PEAK_END,
-    peakStart: location.peakStart || defaults?.peakStart || DEFAULT_PEAK_START,
-    peakEnd: location.peakEnd || defaults?.peakEnd || DEFAULT_PEAK_END,
+    // Time mappings: use whatever is already on the object (populated by fetch)
+    openTimeMappings: location.openTimeMappings ?? [],
+    peakTimeMappings: location.peakTimeMappings ?? [],
   };
 }
 
@@ -57,6 +50,7 @@ export async function fetchLocationFromSupabase(slugOrShortName) {
   if (!isSupabaseConfigured() || !slugOrShortName) return null;
 
   const supabase = createClient();
+
   const { data: bySlug, error: slugError } = await supabase
     .from("locations")
     .select(LOCATION_COLUMNS)
@@ -64,16 +58,33 @@ export async function fetchLocationFromSupabase(slugOrShortName) {
     .maybeSingle();
 
   if (slugError) throw slugError;
-  if (bySlug) return locationFromRow(bySlug);
 
-  const { data: byShort, error: shortError } = await supabase
-    .from("locations")
-    .select(LOCATION_COLUMNS)
-    .eq("short_name", slugOrShortName)
-    .maybeSingle();
+  let row = bySlug;
 
-  if (shortError) throw shortError;
-  return locationFromRow(byShort);
+  if (!row) {
+    const { data: byShort, error: shortError } = await supabase
+      .from("locations")
+      .select(LOCATION_COLUMNS)
+      .eq("short_name", slugOrShortName)
+      .maybeSingle();
+    if (shortError) throw shortError;
+    row = byShort;
+  }
+
+  if (!row) return null;
+
+  const location = locationFromRow(row);
+  if (!location?.dbId) return location;
+
+  // Fetch time mappings for this single location
+  const [openMappings, peakMappings] = await Promise.all([
+    fetchOpenTimeMappings(location.dbId),
+    fetchPeakTimeMappings(location.dbId),
+  ]);
+  location.openTimeMappings = openMappings;
+  location.peakTimeMappings = peakMappings;
+
+  return location;
 }
 
 export async function resolveCalendarLocation(locations, { locationId, filterValue }) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { CalendarClock, RotateCcw, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/bookings/bookingRange";
 import { BOOKING_STATUSES, getBookingsForDate } from "./bookingsData";
 import { formatHourLabel, formatShortDate, parseTimeField } from "./bookingsUtils";
+import ConfirmDialog from "./ConfirmDialog";
 import RefundConfirmModal from "./RefundConfirmModal";
 import styles from "./BookingDetailModal.module.css";
 
@@ -85,6 +86,7 @@ export default function BookingDetailModal({
   onClose,
   onCancel,
   onReschedule,
+  onMarkPaid,
   onRefund,
   location,
   sports = [],
@@ -97,6 +99,14 @@ export default function BookingDetailModal({
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundSubmitting, setRefundSubmitting] = useState(false);
   const [pitches, setPitches] = useState([]);
+  const checkboxRef = useRef(null);
+  const [confirmState, setConfirmState] = useState({ open: false });
+
+  const closeConfirm = () => {
+    if (confirmState.onCancel) confirmState.onCancel();
+    setConfirmState({ open: false });
+  };
+
   const [rescheduleForm, setRescheduleForm] = useState({
     booking_date: "",
     start_hour: "",
@@ -339,9 +349,36 @@ export default function BookingDetailModal({
                 {booking.customerEmail}
               </div>
             ) : null}
-            <div>
-              <span className={styles.detailLabel}>Payment</span>
-              {PAYMENT_LABELS[booking.paymentStatus] ?? booking.paymentStatus}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <span className={styles.detailLabel}>Payment</span>
+                {PAYMENT_LABELS[booking.paymentStatus] ?? booking.paymentStatus}
+              </div>
+              {booking.paymentStatus === "unpaid" && canModify ? (
+                <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", cursor: "pointer", fontSize: "0.85rem" }}>
+                  <input
+                    type="checkbox"
+                    ref={checkboxRef}
+                    disabled={submitting}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setConfirmState({
+                          open: true,
+                          title: "Mark as paid?",
+                          description: "Are you sure you want to mark this booking as paid? This action cannot be undone.",
+                          confirmLabel: "Mark as paid",
+                          variant: "default",
+                          onConfirm: () => onMarkPaid?.(booking.id),
+                          onCancel: () => {
+                            if (checkboxRef.current) checkboxRef.current.checked = false;
+                          }
+                        });
+                      }
+                    }}
+                  />
+                  Mark as paid
+                </label>
+              ) : null}
             </div>
             <div>
               <span className={styles.detailLabel}>Amount</span>
@@ -640,16 +677,32 @@ export default function BookingDetailModal({
               </button>
               <button
                 type="button"
+                className={styles.btnSecondary}
+                disabled={submitting}
+                onClick={() => {
+                  window.alert("Refund functionality coming soon.");
+                }}
+              >
+                Refund
+              </button>
+              <button
+                type="button"
                 className={styles.btnDanger}
                 disabled={submitting}
                 onClick={() => {
                   const isBlock = booking.bookingStatus === "blocked";
+                  const title = isBlock ? "Remove block?" : "Cancel booking?";
                   const message = isBlock
                     ? "Remove this block? The slot will become available for booking again."
                     : "Cancel this booking? The slot will become available again.";
-                  if (window.confirm(message)) {
-                    onCancel(booking.id);
-                  }
+                  setConfirmState({
+                    open: true,
+                    title,
+                    description: message,
+                    confirmLabel: isBlock ? "Remove block" : "Cancel booking",
+                    variant: "destructive",
+                    onConfirm: () => onCancel(booking.id)
+                  });
                 }}
               >
                 {submitting
@@ -677,6 +730,18 @@ export default function BookingDetailModal({
           ) : null}
         </footer>
       </div>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        variant={confirmState.variant}
+        onClose={closeConfirm}
+        onConfirm={() => {
+          confirmState.onConfirm?.();
+        }}
+      />
     </div>,
     document.body
   );

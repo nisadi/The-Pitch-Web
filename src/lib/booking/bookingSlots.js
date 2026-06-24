@@ -1,4 +1,4 @@
-import { normalizeDbTime } from "@/lib/locations/locationMapper";
+import { normalizeDbTimeField, dateToDateId, getOperationalWindowForDay } from "@/lib/locations/locationTimeMapper";
 import {
   getOperationalHours,
   formatHourLabel,
@@ -73,28 +73,44 @@ export function isSelectableSlot(slot, selectedDate, now = new Date()) {
 }
 
 /**
- * Build hourly booking slot labels from a location's operational hours
- * (same range as Admin → Settings → Locations "Hours: …").
+ * Build hourly booking slot labels from a location's operational hours.
+ * Uses openTimeMappings to derive the start/end for the given date.
+ *
+ * @param {object} location      - normalised location with openTimeMappings
+ * @param {Date}   selectedDate  - date for which to build slots (used to determine day-of-week)
  */
 export function buildSlotsFromLocation(location, selectedDate = new Date()) {
   if (!location) return [];
 
-  const start = normalizeDbTime(location.open_time, "08:00");
-  const end = normalizeDbTime(location.close_time, "21:00");
+  // New path: per-day open-time mappings
+  if (Array.isArray(location.openTimeMappings)) {
+    const dateId = dateToDateId(selectedDate);
+    const dayWindow = getOperationalWindowForDay(location.openTimeMappings, dateId);
+    if (!dayWindow) return []; // location is closed on this day
+
+    const hours = getOperationalHours(dayWindow.operationalStart, dayWindow.operationalEnd);
+    const now = new Date();
+    const isToday = isSameCalendarDay(selectedDate, now);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return hours.map((hour) => ({
+      time: formatHourLabel(hour),
+      startHour: hour,
+      status: isToday && hour * 60 < nowMinutes ? "past" : "available",
+    }));
+  }
+
+  // Legacy fallback: flat open_time / close_time fields
+  const start = normalizeDbTimeField(location.open_time) ?? "08:00";
+  const end = normalizeDbTimeField(location.close_time) ?? "21:00";
   const hours = getOperationalHours(start, end);
   const now = new Date();
   const isToday = isSameCalendarDay(selectedDate, now);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-  return hours.map((hour) => {
-    const time = formatHourLabel(hour);
-    const isPast =
-      isToday && hour * 60 < nowMinutes;
-
-    return {
-      time,
-      startHour: hour,
-      status: isPast ? "past" : "available",
-    };
-  });
+  return hours.map((hour) => ({
+    time: formatHourLabel(hour),
+    startHour: hour,
+    status: isToday && hour * 60 < nowMinutes ? "past" : "available",
+  }));
 }
