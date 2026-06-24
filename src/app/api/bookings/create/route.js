@@ -179,14 +179,18 @@ export async function POST(request) {
       let sportName = 'Sport';
       let locationName = 'Location';
       let courtName = 'Court';
+      let contactPhone = undefined;
 
       if (sport_id) {
         const { data: sportData } = await supabase.from('sports').select('name').eq('id', sport_id).single();
         if (sportData) sportName = sportData.name;
       }
       if (location_id) {
-        const { data: locData } = await supabase.from('locations').select('name').eq('id', location_id).single();
-        if (locData) locationName = locData.name;
+        const { data: locData } = await supabase.from('locations').select('name, phone').eq('id', location_id).single();
+        if (locData) {
+          locationName = locData.name;
+          contactPhone = locData.phone;
+        }
       }
       if (resolvedPitchId) {
         const { data: pitchData } = await supabase.from('pitches').select('name').eq('id', resolvedPitchId).single();
@@ -215,6 +219,7 @@ export async function POST(request) {
           sport: sportName,
           court: courtName,
           finalAmount: finalTotal,
+          contactPhone,
         });
       }
     } catch (notificationErr) {
