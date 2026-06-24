@@ -96,6 +96,7 @@ export default function AddBookingModal({
   const [customDay, setCustomDay] = useState("1");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [customEndInput, setCustomEndInput] = useState("");
   const { pitches: settingsPitches, refreshPitches, locations: settingsLocations } =
     useAdminSettings();
 
@@ -944,19 +945,56 @@ export default function AddBookingModal({
                  </div>
                  <div style={{ flex: 1, minWidth: "80px" }}>
                    <label style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.2rem", color: "var(--foreground)" }}>Start</label>
-                   <select className={modalStyles.input} value={customStart} onChange={(e) => setCustomStart(e.target.value)}>
+                   <select className={modalStyles.input} value={customStart} onChange={(e) => {
+                     setCustomStart(e.target.value);
+                     setCustomEnd("");
+                     setCustomEndInput("");
+                   }}>
                      <option value="">Time</option>
                      {slotHours.map(hour => <option key={hour} value={String(hour)}>{formatHourLabel(hour)}</option>)}
                    </select>
                  </div>
                  <div style={{ flex: 1, minWidth: "80px" }}>
                    <label style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.2rem", color: "var(--foreground)" }}>End</label>
-                   <select className={modalStyles.input} value={customEnd} onChange={(e) => setCustomEnd(e.target.value)}>
-                     <option value="">Time</option>
-                     {slotHours.length > 0 && [...slotHours, Math.max(...slotHours) + 1].map(hour => (
-                       <option key={hour} value={String(hour)}>{formatEndHourLabel(hour)}</option>
-                     ))}
-                   </select>
+                   <input
+                     type="text"
+                     placeholder="23:30"
+                     pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+                     maxLength={5}
+                     className={modalStyles.input}
+                     disabled={!customStart}
+                     value={customEndInput}
+                     onChange={(e) => {
+                       let val = e.target.value.replace(/[^0-9:]/g, "");
+                       if (val.length === 2 && !val.includes(':') && customEndInput.length < val.length) {
+                         val += ':';
+                       }
+                       setCustomEndInput(val);
+
+                       const parts = val.split(":");
+                       if (parts.length === 2 && parts[1].length === 2) {
+                         const hour = parseInt(parts[0], 10);
+                         const min = parseInt(parts[1], 10);
+                         if (Number.isFinite(hour) && Number.isFinite(min) && hour >= 0 && hour <= 24 && min >= 0 && min <= 59) {
+                           setCustomEnd(String(hour + min / 60));
+                         }
+                       }
+                     }}
+                     onBlur={() => {
+                       const [hh, mm] = customEndInput.split(":");
+                       const hour = parseInt(hh, 10);
+                       const min = parseInt(mm || "0", 10);
+                       
+                       if (Number.isFinite(hour) && hour >= 0 && hour <= 24) {
+                         const decimal = hour + (Number.isFinite(min) ? min / 60 : 0);
+                         setCustomEnd(String(decimal));
+                         setCustomEndInput(formatTimeValue(decimal));
+                       } else {
+                         setCustomEnd("");
+                         setCustomEndInput("");
+                       }
+                     }}
+                   />
                  </div>
                  <button 
                     type="button" 
@@ -967,6 +1005,7 @@ export default function AddBookingModal({
                         patch({ custom_dates: [...form.custom_dates, { week: customWeek, day: Number(customDay), start_hour: Number(customStart), end_hour: Number(customEnd) }] });
                         setCustomStart("");
                         setCustomEnd("");
+                        setCustomEndInput("");
                       } else {
                         alert("Please select a valid week, day, and time range.");
                       }

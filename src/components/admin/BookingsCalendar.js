@@ -482,6 +482,19 @@ export default function BookingsCalendar() {
         final_amount: sliceTotal(form.final_amount),
       };
 
+      const isWithinOpenHours = (dateKey, startH, endH) => {
+        const d = dateFromKey(dateKey);
+        // Map getDay() (0=Sun..6=Sat) to dateId (0=Mon..6=Sun)
+        const dateId = (d.getDay() + 6) % 7;
+        const ops = getOperationalHoursForDay(activeLocation.openTimeMappings, dateId);
+        if (!ops || ops.length === 0) return false;
+        
+        for (let h = Math.floor(startH); h < endH; h++) {
+          if (!ops.includes(h)) return false;
+        }
+        return true;
+      };
+
       if (form.recurrence_type === "monthly") {
         const getNthDayOfMonth = (year, month, dayOfWeek, weekStr) => {
           let date = new Date(year, month, 1);
@@ -516,12 +529,14 @@ export default function BookingsCalendar() {
             if (d) {
               const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
               if (!isPastDateKey(key) || generated > 0) {
-                payloads.push({
-                  ...basePayload,
-                  booking_date: key,
-                  start_hour: startHour,
-                  end_hour: endHour,
-                });
+                if (isWithinOpenHours(key, startHour, endHour)) {
+                  payloads.push({
+                    ...basePayload,
+                    booking_date: key,
+                    start_hour: startHour,
+                    end_hour: endHour,
+                  });
+                }
                 generated++;
               }
             } else {
@@ -540,12 +555,15 @@ export default function BookingsCalendar() {
         const startHour = Number(form.start_hour);
         const endHour = Number(form.end_hour) || startHour + 1;
         for (let i = 0; i < 90; i++) {
-          payloads.push({
-            ...basePayload,
-            booking_date: toDateKey(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()),
-            start_hour: startHour,
-            end_hour: endHour,
-          });
+          const key = toDateKey(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          if (isWithinOpenHours(key, startHour, endHour)) {
+            payloads.push({
+              ...basePayload,
+              booking_date: key,
+              start_hour: startHour,
+              end_hour: endHour,
+            });
+          }
           currentDate.setDate(currentDate.getDate() + 1);
         }
       } else {
