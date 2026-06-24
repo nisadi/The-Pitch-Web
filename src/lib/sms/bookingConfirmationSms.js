@@ -67,16 +67,15 @@ export function buildBookingCancellationSmsBody({
   court,
   contactPhone = getPitchContactPhone(),
 }) {
-  const name = customerName?.trim();
+  const name = customerName?.trim().split(' ')[0];
   const greeting = name ? `Hi ${name}, ` : "";
   const lines = [
-    `${greeting}your booking at The Pitch has been cancelled.`,
-    reference ? `Ref: ${reference}` : null,
+    `${greeting}your booking has been cancelled.`,
     date ? `Date: ${formatBookingDate(date)}` : null,
     time ? `Time: ${time}` : null,
     location ? `Venue: ${location}` : null,
     sport && court ? `${sport} · ${court}` : sport || court || null,
-    `To rebook or enquire: ${contactPhone}`,
+    `Enquiries: ${contactPhone}`,
   ].filter(Boolean);
 
   return lines.join("\n");
