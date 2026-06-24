@@ -181,10 +181,11 @@ export function getWeekDateKeys(reference) {
   });
 }
 
-/** Hour slot label for calendar rows, e.g. 08:00 – 09:00 */
+/** Hour slot label for calendar rows and booking modal (e.g. 08:00) */
 export function formatHourLabel(hour) {
+  if (hour === 24) return "24:00";
   const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(hour)}:00 – ${pad(hour + 1)}:00`;
+  return `${pad(hour)}:00`;
 }
 
 export function formatShortDate(dateKey) {

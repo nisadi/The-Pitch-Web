@@ -145,14 +145,11 @@ export function firstAvailableStartHour(
 }
 
 export function formatEndHourLabel(endHour) {
-  const { hour } = parseTimeField(`${endHour}:00`);
-  const date = new Date();
-  date.setHours(hour, 0, 0, 0);
-  return date.toLocaleTimeString("en-LK", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+  if (endHour === 24) return "24:00";
+  const h = Math.floor(endHour);
+  const m = Math.round((endHour - h) * 60);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}`;
 }
 
 export function isAdminRangeBookable(

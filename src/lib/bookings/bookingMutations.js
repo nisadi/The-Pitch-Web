@@ -69,74 +69,25 @@ export async function resolvePitchId(
   return atLocation?.id ?? null;
 }
 
-/**
- * Looks up a user in public.users by phone number.
- * If found, returns their id. If not found, creates an auth user and a
- * public.users row for this walk-in customer, then returns the new id.
- *
- * Requires a Supabase admin client (service role key) so it can call
- * supabase.auth.admin.createUser and bypass RLS on public.users.
- *
- * NOTE: We do NOT pass `phone` to auth.admin.createUser because Supabase
- * rejects that field when Phone Auth (SMS sign-in) is not enabled in the
- * project settings. The phone is stored in user_metadata + public.users instead.
- */
-export async function resolveOrCreateUserByPhone(supabase, {
-  phone,
-  fullName,
-  email,
-}) {
-  const normalizedPhone = (phone ?? "").trim();
-  if (!normalizedPhone) return null;
-
-  // 1. Look up existing user by phone
-  const { data: existing } = await supabase
+export async function resolveBookingUserId(supabase, { fallbackUserId } = {}) {
+  const { data: userRow } = await supabase
     .from("users")
     .select("id")
-    .eq("phone", normalizedPhone)
+    .limit(1)
     .maybeSingle();
+  if (userRow?.id) return userRow.id;
 
-  if (existing?.id) return existing.id;
+  const { data: bookingRow } = await supabase
+    .from("bookings")
+    .select("user_id")
+    .not("user_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if (bookingRow?.user_id) return bookingRow.user_id;
 
-  // 2. User not found — create a new auth + public user
-  const resolvedName = (fullName ?? "").trim() || "Guest";
+  if (fallbackUserId && isUuid(fallbackUserId)) return fallbackUserId;
 
-  // Use provided email or generate a collision-resistant placeholder.
-  // We intentionally do NOT pass `phone` to createUser — Supabase Auth
-  // rejects it unless Phone Auth is enabled in the project.
-  const placeholderEmail =
-    email?.trim() ||
-    `walkin.${normalizedPhone.replace(/\D/g, "")}.${Date.now()}@walkin.thepitch.lk`;
-  const tempPassword = `Pitch_${Math.random().toString(36).slice(2, 10)}!`;
-
-  const { data: authData, error: authError } =
-    await supabase.auth.admin.createUser({
-      email: placeholderEmail,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: resolvedName,
-        phone_number: normalizedPhone,
-      },
-    });
-
-  if (authError) throw new Error(`Failed to create auth user: ${authError.message}`);
-
-  const newAuthId = authData?.user?.id;
-  if (!newAuthId) throw new Error("Auth user created but no id returned");
-
-  // 3. Insert into public.users (auth trigger only writes to public.profiles)
-  const { error: insertError } = await supabase.from("users").insert({
-    id: newAuthId,
-    full_name: resolvedName,
-    email: placeholderEmail,
-    phone: normalizedPhone,
-    role: "user",
-  });
-
-  if (insertError) throw new Error(`Failed to insert public.users row: ${insertError.message}`);
-
-  return newAuthId;
+  return null;
 }
 
 export function validateAdminBookingPayload(body) {
@@ -180,9 +131,6 @@ export function validateAdminBookingPayload(body) {
   const isBlock = type === "block";
   if (!isBlock && !String(body.customer_name ?? "").trim()) {
     return { error: "Customer name is required for manual bookings." };
-  }
-  if (!isBlock && !String(body.customer_phone ?? "").trim()) {
-    return { error: "Customer phone is required for manual bookings." };
   }
 
   return {
@@ -259,53 +207,19 @@ export async function insertCalendarBooking(supabase, payload) {
     };
   }
 
-  const isBlock = type === "block";
-
-  let userId;
-  if (isBlock) {
-    // For block slots, we don't need a real customer — use the admin fallback user
-    const fallbackId = payload.fallbackUserId;
-    if (fallbackId && isUuid(fallbackId)) {
-      userId = fallbackId;
-    } else {
-      // Last resort: grab the first user from public.users
-      const { data: anyUser } = await supabase
-        .from("users")
-        .select("id")
-        .limit(1)
-        .maybeSingle();
-      userId = anyUser?.id ?? null;
-    }
-    if (!userId) {
-      return {
-        error: "No user available for block slot. Set ADMIN_BOOKING_USER_ID in .env.local.",
-        status: 500,
-      };
-    }
-  } else {
-    // Manual booking — resolve or create by phone
-    try {
-      userId = await resolveOrCreateUserByPhone(supabase, {
-        phone: customer_phone,
-        fullName: customer_name,
-        email: customer_email,
-      });
-    } catch (err) {
-      return {
-        error: `Could not resolve customer user: ${err.message}`,
-        status: 500,
-      };
-    }
-    if (!userId) {
-      return {
-        error: "Customer phone is required to link or create a user for this booking.",
-        status: 400,
-      };
-    }
+  const userId = await resolveBookingUserId(supabase, {
+    fallbackUserId: payload.fallbackUserId,
+  });
+  if (!userId) {
+    return {
+      error:
+        "No user record available to attach the booking. Add a customer in Admin or set ADMIN_BOOKING_USER_ID.",
+      status: 500,
+    };
   }
 
+  const isBlock = type === "block";
   const durationHours = end - start;
-
 
   const { data, error } = await supabase
     .from("bookings")

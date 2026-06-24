@@ -454,77 +454,166 @@ export default function BookingsCalendar() {
       return;
     }
 
-    const start = Number(form.start_hour);
-    const end = Number(form.end_hour) || start + 1;
-    const dayBookings = getBookingsForDate(filteredBookings, form.booking_date);
-
-    if (
-      isPastDateKey(form.booking_date) ||
-      !isAdminRangeBookable(form.booking_date, start, end, dayBookings)
-    ) {
-      window.alert(
-        "Cannot book or block a past time, or a range that overlaps another booking."
-      );
-      return;
-    }
-
     setSubmittingBooking(true);
     try {
-      const requestBody = {
+      const payloads = [];
+      let occurrences = 1;
+      if (form.recurrence_type === "daily") occurrences = 90;
+      else if (form.recurrence_type === "monthly") occurrences = (form.custom_dates?.length || 0) * 6 || 1;
+
+      const sliceTotal = (amt) => {
+        const num = Number(amt);
+        if (!Number.isFinite(num) || num <= 0) return amt;
+        return String(Math.max(0, Math.round(num / occurrences)));
+      };
+
+      const basePayload = {
         type: form.type,
         location_id: activeLocation.dbId,
         sport_id: form.sport_id,
         pitch_id: form.pitch_id,
-        booking_date: form.booking_date,
-        start_hour: start,
-        end_hour: end,
         customer_name: form.customer_name,
         customer_email: form.customer_email,
         customer_phone: form.customer_phone,
-        total_amount: form.total_amount,
+        total_amount: sliceTotal(form.total_amount),
         remark: form.remark,
         discount_type: form.discount_type,
         discount_value: form.discount_value,
-        final_amount: form.final_amount,
+        final_amount: sliceTotal(form.final_amount),
       };
 
-      let booking = null;
-      let errorMessage = null;
+      if (form.recurrence_type === "monthly") {
+        const getNthDayOfMonth = (year, month, dayOfWeek, weekStr) => {
+          let date = new Date(year, month, 1);
+          let count = 0;
+          let lastFound = null;
+          while (date.getMonth() === month) {
+            if (date.getDay() === dayOfWeek) {
+              count++;
+              lastFound = new Date(date);
+              if (weekStr === "1st" && count === 1) return date;
+              if (weekStr === "2nd" && count === 2) return date;
+              if (weekStr === "3rd" && count === 3) return date;
+              if (weekStr === "4th" && count === 4) return date;
+            }
+            date.setDate(date.getDate() + 1);
+          }
+          if (weekStr === "last" && lastFound) return lastFound;
+          return null;
+        };
 
-      if (isSupabaseConfigured()) {
-        const clientResult = await createCalendarBookingClient(requestBody);
-        if (clientResult.booking) {
-          booking = clientResult.booking;
-        } else {
-          errorMessage = clientResult.error;
-        }
-      }
+        form.custom_dates.forEach((cd) => {
+          const startHour = cd.start_hour;
+          const endHour = cd.end_hour || startHour + 1;
+          
+          let currentDate = form.booking_date ? dateFromKey(form.booking_date) : new Date();
+          let generated = 0;
+          let y = currentDate.getFullYear();
+          let m = currentDate.getMonth();
 
-      if (!booking && !errorMessage) {
-        const res = await fetch("/api/admin/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
+          while (generated < 6) {
+            const d = getNthDayOfMonth(y, m, cd.day, cd.week);
+            if (d) {
+              const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+              if (!isPastDateKey(key) || generated > 0) {
+                payloads.push({
+                  ...basePayload,
+                  booking_date: key,
+                  start_hour: startHour,
+                  end_hour: endHour,
+                });
+                generated++;
+              }
+            } else {
+              // If there's no such day in this month (e.g. 4th Monday), we just move to the next month
+            }
+            
+            m++;
+            if (m > 11) {
+              m = 0;
+              y++;
+            }
+          }
         });
-        const payload = await res.json();
-        if (res.ok && payload.booking) {
-          booking = payload.booking;
-        } else {
-          errorMessage = payload.error ?? "Could not save booking.";
+      } else if (form.recurrence_type === "daily") {
+        let currentDate = dateFromKey(form.booking_date);
+        const startHour = Number(form.start_hour);
+        const endHour = Number(form.end_hour) || startHour + 1;
+        for (let i = 0; i < 90; i++) {
+          payloads.push({
+            ...basePayload,
+            booking_date: toDateKey(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()),
+            start_hour: startHour,
+            end_hour: endHour,
+          });
+          currentDate.setDate(currentDate.getDate() + 1);
         }
+      } else {
+        payloads.push({
+          ...basePayload,
+          booking_date: form.booking_date,
+          start_hour: Number(form.start_hour),
+          end_hour: Number(form.end_hour) || Number(form.start_hour) + 1,
+        });
       }
 
-      if (!booking) {
-        window.alert(
-          errorMessage ??
-          "Could not save booking. Apply migration 00036_bookings_admin_anon_mutations.sql or set SUPABASE_SERVICE_ROLE_KEY."
-        );
+      const createdBookings = [];
+      let encounteredError = null;
+
+      for (const reqBody of payloads) {
+        let booking = null;
+        let errorMessage = null;
+
+        if (isSupabaseConfigured()) {
+          const clientResult = await createCalendarBookingClient(reqBody);
+          if (clientResult.booking) {
+            booking = clientResult.booking;
+          } else {
+            errorMessage = clientResult.error;
+          }
+        }
+
+        if (!booking && !errorMessage) {
+          const res = await fetch("/api/admin/bookings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(reqBody),
+          });
+          const payload = await res.json();
+          if (res.ok && payload.booking) {
+            booking = payload.booking;
+          } else {
+            errorMessage = payload.error ?? "Could not save booking.";
+          }
+        }
+
+        if (!booking) {
+          encounteredError = errorMessage ?? "Could not save booking.";
+          break;
+        }
+        createdBookings.push(booking);
+      }
+
+      if (encounteredError) {
+        // Rollback
+        for (const b of createdBookings) {
+          try {
+            await cancelCalendarBookingClient(b.id);
+          } catch (e) {
+            console.error("Rollback failed for", b.id, e);
+          }
+        }
+        window.alert(`Process stopped and rolled back due to error: ${encounteredError}`);
         return;
       }
 
       setBookings((prev) => {
-        const next = prev.filter((b) => b.id !== booking.id);
-        return [...next, booking];
+        let next = [...prev];
+        for (const booking of createdBookings) {
+          next = next.filter((b) => b.id !== booking.id);
+          next.push(booking);
+        }
+        return next;
       });
 
       closeAddBookingModal();
@@ -535,9 +624,12 @@ export default function BookingsCalendar() {
 
       if (form.type === "block") {
         window.alert(
-          "Slot blocked. It will stay unavailable until you cancel the block."
+          payloads.length > 1
+            ? `${payloads.length} slots blocked successfully.`
+            : "Slot blocked. It will stay unavailable until you cancel the block."
         );
-      } else {
+      } else if (createdBookings.length > 0) {
+        const firstBooking = createdBookings[0];
         const phone = String(form.customer_phone ?? "").trim();
         if (phone) {
           try {
@@ -549,13 +641,13 @@ export default function BookingsCalendar() {
                 body: JSON.stringify({
                   phone,
                   customerName: form.customer_name,
-                  reference: booking.reference,
-                  date: booking.date,
-                  time: booking.time,
-                  location: booking.location,
-                  sport: booking.sport,
-                  court: booking.court,
-                  totalAmount: booking.totalAmount,
+                  reference: firstBooking.reference + (payloads.length > 1 ? ` (+${payloads.length - 1} more)` : ""),
+                  date: firstBooking.date + (payloads.length > 1 ? " (Series)" : ""),
+                  time: firstBooking.time,
+                  location: firstBooking.location,
+                  sport: firstBooking.sport,
+                  court: firstBooking.court,
+                  totalAmount: form.total_amount,
                   remark: form.remark,
                   discountType: form.discount_type,
                   discountValue: form.discount_value,
@@ -568,14 +660,14 @@ export default function BookingsCalendar() {
               if (!smsResult.skipped) {
                 console.warn("[booking SMS]", smsResult.error);
                 window.alert(
-                  `Booking saved, but the confirmation SMS could not be sent: ${smsResult.error ?? "Unknown error"}`
+                  `Bookings saved, but the confirmation SMS could not be sent: ${smsResult.error ?? "Unknown error"}`
                 );
               }
             }
           } catch (smsErr) {
             console.warn("[booking SMS]", smsErr);
             window.alert(
-              `Booking saved, but the confirmation SMS could not be sent: ${smsErr?.message ?? "Network error"}`
+              `Bookings saved, but the confirmation SMS could not be sent: ${smsErr?.message ?? "Network error"}`
             );
           }
         }
@@ -590,12 +682,12 @@ export default function BookingsCalendar() {
                 email,
                 fullName: form.customer_name || "there",
                 booking: {
-                  ref: booking.reference,
-                  sport: booking.sport,
-                  location: booking.location,
-                  date: booking.date,
-                  time: booking.time,
-                  amount: booking.totalAmount,
+                  ref: firstBooking.reference + (payloads.length > 1 ? ` (+${payloads.length - 1} more)` : ""),
+                  sport: firstBooking.sport,
+                  location: firstBooking.location,
+                  date: firstBooking.date + (payloads.length > 1 ? " (Series)" : ""),
+                  time: firstBooking.time,
+                  amount: form.total_amount,
                   remark: form.remark,
                   discountType: form.discount_type,
                   discountValue: form.discount_value,
@@ -606,15 +698,9 @@ export default function BookingsCalendar() {
             const emailResult = await emailRes.json();
             if (!emailRes.ok || !emailResult.success) {
               console.warn("[booking Email]", emailResult.error);
-              {/*window.alert(
-                `Booking saved, but the confirmation email could not be sent.`
-              );*/}
             }
           } catch (emailErr) {
             console.warn("[booking Email]", emailErr);
-            {/*window.alert(
-              `Booking saved, but the confirmation email could not be sent.`
-            );*/}
           }
         }
       }
