@@ -382,7 +382,8 @@ const sendSMSGet = async (phone, message, sourceAddress = ESMS_DEFAULT_MASK, opt
             2008: { message: 'Insufficient balance', code: 'INSUFFICIENT_BALANCE' },
             2009: { message: 'No valid numbers found', code: 'NO_VALID_NUMBERS' },
             2010: { message: 'Not eligible for package', code: 'PACKAGE_ERROR' },
-            2011: { message: 'Transactional error', code: 'TRANSACTION_ERROR' }
+            2011: { message: 'Transactional error', code: 'TRANSACTION_ERROR' },
+            2012: { message: 'Message contains invalid characters or is too long for GET method (max 160 chars)', code: 'INVALID_MESSAGE' }
         };
 
         if (statusCode === 1) {
@@ -431,7 +432,16 @@ const sendSMS = async (phone, message, options = {}) => {
     
     try {
         if (sendOptions.useGetMethod) {
-            return await retry(() => sendSMSGet(phone, message, sendOptions.sourceAddress, sendOptions));
+            try {
+                return await retry(() => sendSMSGet(phone, message, sendOptions.sourceAddress, sendOptions));
+            } catch (err) {
+                // If GET method fails due to message length/format, fallback to POST
+                if (err.code === 'INVALID_MESSAGE' || err.code === 'BAD_REQUEST' || err.code === 'UNKNOWN_ERROR') {
+                    console.warn(`GET method failed (${err.code}), falling back to POST method...`);
+                    return await retry(() => sendSMSPost(phone, message, sendOptions.sourceAddress, sendOptions));
+                }
+                throw err;
+            }
         } else {
             return await retry(() => sendSMSPost(phone, message, sendOptions.sourceAddress, sendOptions));
         }
