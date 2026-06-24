@@ -302,6 +302,7 @@ export default function AddBookingModal({
         let generated = 0;
         let y = currentDate.getFullYear();
         let m = currentDate.getMonth();
+        let addedToTotal = false;
 
         while (generated < 6) {
           const d = getNthDayOfMonth(y, m, cd.day, cd.week);
@@ -309,15 +310,18 @@ export default function AddBookingModal({
             const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
             if (!isPastDateKey(key) || generated > 0) {
               if (isWithinOpenHours(key, startHour, endHour)) {
-                const dId = dateKeyToDateId(key);
-                total += calculateBookingTotalAmount({
-                  startHour,
-                  endHour,
-                  location: locationWithPeriods,
-                  peakHourRate: selectedPitch.peakHourRate,
-                  nonPeakHourRate: selectedPitch.nonPeakHourRate,
-                  dateId: dId,
-                });
+                if (!addedToTotal) {
+                  const dId = dateKeyToDateId(key);
+                  total += calculateBookingTotalAmount({
+                    startHour,
+                    endHour,
+                    location: locationWithPeriods,
+                    peakHourRate: selectedPitch.peakHourRate,
+                    nonPeakHourRate: selectedPitch.nonPeakHourRate,
+                    dateId: dId,
+                  });
+                  addedToTotal = true;
+                }
               }
               generated++;
             }
@@ -338,15 +342,17 @@ export default function AddBookingModal({
         for (let i = 0; i < 90; i++) {
           const key = toDateKey(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
           if (isWithinOpenHours(key, startHour, endHour)) {
-            const dId = dateKeyToDateId(key);
-            total += calculateBookingTotalAmount({
-              startHour,
-              endHour,
-              location: locationWithPeriods,
-              peakHourRate: selectedPitch.peakHourRate,
-              nonPeakHourRate: selectedPitch.nonPeakHourRate,
-              dateId: dId,
-            });
+            if (total === 0) {
+              const dId = dateKeyToDateId(key);
+              total = calculateBookingTotalAmount({
+                startHour,
+                endHour,
+                location: locationWithPeriods,
+                peakHourRate: selectedPitch.peakHourRate,
+                nonPeakHourRate: selectedPitch.nonPeakHourRate,
+                dateId: dId,
+              });
+            }
           }
           currentDate.setDate(currentDate.getDate() + 1);
         }
@@ -1217,7 +1223,7 @@ export default function AddBookingModal({
               </div>
               <div className={modalStyles.field}>
                 <label className={modalStyles.label} htmlFor={`${formId}-amount`}>
-                  Amount (LKR)
+                  {form.recurrence_type !== "none" ? "Initial Amount (LKR)" : "Amount (LKR)"}
                 </label>
                 <input
                   id={`${formId}-amount`}
@@ -1338,7 +1344,7 @@ export default function AddBookingModal({
               {(form.discount_type !== "none" && Number(form.discount_value) > 0) && (
                 <div className={modalStyles.field}>
                   <label className={modalStyles.label}>
-                    Final amount (LKR)
+                    {form.recurrence_type !== "none" ? "Final initial amount (LKR)" : "Final amount (LKR)"}
                   </label>
                   <input
                     type="text"
