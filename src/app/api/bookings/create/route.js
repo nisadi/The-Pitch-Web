@@ -9,6 +9,7 @@ import {
 import { PROMO_COLUMNS } from "@/lib/promos/promoMapper";
 import { findBookingRangeConflict } from "@/lib/bookings/bookingConflicts";
 import { resolvePitchId } from "@/lib/bookings/bookingMutations";
+import { sendBookingConfirmationSms } from "@/lib/sms/bookingConfirmationSms";
 
 export async function POST(request) {
   try {
@@ -144,7 +145,8 @@ export async function POST(request) {
           booking_date,
           start_time,
           end_time,
-          total_amount: finalTotal,
+          total_amount: Number(total_amount) || 0,
+          final_amount: finalTotal,
           booking_status: "confirmed",
           payment_status: "paid",
         },
@@ -168,13 +170,15 @@ export async function POST(request) {
       }
     }
 
-    // Send booking confirmation email (fire-and-forget, don't block response)
+    // Send booking confirmation email and SMS (fire-and-forget, don't block response)
     try {
       const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'there';
+      const phone = user.user_metadata?.phone_number || user.user_metadata?.phone || user.phone;
 
-      // Fetch sport and location names for the email
+      // Fetch sport, location and pitch names for the email/sms
       let sportName = 'Sport';
       let locationName = 'Location';
+      let courtName = 'Court';
 
       if (sport_id) {
         const { data: sportData } = await supabase.from('sports').select('name').eq('id', sport_id).single();
@@ -183,6 +187,10 @@ export async function POST(request) {
       if (location_id) {
         const { data: locData } = await supabase.from('locations').select('name').eq('id', location_id).single();
         if (locData) locationName = locData.name;
+      }
+      if (resolvedPitchId) {
+        const { data: pitchData } = await supabase.from('pitches').select('name').eq('id', resolvedPitchId).single();
+        if (pitchData) courtName = pitchData.name;
       }
 
       const bookingRef = `#TP-${data.id || Math.floor(10000 + Math.random() * 90000)}-X`;
@@ -195,9 +203,23 @@ export async function POST(request) {
         time: `${start_time} - ${end_time}`,
         amount: finalTotal,
       });
-    } catch (emailErr) {
-      console.error("[api/bookings/create] Failed to send booking email:", emailErr);
-      // Don't fail the booking if email fails
+
+      if (phone) {
+        await sendBookingConfirmationSms({
+          phone,
+          customerName: fullName,
+          reference: bookingRef,
+          date: booking_date,
+          time: `${start_time} - ${end_time}`,
+          location: locationName,
+          sport: sportName,
+          court: courtName,
+          finalAmount: finalTotal,
+        });
+      }
+    } catch (notificationErr) {
+      console.error("[api/bookings/create] Failed to send booking notification:", notificationErr);
+      // Don't fail the booking if email/sms fails
     }
 
     return Response.json({ booking: data });
