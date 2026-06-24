@@ -29,8 +29,6 @@ import {
 import { useAdminSettings } from "./settings/adminSettingsContext";
 import { getBookingsForDate } from "./bookingsData";
 import { formatHourLabel } from "./bookingsUtils";
-import { fetchCustomersFromSupabase } from "@/lib/customers/customerRealtime";
-import { mockCustomers } from "./customersData";
 import modalStyles from "./settings/LocationFormModal.module.css";
 
 const EMPTY_FORM = {
@@ -92,21 +90,8 @@ export default function AddBookingModal({
   const [submitError, setSubmitError] = useState("");
   const [loadingPitches, setLoadingPitches] = useState(false);
   const [endInput, setEndInput] = useState("");
-  // Phone lookup state: null | "checking" | { found: bool, name?: string }
-  const [phoneCheck, setPhoneCheck] = useState(null);
-  const phoneDebounceRef = useRef(null);
   const { pitches: settingsPitches, refreshPitches, locations: settingsLocations } =
     useAdminSettings();
-
-  const [customerList, setCustomerList] = useState([]);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Invite new customer state
-  const [showInvitePanel, setShowInvitePanel] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ name: "", email: "", phone: "" });
-  const [inviteStatus, setInviteStatus] = useState(null); // null | "sending" | "success" | { error: string }
 
   const locationWithPeriods = useMemo(
     () => enrichLocationWithDefaults(location),
@@ -295,16 +280,8 @@ export default function AddBookingModal({
   useEffect(() => {
     if (!open) {
       didInitForOpen.current = false;
-      /* eslint-disable react-hooks/set-state-in-effect */
       setForm(EMPTY_FORM);
       setSubmitError("");
-      setPhoneCheck(null);
-      setCustomerSearch("");
-      setShowDropdown(false);
-      setShowInvitePanel(false);
-      setInviteForm({ name: "", email: "", phone: "" });
-      setInviteStatus(null);
-      /* eslint-enable react-hooks/set-state-in-effect */
       return undefined;
     }
 
@@ -315,85 +292,6 @@ export default function AddBookingModal({
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    async function load() {
-      try {
-        if (isSupabaseConfigured()) {
-          const list = await fetchCustomersFromSupabase();
-          if (!cancelled) setCustomerList(list);
-        } else {
-          if (!cancelled) setCustomerList(mockCustomers);
-        }
-      } catch (err) {
-        console.error("Failed to fetch customers", err);
-        if (!cancelled) setCustomerList(mockCustomers);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filteredCustomersForDropdown = useMemo(() => {
-    const query = customerSearch.trim().toLowerCase();
-    if (!query) return [];
-    return customerList.filter((c) => {
-      const nameMatch = (c.name ?? "").toLowerCase().includes(query);
-      const emailMatch = (c.email ?? "").toLowerCase().includes(query);
-      const phoneMatch = (c.phone ?? "").toLowerCase().includes(query);
-      return nameMatch || emailMatch || phoneMatch;
-    });
-  }, [customerList, customerSearch]);
-
-  const handleSelectCustomer = (c) => {
-    if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
-    patch({
-      customer_name: c.name ?? "",
-      customer_email: c.email ?? "",
-      customer_phone: c.phone ?? "",
-    });
-    setPhoneCheck({ found: true, name: c.name });
-    setCustomerSearch(c.name ?? "");
-    setShowDropdown(false);
-  };
-
-  // Debounced phone lookup — fires 500ms after the user stops typing
-  useEffect(() => {
-    if (form.type === "block") return;
-    const rawPhone = (form.customer_phone ?? "").trim();
-    if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
-    if (!rawPhone) {
-      setPhoneCheck(null);
-      return;
-    }
-    setPhoneCheck("checking");
-    phoneDebounceRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/admin/users?phone=${encodeURIComponent(rawPhone)}`
-        );
-        const json = await res.json();
-        setPhoneCheck({ found: !!json.user, name: json.user?.full_name ?? null });
-      } catch {
-        setPhoneCheck({ found: false, name: null });
-      }
-    }, 500);
-    return () => clearTimeout(phoneDebounceRef.current);
-  }, [form.customer_phone, form.type]);
 
   useEffect(() => {
     if (!open || didInitForOpen.current) return;
@@ -593,35 +491,6 @@ export default function AddBookingModal({
 
   const patch = (updates) => setForm((prev) => ({ ...prev, ...updates }));
 
-  const handleSendInvite = async () => {
-    const email = inviteForm.email.trim();
-    const name = inviteForm.name.trim();
-    const phone = inviteForm.phone.trim();
-    if (!email || !name) return;
-    setInviteStatus("sending");
-    try {
-      const res = await fetch("/api/admin/invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, fullName: name, phone }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setInviteStatus({ error: json.error || "Failed to send invite." });
-        return;
-      }
-      setInviteStatus("success");
-      // Auto-fill customer fields so the booking can proceed
-      patch({ customer_name: name, customer_email: email, customer_phone: phone });
-      setPhoneCheck({ found: false, name });
-      setCustomerSearch(name);
-      setShowInvitePanel(false);
-      setShowDropdown(false);
-    } catch (err) {
-      setInviteStatus({ error: err?.message || "Network error." });
-    }
-  };
-
   const handleStartChange = (startHour) => {
     const ends = getValidEndHours(
       form.booking_date,
@@ -691,16 +560,6 @@ export default function AddBookingModal({
       return;
     }
 
-    if (form.type === "booking" && !String(form.customer_phone ?? "").trim()) {
-      setSubmitError("Phone number is required.");
-      return;
-    }
-
-    if (form.type === "booking" && phoneCheck === "checking") {
-      setSubmitError("Please wait — checking phone number…");
-      return;
-    }
-
     const endHour = Number(form.end_hour) || Number(form.start_hour) + 1;
     const finalAmt = calculateFinalAmount(
       form.total_amount,
@@ -723,8 +582,6 @@ export default function AddBookingModal({
   );
 
   const hasCustomer = isBlock || String(form.customer_name ?? "").trim();
-  const hasPhone = isBlock || String(form.customer_phone ?? "").trim();
-  const phoneReady = isBlock || (hasPhone && phoneCheck !== "checking");
 
   const canSubmit =
     locationWithPeriods?.dbId &&
@@ -739,8 +596,6 @@ export default function AddBookingModal({
     pitches.length > 0 &&
     locationSports.length > 0 &&
     hasCustomer &&
-    hasPhone &&
-    phoneReady &&
     isRangeValid;
 
   const submitHint =
@@ -759,11 +614,7 @@ export default function AddBookingModal({
                 ? "Pick a valid future time range that does not overlap existing bookings."
                 : !hasCustomer
                   ? "Please enter the customer name."
-                  : !hasPhone
-                    ? "Phone number is required."
-                    : phoneCheck === "checking"
-                      ? "Checking phone number…"
-                      : "");
+                  : "");
 
   return createPortal(
     <div
@@ -1035,217 +886,6 @@ export default function AddBookingModal({
                   show another user from the database.
                 </p>
               </div>
-              <div ref={dropdownRef} className={modalStyles.field} style={{ position: "relative" }}>
-                <label className={modalStyles.label} htmlFor={`${formId}-customer-search`}>
-                  Search existing customer
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    id={`${formId}-customer-search`}
-                    type="text"
-                    className={modalStyles.input}
-                    placeholder="🔍 Search name, phone, or email..."
-                    value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value);
-                      setShowDropdown(true);
-                    }}
-                    onFocus={() => setShowDropdown(true)}
-                  />
-                  {customerSearch && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomerSearch("");
-                        setShowDropdown(false);
-                      }}
-                      style={{
-                        position: "absolute",
-                        right: "12px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: "var(--foreground-muted, #94a3b8)",
-                        cursor: "pointer",
-                        fontSize: "0.95rem",
-                        padding: "4px 8px",
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                {showDropdown && filteredCustomersForDropdown.length > 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 4px)",
-                      left: 0,
-                      right: 0,
-                      zIndex: 1000,
-                      maxHeight: "220px",
-                      overflowY: "auto",
-                      background: "var(--surface, #1e293b)",
-                      border: "1px solid var(--border, #334155)",
-                      borderRadius: "10px",
-                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)",
-                    }}
-                  >
-                    {filteredCustomersForDropdown.map((c) => (
-                      <div
-                        key={c.dbId || c.id}
-                        onClick={() => handleSelectCustomer(c)}
-                        style={{
-                          padding: "0.7rem 0.9rem",
-                          cursor: "pointer",
-                          borderBottom: "1px solid var(--border, #334155)",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "0.2rem",
-                          transition: "background 0.15s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "var(--surface-hover, rgba(255, 255, 255, 0.05))";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                        }}
-                      >
-                        <span style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--foreground, #f8fafc)" }}>
-                          {c.name}
-                        </span>
-                        <span style={{ fontSize: "0.75rem", color: "var(--foreground-muted, #94a3b8)" }}>
-                          {c.phone ? `📞 ${c.phone}` : ""} {c.phone && c.email ? " · " : ""} {c.email ? `✉️ ${c.email}` : ""}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {showDropdown && customerSearch.trim().length > 0 && filteredCustomersForDropdown.length === 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 4px)",
-                      left: 0,
-                      right: 0,
-                      zIndex: 1000,
-                      padding: "0.85rem 1rem",
-                      background: "var(--surface, #1e293b)",
-                      border: "1px solid var(--border, #334155)",
-                      borderRadius: "10px",
-                      fontSize: "0.8rem",
-                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5)",
-                    }}
-                  >
-                    <span style={{ color: "var(--foreground-muted, #94a3b8)" }}>No matching customers found.</span>
-                    {" "}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowInvitePanel(true);
-                        setShowDropdown(false);
-                        setInviteForm((prev) => ({ ...prev, name: customerSearch.trim() }));
-                        setInviteStatus(null);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "var(--primary, #A3FF00)",
-                        cursor: "pointer",
-                        fontWeight: 600,
-                        fontSize: "0.8rem",
-                        padding: 0,
-                        textDecoration: "underline",
-                      }}
-                    >
-                      Invite as new customer
-                    </button>
-                  </div>
-                )}
-              </div>
-              {/* Invite new customer panel */}
-              {showInvitePanel && (
-                <div
-                  style={{
-                    background: "rgba(163, 255, 0, 0.06)",
-                    border: "1px solid rgba(163, 255, 0, 0.25)",
-                    borderRadius: "10px",
-                    padding: "1rem",
-                    marginBottom: "0.5rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.65rem",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--primary, #A3FF00)" }}>
-                      ✉️ Invite new customer
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => { setShowInvitePanel(false); setInviteStatus(null); }}
-                      style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "0.85rem" }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <p style={{ fontSize: "0.75rem", color: "#94a3b8", margin: 0 }}>
-                    An invitation email will be sent to the customer with a link to sign up and set their password.
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    <input
-                      type="text"
-                      className={modalStyles.input}
-                      placeholder="Full name *"
-                      value={inviteForm.name}
-                      onChange={(e) => setInviteForm((prev) => ({ ...prev, name: e.target.value }))}
-                      required
-                    />
-                    <input
-                      type="email"
-                      className={modalStyles.input}
-                      placeholder="Email address *"
-                      value={inviteForm.email}
-                      onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
-                      required
-                    />
-                    <input
-                      type="tel"
-                      className={modalStyles.input}
-                      placeholder="Phone number (e.g. 077 123 4567)"
-                      value={inviteForm.phone}
-                      onChange={(e) => setInviteForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    />
-                  </div>
-                  {inviteStatus && inviteStatus !== "sending" && inviteStatus !== "success" && (
-                    <p style={{ fontSize: "0.78rem", color: "#f87171", margin: 0 }}>⚠️ {inviteStatus.error}</p>
-                  )}
-                  {inviteStatus === "success" && (
-                    <p style={{ fontSize: "0.78rem", color: "#4ade80", margin: 0 }}>✅ Invite sent! Customer fields have been filled.</p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleSendInvite}
-                    disabled={inviteStatus === "sending" || !inviteForm.email.trim() || !inviteForm.name.trim()}
-                    style={{
-                      background: "var(--primary, #A3FF00)",
-                      color: "#0a0a0a",
-                      border: "none",
-                      borderRadius: "8px",
-                      padding: "0.55rem 1.1rem",
-                      fontWeight: 700,
-                      fontSize: "0.82rem",
-                      cursor: "pointer",
-                      opacity: inviteStatus === "sending" || !inviteForm.email.trim() || !inviteForm.name.trim() ? 0.6 : 1,
-                      alignSelf: "flex-start",
-                      transition: "opacity 0.15s",
-                    }}
-                  >
-                    {inviteStatus === "sending" ? "Sending…" : "Send Invite"}
-                  </button>
-                </div>
-              )}
               <div className={modalStyles.field}>
                 <label
                   className={modalStyles.label}
@@ -1257,11 +897,12 @@ export default function AddBookingModal({
                   id={`${formId}-customer`}
                   type="text"
                   className={modalStyles.input}
-                  placeholder="Select a customer using the search field above"
+                  placeholder="Full name"
                   value={form.customer_name}
-                  readOnly
+                  onChange={(e) =>
+                    patch({ customer_name: e.target.value })
+                  }
                   required
-                  style={{ backgroundColor: "rgba(255, 255, 255, 0.05)", cursor: "not-allowed" }}
                 />
               </div>
               <div className={modalStyles.formRow}>
@@ -1278,8 +919,9 @@ export default function AddBookingModal({
                     className={modalStyles.input}
                     placeholder="customer@example.com"
                     value={form.customer_email}
-                    readOnly
-                    style={{ backgroundColor: "rgba(255, 255, 255, 0.05)", cursor: "not-allowed" }}
+                    onChange={(e) =>
+                      patch({ customer_email: e.target.value })
+                    }
                   />
                 </div>
                 <div className={modalStyles.field}>
@@ -1287,38 +929,18 @@ export default function AddBookingModal({
                     className={modalStyles.label}
                     htmlFor={`${formId}-phone`}
                   >
-                    Phone <span className={modalStyles.required}>*</span>
+                    Phone
                   </label>
                   <input
                     id={`${formId}-phone`}
                     type="tel"
                     className={modalStyles.input}
-                    placeholder="077 123 4567"
+                    placeholder="+94 77 123 4567"
                     value={form.customer_phone}
-                    required
-                    readOnly
-                    style={{ backgroundColor: "rgba(255, 255, 255, 0.05)", cursor: "not-allowed" }}
+                    onChange={(e) =>
+                      patch({ customer_phone: e.target.value })
+                    }
                   />
-                  {phoneCheck === "checking" && (
-                    <p className={modalStyles.hint} style={{ marginTop: "0.35rem", marginBottom: 0, color: "#94a3b8" }}>
-                      ⏳ Checking phone number…
-                    </p>
-                  )}
-                  {phoneCheck && phoneCheck !== "checking" && (
-                    <p
-                      className={modalStyles.hint}
-                      style={{
-                        marginTop: "0.35rem",
-                        marginBottom: 0,
-                        color: phoneCheck.found ? "#4ade80" : "#fb923c",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {phoneCheck.found
-                        ? `✅ Existing customer: ${phoneCheck.name ?? "(no name)"}`
-                        : "🆕 New customer — invite email sent, they will be asked to sign up"}
-                    </p>
-                  )}
                 </div>
               </div>
               <div className={modalStyles.field}>
