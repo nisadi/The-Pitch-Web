@@ -27,8 +27,8 @@ import {
   getActivePitchesForLocation,
 } from "@/lib/pitches/pitchMapper";
 import { useAdminSettings } from "./settings/adminSettingsContext";
-import { getBookingsForDate } from "./bookingsData";
-import { formatHourLabel } from "./bookingsUtils";
+import { getBookingsForDate, toDateKey } from "./bookingsData";
+import { formatHourLabel, getOperationalHoursForDay, dateFromKey } from "./bookingsUtils";
 import modalStyles from "./settings/LocationFormModal.module.css";
 
 const EMPTY_FORM = {
@@ -96,6 +96,7 @@ export default function AddBookingModal({
   const [customDay, setCustomDay] = useState("1");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [customEndInput, setCustomEndInput] = useState("");
   const { pitches: settingsPitches, refreshPitches, locations: settingsLocations } =
     useAdminSettings();
 
@@ -261,24 +262,98 @@ export default function AddBookingModal({
   useEffect(() => {
     if (!open || form.type === "block" || !selectedPitch) return;
     
+    const isWithinOpenHours = (dateKey, startH, endH) => {
+      if (!dateKey || !startH) return false;
+      const d = dateFromKey(dateKey);
+      const dateId = (d.getDay() + 6) % 7;
+      const ops = getOperationalHoursForDay(locationWithPeriods.openTimeMappings, dateId);
+      if (!ops || ops.length === 0) return false;
+      for (let h = Math.floor(Number(startH)); h < Number(endH); h++) {
+        if (!ops.includes(h)) return false;
+      }
+      return true;
+    };
+
     let total = 0;
     if (form.recurrence_type === "monthly") {
-      const sum = form.custom_dates.reduce((acc, cd) => {
-        const dId = cd.booking_date ? dateKeyToDateId(cd.booking_date) : null;
-        return acc + calculateBookingTotalAmount({
-          startHour: cd.start_hour,
-          endHour: cd.end_hour,
-          location: locationWithPeriods,
-          peakHourRate: selectedPitch.peakHourRate,
-          nonPeakHourRate: selectedPitch.nonPeakHourRate,
-          dateId: dId,
-        });
-      }, 0);
-      total = sum * 6;
+      const getNthDayOfMonth = (year, month, dayOfWeek, weekStr) => {
+        let date = new Date(year, month, 1);
+        let count = 0;
+        let lastFound = null;
+        while (date.getMonth() === month) {
+          if (date.getDay() === dayOfWeek) {
+            count++;
+            lastFound = new Date(date);
+            if (weekStr === "1st" && count === 1) return date;
+            if (weekStr === "2nd" && count === 2) return date;
+            if (weekStr === "3rd" && count === 3) return date;
+            if (weekStr === "4th" && count === 4) return date;
+          }
+          date.setDate(date.getDate() + 1);
+        }
+        if (weekStr === "last" && lastFound) return lastFound;
+        return null;
+      };
+
+      form.custom_dates.forEach((cd) => {
+        const startHour = Number(cd.start_hour);
+        const endHour = Number(cd.end_hour) || startHour + 1;
+        let currentDate = form.booking_date ? dateFromKey(form.booking_date) : new Date();
+        let generated = 0;
+        let y = currentDate.getFullYear();
+        let m = currentDate.getMonth();
+
+        while (generated < 6) {
+          const d = getNthDayOfMonth(y, m, cd.day, cd.week);
+          if (d) {
+            const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+            if (!isPastDateKey(key) || generated > 0) {
+              if (isWithinOpenHours(key, startHour, endHour)) {
+                const dId = dateKeyToDateId(key);
+                total += calculateBookingTotalAmount({
+                  startHour,
+                  endHour,
+                  location: locationWithPeriods,
+                  peakHourRate: selectedPitch.peakHourRate,
+                  nonPeakHourRate: selectedPitch.nonPeakHourRate,
+                  dateId: dId,
+                });
+              }
+              generated++;
+            }
+          }
+          m++;
+          if (m > 11) {
+            m = 0;
+            y++;
+          }
+        }
+      });
+    } else if (form.recurrence_type === "daily") {
+      if (form.booking_date && form.start_hour) {
+        let currentDate = dateFromKey(form.booking_date);
+        const startHour = Number(form.start_hour);
+        const endHour = Number(form.end_hour) || startHour + 1;
+        
+        for (let i = 0; i < 90; i++) {
+          const key = toDateKey(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          if (isWithinOpenHours(key, startHour, endHour)) {
+            const dId = dateKeyToDateId(key);
+            total += calculateBookingTotalAmount({
+              startHour,
+              endHour,
+              location: locationWithPeriods,
+              peakHourRate: selectedPitch.peakHourRate,
+              nonPeakHourRate: selectedPitch.nonPeakHourRate,
+              dateId: dId,
+            });
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
     } else {
-      const occurrences = form.recurrence_type === "daily" ? 90 : 1;
       const dateId = form.booking_date ? dateKeyToDateId(form.booking_date) : null;
-      const baseTotal = calculateBookingTotalAmount({
+      total = calculateBookingTotalAmount({
         startHour: form.start_hour,
         endHour: form.end_hour,
         location: locationWithPeriods,
@@ -286,7 +361,6 @@ export default function AddBookingModal({
         nonPeakHourRate: selectedPitch.nonPeakHourRate,
         dateId,
       });
-      total = baseTotal * occurrences;
     }
 
     setForm((prev) => ({
@@ -303,6 +377,7 @@ export default function AddBookingModal({
     locationWithPeriods,
     form.recurrence_type,
     form.custom_dates,
+    form.booking_date,
   ]);
 
   useEffect(() => {
@@ -944,19 +1019,56 @@ export default function AddBookingModal({
                  </div>
                  <div style={{ flex: 1, minWidth: "80px" }}>
                    <label style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.2rem", color: "var(--foreground)" }}>Start</label>
-                   <select className={modalStyles.input} value={customStart} onChange={(e) => setCustomStart(e.target.value)}>
+                   <select className={modalStyles.input} value={customStart} onChange={(e) => {
+                     setCustomStart(e.target.value);
+                     setCustomEnd("");
+                     setCustomEndInput("");
+                   }}>
                      <option value="">Time</option>
                      {slotHours.map(hour => <option key={hour} value={String(hour)}>{formatHourLabel(hour)}</option>)}
                    </select>
                  </div>
                  <div style={{ flex: 1, minWidth: "80px" }}>
                    <label style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.2rem", color: "var(--foreground)" }}>End</label>
-                   <select className={modalStyles.input} value={customEnd} onChange={(e) => setCustomEnd(e.target.value)}>
-                     <option value="">Time</option>
-                     {slotHours.length > 0 && [...slotHours, Math.max(...slotHours) + 1].map(hour => (
-                       <option key={hour} value={String(hour)}>{formatEndHourLabel(hour)}</option>
-                     ))}
-                   </select>
+                   <input
+                     type="text"
+                     placeholder="23:30"
+                     pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+                     maxLength={5}
+                     className={modalStyles.input}
+                     disabled={!customStart}
+                     value={customEndInput}
+                     onChange={(e) => {
+                       let val = e.target.value.replace(/[^0-9:]/g, "");
+                       if (val.length === 2 && !val.includes(':') && customEndInput.length < val.length) {
+                         val += ':';
+                       }
+                       setCustomEndInput(val);
+
+                       const parts = val.split(":");
+                       if (parts.length === 2 && parts[1].length === 2) {
+                         const hour = parseInt(parts[0], 10);
+                         const min = parseInt(parts[1], 10);
+                         if (Number.isFinite(hour) && Number.isFinite(min) && hour >= 0 && hour <= 24 && min >= 0 && min <= 59) {
+                           setCustomEnd(String(hour + min / 60));
+                         }
+                       }
+                     }}
+                     onBlur={() => {
+                       const [hh, mm] = customEndInput.split(":");
+                       const hour = parseInt(hh, 10);
+                       const min = parseInt(mm || "0", 10);
+                       
+                       if (Number.isFinite(hour) && hour >= 0 && hour <= 24) {
+                         const decimal = hour + (Number.isFinite(min) ? min / 60 : 0);
+                         setCustomEnd(String(decimal));
+                         setCustomEndInput(formatTimeValue(decimal));
+                       } else {
+                         setCustomEnd("");
+                         setCustomEndInput("");
+                       }
+                     }}
+                   />
                  </div>
                  <button 
                     type="button" 
@@ -967,6 +1079,7 @@ export default function AddBookingModal({
                         patch({ custom_dates: [...form.custom_dates, { week: customWeek, day: Number(customDay), start_hour: Number(customStart), end_hour: Number(customEnd) }] });
                         setCustomStart("");
                         setCustomEnd("");
+                        setCustomEndInput("");
                       } else {
                         alert("Please select a valid week, day, and time range.");
                       }

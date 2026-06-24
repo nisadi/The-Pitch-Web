@@ -4,8 +4,7 @@ import { sendEnquiryReplySms } from "@/lib/sms/enquiryReplySms";
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { phone, message, referenceCode, enquiryQuestion, contactPhone } =
-      body ?? {};
+    const { phone, message, locationName, contactPhone } = body ?? {};
 
     if (!message?.trim()) {
       return NextResponse.json(
@@ -17,8 +16,7 @@ export async function POST(request) {
     const result = await sendEnquiryReplySms({
       phone,
       message: message.trim(),
-      referenceCode: referenceCode?.trim() || undefined,
-      enquiryQuestion: enquiryQuestion?.trim() || undefined,
+      locationName: locationName?.trim() || undefined,
       contactPhone: contactPhone?.trim() || undefined,
     });
 

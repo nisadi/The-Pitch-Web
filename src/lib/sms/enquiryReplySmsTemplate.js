@@ -10,57 +10,19 @@ function collapseWhitespace(text) {
 }
 
 /**
- * Composed enquiry reply SMS. Admin reply is never truncated; only the
- * customer question may be shortened if the full body exceeds maxTotalLength.
+ * Composed enquiry reply SMS. Admin reply is never truncated.
  */
 export function buildEnquiryReplySmsBody({
-  referenceCode,
-  enquiryQuestion,
+  locationName,
   reply,
-  contactPhone = DEFAULT_CONTACT_PHONE,
-  maxTotalLength = null,
+  contactPhone,
 }) {
-  const ref = referenceCode ? `${referenceCode}\n` : "";
-  const footer = `\n\nThe Pitch Indoor Stadium — enquiries: ${contactPhone}`;
-  const replyLabel = "Reply: ";
-  const questionLabel = "Q: ";
+  const locStr = locationName ? ` - ${locationName}` : "";
+  const header = `The Pitch Indoor Stadium${locStr}\n\n`;
+  const footer = contactPhone ? `\n\nEnquiries: ${contactPhone}` : "";
 
   const answer = collapseWhitespace(reply);
-  let question = collapseWhitespace(enquiryQuestion);
-
-  const build = () =>
-    `${ref}${questionLabel}${question}\n${replyLabel}${answer}${footer}`;
-
-  if (!maxTotalLength || maxTotalLength <= 0) {
-    return build();
-  }
-
-  let body = build();
-  if (body.length <= maxTotalLength) {
-    return body;
-  }
-
-  const fixedLen =
-    ref.length +
-    questionLabel.length +
-    replyLabel.length +
-    answer.length +
-    1 +
-    footer.length;
-
-  const questionBudget = maxTotalLength - fixedLen;
-  if (questionBudget > 8) {
-    question =
-      question.length <= questionBudget
-        ? question
-        : `${question.slice(0, questionBudget - 1)}…`;
-    body = build();
-    if (body.length <= maxTotalLength) {
-      return body;
-    }
-  }
-
-  return build();
+  return `${header}${answer}${footer}`;
 }
 
 export function getPitchContactPhone() {

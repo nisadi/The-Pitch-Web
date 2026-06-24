@@ -74,13 +74,17 @@ async function resolveEmailContext(supabaseAdmin, bookingDetails) {
   }
 
   // Fetch location name
+  let locationPhone = undefined;
   if (bookingDetails.location_id) {
     const { data: locData } = await supabaseAdmin
       .from('locations')
-      .select('name')
+      .select('name, phone')
       .eq('id', bookingDetails.location_id)
       .single();
-    if (locData) locationName = locData.name;
+    if (locData) {
+      locationName = locData.name;
+      locationPhone = locData.phone;
+    }
   }
 
   // Fetch court/pitch name
@@ -333,6 +337,7 @@ export async function POST(request) {
                   sport: sportName,
                   court: courtName,
                   finalAmount: grandTotal,
+                  contactPhone: locationPhone,
                 }).catch((err) => {
                   console.error('[verify] Failed to send booking confirmation SMS:', err);
                 });
