@@ -1,6 +1,7 @@
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import JsonLdScripts from "@/components/seo/JsonLdScripts";
+import AlertSystem from "@/components/AlertSystem";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
@@ -55,6 +56,7 @@ export default function RootLayout({ children }) {
       <body className="has-navbar">
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
           <JsonLdScripts />
+          <AlertSystem />
           <AppShell>{children}</AppShell>
         </div>
       </body>

@@ -81,11 +81,12 @@ export default function PaymentSummary() {
     });
   }, []);
 
-  const loadPayments = useCallback(async () => {
-    const remote = await fetchPaymentsFromSupabase();
+  const loadPayments = useCallback(async (locId) => {
+    const id = locId ?? locationId;
+    const remote = await fetchPaymentsFromSupabase(id || undefined);
     setPayments(sortPayments(remote));
     setPaymentsSyncError(null);
-  }, [sortPayments]);
+  }, [sortPayments, locationId]);
 
   useEffect(() => {
     if (!usesSupabase) return undefined;
@@ -96,14 +97,15 @@ export default function PaymentSummary() {
     async function init() {
       try {
         unsubscribe = await subscribeToPayments(
-          () => {
+          (locId) => {
             if (cancelled) return;
-            void loadPayments().catch(() => {});
+            void loadPayments(locId).catch(() => {});
           },
           () => {
             if (cancelled) return;
             void loadPayments().catch(() => {});
-          }
+          },
+          locationId || undefined
         );
 
         await loadPayments();
@@ -127,7 +129,7 @@ export default function PaymentSummary() {
       cancelled = true;
       unsubscribe();
     };
-  }, [usesSupabase, loadPayments]);
+  }, [usesSupabase, loadPayments, locationId]);
 
   useEffect(() => {
     if (!usesSupabase) return undefined;

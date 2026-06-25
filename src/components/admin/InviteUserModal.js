@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Eye, EyeOff, MailPlus, X } from "lucide-react";
-import emailjs from "@emailjs/browser";
-import { formatEmailJsError } from "@/lib/email/formatEmailJsError";
+
 import { DEFAULT_ROLE_ID } from "@/lib/users/userRoles";
 import styles from "./InviteUserModal.module.css";
 
@@ -68,52 +67,39 @@ export default function InviteUserModal({
       let emailWarning = null;
 
       try {
-        const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
-        const templateId = process.env.NEXT_PUBLIC_EMAILJS_INVITE_TEMPLATE_ID;
-        const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+        const loginUrl = `${window.location.origin}/login`;
 
-        if (serviceId && templateId && publicKey) {
-          const baseUrl =
-            process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-            window.location.origin;
+        const res = await fetch("/api/send-invite-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.name,
+            email: form.email,
+            password: form.password,
+            loginUrl,
+          }),
+        });
 
-          try {
-            const result = await emailjs.send(
-              serviceId,
-              templateId,
-              {
-                name: form.name,
-                email: form.email,
-                password: form.password,
-                loginUrl: `${baseUrl}/login`,
-              },
-              { publicKey }
-            );
-
-            if (result.status < 200 || result.status >= 300) {
-              throw result;
-            }
-          } catch (err) {
-            const message = formatEmailJsError(err);
-            console.error("Invite email failed", {
-              status: err?.status,
-              text: err?.text,
-              message,
-            });
-            // Don't block user creation — just warn about the email
-            emailWarning = message;
-          }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const message = data.message || `Server error ${res.status}`;
+          console.error("Invite email failed", { status: res.status, message });
+          // Don't block user creation — just warn about the email
+          emailWarning = message;
         }
+      } catch (err) {
+        console.error("Invite email request failed", err);
+        emailWarning = err.message || "Network error";
       } finally {
         setSendingEmail(false);
       }
 
       if (emailWarning) {
         window.alert(
-          `User ${form.email} was created successfully.\n\nNote: The invite email could not be sent `
+          `User ${form.email} was created successfully.\n\nNote: The invite email could not be sent.`
         );
       } else {
-        window.alert(`User ${form.email} was created successfully.`);
+        window.alert(`User ${form.email} was created and invite email sent successfully.`);
       }
       onClose();
     }

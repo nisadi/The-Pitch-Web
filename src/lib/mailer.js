@@ -295,6 +295,126 @@ export const sendBookingConfirmationEmail = async (toEmail, fullName, booking) =
 };
 
 /**
+ * Sends an invite / credentials email to a newly created team member.
+ * @param {string} toEmail
+ * @param {string} name
+ * @param {string} password
+ * @param {string} loginUrl
+ * @returns {Promise<{success: boolean, messageId?: string, error?: string}>}
+ */
+export const sendInviteEmail = async (toEmail, name, password, loginUrl) => {
+  try {
+    const year = new Date().getFullYear();
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>You are been invited to The Pitch</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F4F4F5;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F4F4F5;padding:40px 20px;">
+    <tr>
+      <td align="center">
+
+        <table width="800" cellpadding="0" cellspacing="0" border="0"
+          style="max-width:800px;width:100%;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+
+          <!-- Header Banner -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d1a0f 0%,#142218 50%,#0a1a0d 100%);padding:36px 40px 28px 40px;">
+              <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#A3FF00;margin-bottom:16px;text-transform:uppercase;">THE PITCH</div>
+              <h1 style="margin:0;font-size:28px;font-weight:900;color:#ffffff;text-transform:uppercase;letter-spacing:1px;">YOU'RE INVITED ✓</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="background-color:#121212;padding:40px;">
+
+              <h2 style="margin:0 0 8px 0;font-size:20px;font-weight:900;color:#ffffff;text-transform:uppercase;letter-spacing:1px;">
+                Hey ${name},
+              </h2>
+              <p style="margin:0 0 28px 0;font-size:15px;line-height:1.7;color:#A1A1AA;">
+                An admin has created an account for you on <span style="color:#A3FF00;font-weight:700;">The Pitch</span> management system. Use the credentials below to sign in.
+              </p>
+
+              <!-- Credentials Table -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="padding:14px 16px;background-color:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.06);border-radius:8px 8px 0 0;">
+                    <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#A1A1AA;text-transform:uppercase;margin-bottom:4px;">EMAIL</div>
+                    <div style="font-size:15px;font-weight:700;color:#ffffff;">${toEmail}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 16px;background-color:rgba(255,255,255,0.03);border-radius:0 0 8px 8px;">
+                    <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#A1A1AA;text-transform:uppercase;margin-bottom:4px;">TEMPORARY PASSWORD</div>
+                    <div style="font-size:16px;font-weight:800;color:#A3FF00;letter-spacing:2px;font-family:monospace;">${password}</div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="border-radius:8px;background-color:#A3FF00;">
+                    <a href="${loginUrl}" target="_blank"
+                      style="display:inline-block;padding:14px 32px;font-size:14px;font-weight:900;color:#000000;text-decoration:none;letter-spacing:1px;text-transform:uppercase;">
+                      Sign In Now →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="border-top:1px solid rgba(255,255,255,0.08);margin-bottom:24px;"></div>
+
+              <p style="margin:0;font-size:13px;line-height:1.7;color:rgba(161,161,170,0.7);">
+                Please change your password after your first login. Have questions? Contact your admin. See you on the pitch! ⚽
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#0d0d0d;padding:20px 40px;text-align:center;border-top:1px solid rgba(255,255,255,0.06);">
+              <p style="margin:0;font-size:12px;color:rgba(161,161,170,0.5);">
+                &copy; ${year} The Pitch. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+    `;
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM_EMAIL || '"The Pitch" <noreply@thepitch.com>',
+      to: toEmail,
+      subject: 'You are been invited to The Pitch 🎉',
+      html: htmlContent,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[Mailer] Invite email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('[Mailer] Error sending invite email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Sends a payment confirmation email after a successful payment.
  * @param {string} toEmail
  * @param {string} fullName

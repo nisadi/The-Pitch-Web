@@ -194,6 +194,21 @@
   white-space: nowrap;
 }
 
+.adminTag {
+  display: inline-flex;
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
+  background: rgba(163, 255, 0, 0.1);
+  border: 1px solid rgba(163, 255, 0, 0.2);
+  vertical-align: middle;
+}
+
 .message {
   max-width: 220px;
 }

@@ -12,6 +12,7 @@ export const PAYMENT_SELECT = `
   created_at,
   bookings (
     id,
+    location_id,
     booking_date,
     start_time,
     end_time,
