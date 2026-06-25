@@ -839,6 +839,9 @@ export default function CustomerManagement() {
                       <tr key={customer.dbId ?? customer.id}>
                         <td>
                           {customer.name}
+                          {customer.isGuestCustomer && (
+                            <span className={styles.adminTag}>by admin</span>
+                          )}
                           <span className={styles.meta}>{customer.phone}</span>
                         </td>
                         <td>{customer.email || "—"}</td>

@@ -201,17 +201,28 @@ export default function EnquiryDetailModal({
 
         {canReply ? (
           <form className={styles.footer} onSubmit={handleSubmit}>
-            <label className={styles.replyLabel} htmlFor="enquiry-reply">
-              Reply to {enquiry.name}
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <label className={styles.replyLabel} htmlFor="enquiry-reply">
+                Reply to {enquiry.name}
+              </label>
+              <span style={{ fontSize: "12px", color: "var(--text-secondary, #888)" }}>
+                {replyText.length} / 100
+              </span>
+            </div>
             <textarea
               id="enquiry-reply"
               className={styles.textarea}
               value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
+              onChange={(e) => {
+                let val = e.target.value;
+                if (val.length > 100) val = val.substring(0, 100);
+                val = val.replace(/[^a-zA-Z0-9 .,!?'"()\n-]/g, "");
+                setReplyText(val);
+              }}
               placeholder="Your reply — sent in full via SMS with the enquiry reference, customer question, and Pitch contact details."
               disabled={sending}
               rows={4}
+              maxLength={100}
             />
             <div className={styles.footerActions}>
               <button

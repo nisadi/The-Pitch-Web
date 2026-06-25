@@ -13,6 +13,7 @@ export default function ConfirmDialog({
   onClose,
   onConfirm,
   variant = "default", // 'default' | 'destructive'
+  hideCancel = false,
 }) {
   useEffect(() => {
     if (!open) return undefined;
@@ -52,13 +53,15 @@ export default function ConfirmDialog({
           </p>
         </div>
         <div className={styles.footer}>
-          <button type="button" className={styles.cancelBtn} onClick={onClose}>
-            {cancelLabel}
-          </button>
+          {!hideCancel && (
+            <button type="button" className={styles.cancelBtn} onClick={onClose}>
+              {cancelLabel}
+            </button>
+          )}
           <button 
             type="button" 
             className={variant === "destructive" ? styles.destructiveBtn : styles.confirmBtn} 
-            onClick={() => { onConfirm(); onClose(); }}
+            onClick={() => { if (onConfirm) onConfirm(); onClose(); }}
           >
             {confirmLabel}
           </button>

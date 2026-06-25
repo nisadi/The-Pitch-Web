@@ -18,8 +18,8 @@ export function buildEnquiryReplySmsBody({
   contactPhone,
 }) {
   const locStr = locationName ? ` - ${locationName}` : "";
-  const header = `The Pitch Indoor Stadium${locStr}\n\n`;
-  const footer = contactPhone ? `\n\nEnquiries: ${contactPhone}` : "";
+  const header = `Pitch Indoor Stadium${locStr}\n`;
+  const footer = contactPhone ? `\nEnquiries: ${contactPhone}` : "";
 
   const answer = collapseWhitespace(reply);
   return `${header}${answer}${footer}`;
