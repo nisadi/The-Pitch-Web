@@ -7,10 +7,10 @@ function formatBookingDate(dateKey) {
   try {
     const [y, m, d] = String(dateKey).split("-").map(Number);
     const date = new Date(y, m - 1, d);
-    return date.toLocaleDateString("en-LK", {
+    return date.toLocaleDateString("en-US", {
       weekday: "short",
-      day: "numeric",
       month: "short",
+      day: "numeric",
       year: "numeric",
     });
   } catch {
@@ -40,21 +40,26 @@ export function buildBookingConfirmationSmsBody({
   contactPhone = getPitchContactPhone(),
 }) {
   const name = customerName?.trim().split(' ')[0];
-  const greeting = name ? `Hi ${name}, ` : "";
+  const greeting = name ? `Hi ${name}, ` : "Hi, ";
 
   const displayAmount = finalAmount !== undefined ? finalAmount : totalAmount;
+  const amtFormatted = displayAmount !== undefined && displayAmount !== null
+    ? `Rs. ${Number(displayAmount).toLocaleString("en-LK", { maximumFractionDigits: 0 })}`
+    : null;
+
+  const dateStr = date ? formatBookingDate(date) : "";
+  const dateTimeLine = [dateStr, time].filter(Boolean).join(" - ");
 
   const lines = [
-    `${greeting}your booking is confirmed.`,
-    date ? `Date: ${formatBookingDate(date)}` : null,
-    time ? `Time: ${time}` : null,
+    `${greeting}booking confirmed.`,
+    dateTimeLine || null,
     location ? `Venue: ${location}` : null,
-    sport && court ? `${sport} · ${court}` : sport || court || null,
-    formatAmountLkr(displayAmount) ? `Amount: ${formatAmountLkr(displayAmount)}` : null,
-    `Enquiries: ${contactPhone}`,
+    sport && court ? `${sport}-${court}` : sport || court || null,
+    amtFormatted ? `Amount: ${amtFormatted}` : null,
+    `Enquiries: ${contactPhone}`
   ].filter(Boolean);
 
-  return lines.join(" ");
+  return lines.join("\n");
 }
 
 export function buildBookingCancellationSmsBody({
@@ -68,17 +73,20 @@ export function buildBookingCancellationSmsBody({
   contactPhone = getPitchContactPhone(),
 }) {
   const name = customerName?.trim().split(' ')[0];
-  const greeting = name ? `Hi ${name}, ` : "";
+  const greeting = name ? `Hi ${name}, ` : "Hi, ";
+
+  const dateStr = date ? formatBookingDate(date) : "";
+  const dateTimeLine = [dateStr, time].filter(Boolean).join(" - ");
+
   const lines = [
-    `${greeting}your booking has been cancelled.`,
-    date ? `Date: ${formatBookingDate(date)}` : null,
-    time ? `Time: ${time}` : null,
+    `${greeting}booking cancelled.`,
+    dateTimeLine || null,
     location ? `Venue: ${location}` : null,
-    sport && court ? `${sport} · ${court}` : sport || court || null,
-    `Enquiries: ${contactPhone}`,
+    sport && court ? `${sport}-${court}` : sport || court || null,
+    `Enquiries: ${contactPhone}`
   ].filter(Boolean);
 
-  return lines.join(" ");
+  return lines.join("\n");
 }
 
 async function deliverBookingSms(phone, smsBody) {

@@ -97,9 +97,9 @@ export function calendarBookingFromRow(row) {
     customer:
       row.booking_status === "blocked"
         ? "Blocked (backoffice)"
-        : row.guest_name?.trim() || "",
-    customerEmail: row.guest_email?.trim() || "",
-    customerPhone: row.guest_phone?.trim() || "",
+        : row.guest_name?.trim() || row.users?.full_name?.trim() || "",
+    customerEmail: row.guest_email?.trim() || row.users?.email?.trim() || "",
+    customerPhone: row.guest_phone?.trim() || row.users?.phone?.trim() || "",
     userId: row.user_id ?? row.users?.id ?? null,
     totalAmount: Number(row.total_amount) || 0,
     reference: formatBookingReference(row.id),
