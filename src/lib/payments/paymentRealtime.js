@@ -19,23 +19,40 @@ async function removeExistingChannels(supabase, channelName) {
   await Promise.all(existing.map((ch) => supabase.removeChannel(ch)));
 }
 
-export async function fetchPaymentsFromSupabase() {
+export async function fetchPaymentsFromSupabase(locationId) {
   const supabase = createClient();
-  const { data, error } = await supabase
+
+  let query = supabase
     .from("payments")
     .select(PAYMENT_SELECT)
     .order("created_at", { ascending: false });
 
+  // Filter by location at the DB level when a location is selected.
+  // The join path is: payments → bookings → location_id.
+  // We filter on the joined bookings row using PostgREST foreign table syntax.
+  if (locationId) {
+    query = query.eq("bookings.location_id", locationId);
+  }
+
+  const { data, error } = await query;
+
   if (error) throw error;
 
-  return sortPayments((data ?? []).map(paymentFromRow).filter(Boolean));
+  // Exclude rows where the joined booking didn't match the location filter
+  // (PostgREST returns nulled-out joins for non-matching rows rather than
+  // omitting them entirely when filtering on an embedded table).
+  const rows = locationId
+    ? (data ?? []).filter((row) => row.bookings?.location_id === locationId)
+    : (data ?? []);
+
+  return sortPayments(rows.map(paymentFromRow).filter(Boolean));
 }
 
 /**
  * Subscribe to payments, bookings, and users changes. Joined rows are re-fetched
  * after each event so customer/venue/booking fields stay in sync.
  */
-export async function subscribeToPayments(onChange, onReady) {
+export async function subscribeToPayments(onChange, onReady, locationId) {
   const supabase = createClient();
 
   await removeExistingChannels(supabase, CHANNEL_NAME);
@@ -47,7 +64,7 @@ export async function subscribeToPayments(onChange, onReady) {
       "postgres_changes",
       { event: "*", schema: "public", table },
       () => {
-        onChange();
+        onChange(locationId);
       }
     );
   }

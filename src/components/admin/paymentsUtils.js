@@ -70,7 +70,8 @@ export function filterPayments(
     if (to && payment.date > to) return false;
     if (status !== "all" && payment.status !== status) return false;
     if (aliases.length > 0 && payment.location) {
-      const matchesVenue = aliases.some((alias) => alias === payment.location);
+      const loc = payment.location.toLowerCase();
+      const matchesVenue = aliases.some((alias) => alias.toLowerCase() === loc);
       if (!matchesVenue) return false;
     }
 
