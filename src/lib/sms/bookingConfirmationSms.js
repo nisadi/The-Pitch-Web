@@ -5,7 +5,8 @@ import { getPitchContactPhone } from "./enquiryReplySmsTemplate";
 function formatBookingDate(dateKey) {
   if (!dateKey) return "";
   try {
-    const [y, m, d] = String(dateKey).split("-").map(Number);
+    const dateStr = String(dateKey).split("T")[0];
+    const [y, m, d] = dateStr.split("-").map(Number);
     const date = new Date(y, m - 1, d);
     return date.toLocaleDateString("en-US", {
       weekday: "short",
