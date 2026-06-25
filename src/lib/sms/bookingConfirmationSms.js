@@ -21,7 +21,7 @@ function formatBookingDate(dateKey) {
 function formatAmountLkr(amount) {
   const value = Number(amount) || 0;
   if (value <= 0) return "";
-  return `LKR ${value.toLocaleString("en-LK", { maximumFractionDigits: 0 })}`;
+  return `LKR ${value.toLocaleString("en-LK", { maximumFractionDigits: 2 })}`;
 }
 
 export function buildBookingConfirmationSmsBody({
@@ -44,7 +44,7 @@ export function buildBookingConfirmationSmsBody({
 
   const displayAmount = finalAmount !== undefined ? finalAmount : totalAmount;
   const amtFormatted = displayAmount !== undefined && displayAmount !== null
-    ? `Rs. ${Number(displayAmount).toLocaleString("en-LK", { maximumFractionDigits: 0 })}`
+    ? `Rs. ${Number(displayAmount).toLocaleString("en-LK", { maximumFractionDigits: 2 })}`
     : null;
 
   const dateStr = date ? formatBookingDate(date) : "";
