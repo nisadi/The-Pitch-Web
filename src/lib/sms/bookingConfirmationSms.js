@@ -54,7 +54,7 @@ export function buildBookingConfirmationSmsBody({
     `Enquiries: ${contactPhone}`,
   ].filter(Boolean);
 
-  return lines.join("\n");
+  return lines.join(" ");
 }
 
 export function buildBookingCancellationSmsBody({
@@ -78,7 +78,7 @@ export function buildBookingCancellationSmsBody({
     `Enquiries: ${contactPhone}`,
   ].filter(Boolean);
 
-  return lines.join("\n");
+  return lines.join(" ");
 }
 
 async function deliverBookingSms(phone, smsBody) {

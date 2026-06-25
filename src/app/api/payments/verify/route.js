@@ -97,7 +97,7 @@ async function resolveEmailContext(supabaseAdmin, bookingDetails) {
     if (pitchData) courtName = pitchData.name;
   }
 
-  return { email, fullName, phone, sportName, locationName, courtName };
+  return { email, fullName, phone, sportName, locationName, locationPhone, courtName };
 }
 
 export async function POST(request) {
@@ -253,7 +253,7 @@ export async function POST(request) {
                 booking_date: bookingDetails.booking_date,
                 start_time: bookingDetails.start_time,
                 end_time: bookingDetails.end_time,
-                total_amount: Number(bookingDetails.total_amount) || 0,
+                total_amount: Number(bookingDetails.subtotal_amount) || Number(bookingDetails.total_amount) || 0,
                 final_amount: grandTotal,
                 booking_status: 'confirmed',
                 payment_status: 'paid',
@@ -312,8 +312,20 @@ export async function POST(request) {
             try {
               // Ensure pitch_id is passed to resolveEmailContext if it was resolved locally
               bookingDetails.pitch_id = pitchId;
-              const { email, fullName, phone, sportName, locationName, courtName } =
+              const { email, fullName, phone, sportName, locationName, locationPhone, courtName } =
                 await resolveEmailContext(supabaseAdmin, bookingDetails);
+
+              // Write guest fields into the booking row now that we have the user data
+              if (bookingData?.id) {
+                await supabaseAdmin
+                  .from('bookings')
+                  .update({
+                    guest_name: fullName,
+                    guest_email: email,
+                    guest_phone: phone,
+                  })
+                  .eq('id', bookingData.id);
+              }
 
               const orderRef = result.decoded.orderNumber
                 || result.decoded.webxOrderReference

@@ -134,6 +134,9 @@ export async function POST(request) {
       }
     }
 
+    const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'there';
+    const phone = user.user_metadata?.phone_number || user.user_metadata?.phone || user.phone || '';
+
     const { data, error } = await supabase
       .from("bookings")
       .insert([
@@ -145,8 +148,11 @@ export async function POST(request) {
           booking_date,
           start_time,
           end_time,
-          total_amount: Number(total_amount) || 0,
+          total_amount: Number(subtotal_amount) || Number(total_amount) || 0,
           final_amount: finalTotal,
+          guest_name: fullName,
+          guest_email: user.email,
+          guest_phone: phone,
           booking_status: "confirmed",
           payment_status: "paid",
         },
@@ -170,10 +176,7 @@ export async function POST(request) {
       }
     }
 
-    // Send booking confirmation email and SMS (fire-and-forget, don't block response)
     try {
-      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'there';
-      const phone = user.user_metadata?.phone_number || user.user_metadata?.phone || user.phone;
 
       // Fetch sport, location and pitch names for the email/sms
       let sportName = 'Sport';
