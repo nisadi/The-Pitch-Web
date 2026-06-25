@@ -67,6 +67,29 @@ export async function PATCH(request, { params }) {
         .single();
 
       if (error) throw error;
+
+      // Insert a cash payment record (only if none exists yet for this booking)
+      const { data: existingPayment } = await supabase
+        .from("payments")
+        .select("id")
+        .eq("booking_id", id)
+        .maybeSingle();
+
+      if (!existingPayment) {
+        const amount =
+          Number(existing.final_amount) > 0
+            ? Number(existing.final_amount)
+            : Number(existing.total_amount) || 0;
+
+        await supabase.from("payments").insert({
+          booking_id: id,
+          payment_method: "cash",
+          amount,
+          payment_status: "paid",
+          paid_at: new Date().toISOString(),
+        });
+      }
+
       return NextResponse.json({ booking: calendarBookingFromRow(data) });
     }
 
