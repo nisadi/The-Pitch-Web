@@ -161,7 +161,9 @@ export function guestCustomersFromBookings(bookings) {
   }
 
   const customers = [];
+  let idx = 0;
   for (const { name, email, phone, bookings: guestBookings } of groups.values()) {
+    idx++;
     const stats = aggregateBookings(guestBookings);
     const firstBookingDate = guestBookings
       .map((b) => splitDateKey(b.booking_date))
@@ -170,7 +172,7 @@ export function guestCustomersFromBookings(bookings) {
       .at(0) || "";
 
     customers.push({
-      id: `GCU-${name.replace(/\s+/g, "").slice(0, 4).toUpperCase()}-${phone.replace(/\D/g, "").slice(-4) || "0000"}`,
+      id: `GCU-${name.replace(/\s+/g, "").slice(0, 4).toUpperCase()}-${phone.replace(/\D/g, "").slice(-4) || "0000"}-${idx}`,
       dbId: null,
       name,
       phone,
