@@ -591,7 +591,7 @@ export default function BookingPage() {
                       if (selectable) handleSlotClick(slot.time);
                     }}
                   >
-                    {slot.time}
+                    {slot.time} - {formatHourLabel(slot.startHour + 1)}
                   </div>
                 );
               })}
