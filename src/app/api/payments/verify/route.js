@@ -268,7 +268,34 @@ export async function POST(request) {
           } else {
             result.booking = bookingData;
 
-            // 5a. Attach promo code to booking if applicable
+            // 5a. Insert a payments table row for this card payment
+            if (bookingData?.id) {
+              const transactionId =
+                result.decoded.orderNumber ||
+                result.decoded.webxOrderReference ||
+                null;
+
+              const { error: paymentInsertError } = await supabaseAdmin
+                .from('payments')
+                .insert({
+                  booking_id: bookingData.id,
+                  payment_method: 'card',
+                  transaction_id: transactionId,
+                  amount: grandTotal,
+                  payment_status: 'paid',
+                  paid_at: new Date().toISOString(),
+                });
+
+              if (paymentInsertError) {
+                // Non-fatal: log but don't fail the response
+                console.error('[verify] payments row insert error:', paymentInsertError);
+                result.paymentRowError = paymentInsertError.message;
+              } else {
+                console.log(`[verify] payments row created for booking ${bookingData.id}`);
+              }
+            }
+
+            // 5b. Attach promo code to booking if applicable
             if (promoId && bookingData?.id) {
               const { error: promoLinkError } = await attachPromoToBooking(
                 supabaseAdmin,
@@ -281,7 +308,7 @@ export async function POST(request) {
               }
             }
 
-            // 5b. Send confirmation emails and SMS (fire-and-forget — don't block the response)
+            // 5c. Send confirmation emails and SMS (fire-and-forget — don't block the response)
             try {
               // Ensure pitch_id is passed to resolveEmailContext if it was resolved locally
               bookingDetails.pitch_id = pitchId;

@@ -67,6 +67,29 @@ export async function PATCH(request, { params }) {
         .single();
 
       if (error) throw error;
+
+      // Insert a cash payment record (only if none exists yet for this booking)
+      const { data: existingPayment } = await supabase
+        .from("payments")
+        .select("id")
+        .eq("booking_id", id)
+        .maybeSingle();
+
+      if (!existingPayment) {
+        const amount =
+          Number(existing.final_amount) > 0
+            ? Number(existing.final_amount)
+            : Number(existing.total_amount) || 0;
+
+        await supabase.from("payments").insert({
+          booking_id: id,
+          payment_method: "cash",
+          amount,
+          payment_status: "paid",
+          paid_at: new Date().toISOString(),
+        });
+      }
+
       return NextResponse.json({ booking: calendarBookingFromRow(data) });
     }
 
@@ -161,7 +184,76 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ booking: calendarBookingFromRow(data) });
     }
 
+    // ── Cash Refund: Keep Appointment ──────────────────────────────────────
+    if (action === "refund_keep") {
+      if (existing.payment_status === "refunded") {
+        return NextResponse.json(
+          { error: "Payment is already refunded." },
+          { status: 400 }
+        );
+      }
+      if (existing.payment_status !== "paid") {
+        return NextResponse.json(
+          { error: "Booking must be paid to process a refund." },
+          { status: 400 }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("bookings")
+        .update({ payment_status: "refunded" })
+        .eq("id", id)
+        .select(BOOKING_CALENDAR_SELECT)
+        .single();
+
+      if (error) throw error;
+
+      // Also update payments table if a row exists
+      await supabase
+        .from("payments")
+        .update({ payment_status: "refunded" })
+        .eq("booking_id", id);
+
+      return NextResponse.json({ booking: calendarBookingFromRow(data) });
+    }
+
+    // ── Cash Refund: Cancel Appointment ────────────────────────────────────
+    if (action === "refund_and_cancel") {
+      if (existing.payment_status === "refunded") {
+        return NextResponse.json(
+          { error: "Payment is already refunded." },
+          { status: 400 }
+        );
+      }
+      if (existing.payment_status !== "paid") {
+        return NextResponse.json(
+          { error: "Booking must be paid to process a refund." },
+          { status: 400 }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("bookings")
+        .update({
+          payment_status: "refunded",
+          booking_status: "cancelled",
+        })
+        .eq("id", id)
+        .select(BOOKING_CALENDAR_SELECT)
+        .single();
+
+      if (error) throw error;
+
+      await supabase
+        .from("payments")
+        .update({ payment_status: "refunded" })
+        .eq("booking_id", id);
+
+      return NextResponse.json({ booking: calendarBookingFromRow(data) });
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+
   } catch (err) {
     return NextResponse.json(
       { error: err?.message ?? "Failed to update booking" },

@@ -22,7 +22,8 @@ export const BOOKING_CALENDAR_SELECT = `
   locations ( id, slug, name, short_name ),
   sports ( id, name ),
   pitches ( id, name ),
-  users ( id, full_name, email, phone )
+  users ( id, full_name, email, phone ),
+  payments ( id, payment_method, transaction_id, paid_at )
 `;
 
 export function formatBookingReference(id) {
@@ -75,6 +76,11 @@ export function calendarBookingFromRow(row) {
 
   const startHour = parseTimeField(row.start_time).hour;
 
+  // payments is an array (one-to-many); take the most recent paid one
+  const paymentRow = Array.isArray(row.payments)
+    ? (row.payments.find((p) => p.payment_method) ?? row.payments[0] ?? null)
+    : null;
+
   return {
     id: row.id,
     date: row.booking_date,
@@ -100,6 +106,9 @@ export function calendarBookingFromRow(row) {
     status: calendarStatusFromDb(row.booking_status),
     bookingStatus: row.booking_status,
     paymentStatus: row.payment_status,
+    paymentMethod: paymentRow?.payment_method ?? null,
+    transactionId: paymentRow?.transaction_id ?? null,
+    paidAt: paymentRow?.paid_at ?? null,
     remark: row.remark ?? null,
     discountType: row.discount_type ?? null,
     discountValue: Number(row.discount_value) || 0,

@@ -7,7 +7,7 @@ import { getSupabaseUrl } from "./env";
 export function isAdminClientConfigured() {
   return Boolean(
     getSupabaseUrl() &&
-      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)
   );
 }
 
