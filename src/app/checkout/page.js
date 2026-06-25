@@ -126,7 +126,7 @@ function buildBookingApiPayload(parsed, booking) {
     end_time,
     subtotal_amount: booking.subtotalNum,
     service_charge_amount: booking.serviceChargeNum ?? 0,
-    total_amount: booking.grandTotalNum ?? booking.totalAmountNum,
+    total_amount: booking.totalAmountNum ?? booking.subtotalNum ?? 0,
     promo_id: booking.promoId ?? null,
   };
 }

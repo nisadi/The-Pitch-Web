@@ -29,7 +29,7 @@ async function getWebXPayMerchantToken(forceRefresh = false) {
     return tokenCache.token;
   }
 
-  const username = process.env.WEBXPAY_REFUND_API_USERNAME || process.env.WEBXPAY_USERNAME;
+  const username = process.env.WEBXPAY_REFUND_API_USERNAME;
   const password = process.env.WEBXPAY_REFUND_API_PASSWORD;
   const merchantNumber = process.env.WEBXPAY_MERCHANT_NUMBER;
 
@@ -56,13 +56,13 @@ async function getWebXPayMerchantToken(forceRefresh = false) {
 
   const data = await res.json();
   
-  if (data.error || data.status === 'error' || data.success === false) {
-    throw new Error(data.message || data.error || 'WebXPay login API returned authentication failure');
+  if (data.error || data.status === 'error' || data.status === 'Unsuccess' || data.success === false) {
+    throw new Error(data.explain || data.message || data.error || 'WebXPay auth API returned authentication failure');
   }
 
   const token = data.token || data.access_token || (typeof data === 'string' ? data : null);
   if (!token) {
-    throw new Error('WebXPay API login did not return a valid authentication token');
+    throw new Error(`WebXPay auth API did not return a valid authentication token. Response: ${JSON.stringify(data)}`);
   }
 
   const payload = decodeJwt(token);
@@ -81,7 +81,8 @@ async function getWebXPayMerchantToken(forceRefresh = false) {
  * Sends a refund request to WebXPay
  */
 async function requestWebXPayRefund(token, { orderReference, amount, reasonId, reasonText }) {
-  const portalPassword = process.env.WEBXPAY_PORTAL_PASSWORD || process.env.WEBXPAY_PASSWORD;
+  // user_password is the Merchant Partner Portal login password (WEBXPAY_PORTAL_PASSWORD)
+  const portalPassword = process.env.WEBXPAY_PORTAL_PASSWORD;
   if (!portalPassword) {
     throw new Error("Missing WEBXPAY_PORTAL_PASSWORD in environment variables");
   }
@@ -95,6 +96,13 @@ async function requestWebXPayRefund(token, { orderReference, amount, reasonId, r
     params.append('other_reason_text', reasonText);
   }
 
+  console.log('[WebXPay Refund Request] Params:', {
+    order_refference_number: orderReference,
+    refund_amount: amount,
+    refund_reason_id: reasonId,
+    other_reason_text: reasonText,
+  });
+
   const res = await fetch('https://webxpay.com/index.php?route=api/merchant_api/requestRefundByOrderReference', {
     method: 'POST',
     headers: {
@@ -105,10 +113,13 @@ async function requestWebXPayRefund(token, { orderReference, amount, reasonId, r
   });
 
   if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    console.error('[WebXPay Refund HTTP Error]:', res.status, errText);
     throw new Error(`WebXPay refund request failed with HTTP status: ${res.status}`);
   }
 
   const data = await res.json();
+  console.log('[WebXPay Refund Response Payload]:', data);
   return data;
 }
 
@@ -154,73 +165,9 @@ export async function POST(request) {
       );
     }
 
-    // 2. Fetch/cache token and invoke refund API
-    let token;
-    try {
-      token = await getWebXPayMerchantToken();
-    } catch (authErr) {
-      console.error('[Refund Auth Error]:', authErr);
-      return Response.json(
-        { success: false, error: 'AUTH_FAILED', explanation: authErr.message },
-        { status: 500 }
-      );
-    }
-
-    let refundResult;
-    try {
-      refundResult = await requestWebXPayRefund(token, { orderReference, amount, reasonId, reasonText });
-      
-      // If WebXPay API indicates token expiration in JSON response, retry with forced token refresh
-      if (
-        refundResult && 
-        (refundResult.error?.toLowerCase().includes('token') || 
-         refundResult.message?.toLowerCase().includes('token') || 
-         refundResult.status === 'expired')
-      ) {
-        console.warn('[WebXPay Merchant Refund] API returned token error/expiration, retrying with fresh token...');
-        token = await getWebXPayMerchantToken(true);
-        refundResult = await requestWebXPayRefund(token, { orderReference, amount, reasonId, reasonText });
-      }
-    } catch (refundErr) {
-      // If request failed with HTTP 401/403 or network auth-like error, retry once
-      if (
-        refundErr.message.includes('401') || 
-        refundErr.message.includes('403') || 
-        refundErr.message.toLowerCase().includes('token')
-      ) {
-        console.warn('[WebXPay Merchant Refund] Request caught token-related error, retrying with fresh token...', refundErr.message);
-        try {
-          token = await getWebXPayMerchantToken(true);
-          refundResult = await requestWebXPayRefund(token, { orderReference, amount, reasonId, reasonText });
-        } catch (retryErr) {
-          console.error('[Refund Retry Error]:', retryErr);
-          return Response.json(
-            { success: false, error: 'REFUND_FAILED', explanation: retryErr.message },
-            { status: 500 }
-          );
-        }
-      } else {
-        console.error('[Refund Request Error]:', refundErr);
-        return Response.json(
-          { success: false, error: 'REFUND_FAILED', explanation: refundErr.message },
-          { status: 500 }
-        );
-      }
-    }
-
-    // 3. Process API result
-    if (refundResult?.error || refundResult?.success === false || refundResult?.status === 'failed') {
-      return Response.json({
-        success: false,
-        error: refundResult.error || 'GATEWAY_ERROR',
-        explanation: refundResult.message || refundResult.explanation || 'WebXPay refund request was rejected by the gateway.',
-        raw: refundResult
-      });
-    }
-
-    // 4. Update database (bookings and payments table) on success
-    let dbUpdated = false;
+    // 1.5 Resolve booking ID and transaction ID from the DB if orderReference is a booking UUID or booking reference
     let matchedBookingId = null;
+    let webxpayOrderReference = orderReference;
 
     if (isAdminClientConfigured()) {
       try {
@@ -244,6 +191,117 @@ export async function POST(request) {
           }
         }
 
+        // If matchedBookingId is found, search the payments table for transaction_id
+        if (matchedBookingId) {
+          const { data: paymentRow } = await supabaseAdmin
+            .from('payments')
+            .select('transaction_id')
+            .eq('booking_id', matchedBookingId)
+            .maybeSingle();
+
+          if (paymentRow?.transaction_id) {
+            console.log(`[Refund] Resolved booking ID ${matchedBookingId} to transaction_id: ${paymentRow.transaction_id}`);
+            webxpayOrderReference = paymentRow.transaction_id;
+          } else {
+            console.warn(`[Refund] No payment row or transaction_id found for booking ${matchedBookingId}`);
+          }
+        } else {
+          // If not matching a booking ID directly, check if orderReference is already a transaction_id
+          const { data: paymentRow } = await supabaseAdmin
+            .from('payments')
+            .select('booking_id, transaction_id')
+            .eq('transaction_id', refStr)
+            .maybeSingle();
+
+          if (paymentRow) {
+            matchedBookingId = paymentRow.booking_id;
+            webxpayOrderReference = paymentRow.transaction_id;
+            console.log(`[Refund] Found booking ${matchedBookingId} using transaction_id: ${webxpayOrderReference}`);
+          }
+        }
+      } catch (dbErr) {
+        console.error('[Refund ID Resolution Error]:', dbErr);
+      }
+    }
+
+    // 2. Fetch/cache token and invoke refund API
+    let token;
+    try {
+      token = await getWebXPayMerchantToken();
+    } catch (authErr) {
+      console.error('[Refund Auth Error]:', authErr);
+      return Response.json(
+        { success: false, error: 'AUTH_FAILED', explanation: authErr.message },
+        { status: 500 }
+      );
+    }
+
+    let refundResult;
+    try {
+      refundResult = await requestWebXPayRefund(token, { orderReference: webxpayOrderReference, amount, reasonId, reasonText });
+      
+      // If WebXPay API indicates token expiration in JSON response, retry with forced token refresh
+      if (
+        refundResult && 
+        (refundResult.error?.toLowerCase().includes('token') || 
+         refundResult.message?.toLowerCase().includes('token') || 
+         refundResult.status === 'expired')
+      ) {
+        console.warn('[WebXPay Merchant Refund] API returned token error/expiration, retrying with fresh token...');
+        token = await getWebXPayMerchantToken(true);
+        refundResult = await requestWebXPayRefund(token, { orderReference: webxpayOrderReference, amount, reasonId, reasonText });
+      }
+    } catch (refundErr) {
+      // If request failed with HTTP 401/403 or network auth-like error, retry once
+      if (
+        refundErr.message.includes('401') || 
+        refundErr.message.includes('403') || 
+        refundErr.message.toLowerCase().includes('token')
+      ) {
+        console.warn('[WebXPay Merchant Refund] Request caught token-related error, retrying with fresh token...', refundErr.message);
+        try {
+          token = await getWebXPayMerchantToken(true);
+          refundResult = await requestWebXPayRefund(token, { orderReference: webxpayOrderReference, amount, reasonId, reasonText });
+        } catch (retryErr) {
+          console.error('[Refund Retry Error]:', retryErr);
+          return Response.json(
+            { success: false, error: 'REFUND_FAILED', explanation: retryErr.message },
+            { status: 500 }
+          );
+        }
+      } else {
+        console.error('[Refund Request Error]:', refundErr);
+        return Response.json(
+          { success: false, error: 'REFUND_FAILED', explanation: refundErr.message },
+          { status: 500 }
+        );
+      }
+    }
+
+    // 3. Process API result
+    const isFailure = !refundResult || 
+      refundResult.error || 
+      refundResult.success === false || 
+      refundResult.status === 'failed' || 
+      refundResult.status === 'Unsuccess' || 
+      refundResult.status === 'unsuccess';
+
+    if (isFailure) {
+      return Response.json({
+        success: false,
+        error: refundResult?.error || 'GATEWAY_ERROR',
+        explanation: refundResult?.explain || refundResult?.message || refundResult?.explanation || 'WebXPay refund request was rejected by the gateway.',
+        raw: refundResult
+      });
+    }
+
+    // 4. Update database (bookings and payments table) on success
+    let dbUpdated = false;
+
+    if (isAdminClientConfigured()) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        
         if (matchedBookingId) {
           // Update booking — always mark payment refunded; only cancel if requested
           const bookingUpdates = { payment_status: 'refunded' };
@@ -266,7 +324,8 @@ export async function POST(request) {
             .update({ payment_status: 'refunded' })
             .eq('booking_id', matchedBookingId);
         } else {
-          // Try to search by transaction_id in payments table
+          // Fallback if matchedBookingId is still null
+          const refStr = String(orderReference);
           const { data: matchedPayments } = await supabaseAdmin
             .from('payments')
             .select('booking_id, id')

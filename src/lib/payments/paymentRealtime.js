@@ -19,6 +19,8 @@ async function removeExistingChannels(supabase, channelName) {
   await Promise.all(existing.map((ch) => supabase.removeChannel(ch)));
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function fetchPaymentsFromSupabase(locationId) {
   const supabase = createClient();
 
@@ -30,7 +32,8 @@ export async function fetchPaymentsFromSupabase(locationId) {
   // Filter by location at the DB level when a location is selected.
   // The join path is: payments → bookings → location_id.
   // We filter on the joined bookings row using PostgREST foreign table syntax.
-  if (locationId) {
+  const isIdUuid = typeof locationId === "string" && UUID_RE.test(locationId);
+  if (locationId && isIdUuid) {
     query = query.eq("bookings.location_id", locationId);
   }
 
@@ -41,7 +44,7 @@ export async function fetchPaymentsFromSupabase(locationId) {
   // Exclude rows where the joined booking didn't match the location filter
   // (PostgREST returns nulled-out joins for non-matching rows rather than
   // omitting them entirely when filtering on an embedded table).
-  const rows = locationId
+  const rows = (locationId && isIdUuid)
     ? (data ?? []).filter((row) => row.bookings?.location_id === locationId)
     : (data ?? []);
 

@@ -675,16 +675,7 @@ export default function BookingDetailModal({
                 <CalendarClock size={16} />
                 {showReschedule ? "Hide reschedule" : "Reschedule"}
               </button>
-              <button
-                type="button"
-                className={styles.btnSecondary}
-                disabled={submitting}
-                onClick={() => {
-                  window.alert("Refund functionality coming soon.");
-                }}
-              >
-                Refund
-              </button>
+
               <button
                 type="button"
                 className={styles.btnDanger}

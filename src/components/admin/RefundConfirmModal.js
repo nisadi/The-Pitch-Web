@@ -39,10 +39,15 @@ export default function RefundConfirmModal({
 
   if (!open || !booking) return null;
 
-  const amount =
-    booking.finalAmount > 0 ? booking.finalAmount : booking.totalAmount;
-  const amountLabel = `LKR ${Number(amount).toLocaleString("en-LK")}`;
+  let amount = booking.finalAmount > 0 ? booking.finalAmount : booking.totalAmount;
   const isCash = booking.paymentMethod === "cash";
+  
+  // Back out the 3.2% service charge for card payments visually as well
+  if (!isCash && amount > 0) {
+    amount = Math.round((amount / 1.032) * 100) / 100;
+  }
+  
+  const amountLabel = `LKR ${Number(amount).toLocaleString("en-LK")}`;
 
   return createPortal(
     <div

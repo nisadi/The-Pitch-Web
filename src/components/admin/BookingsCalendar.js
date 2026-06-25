@@ -453,7 +453,12 @@ export default function BookingsCalendar() {
    */
   const handleRefundBooking = async (booking, cancelBooking) => {
     const isCash = booking.paymentMethod === "cash";
-    const refundAmount = booking.finalAmount > 0 ? booking.finalAmount : booking.totalAmount;
+    let refundAmount = booking.finalAmount > 0 ? booking.finalAmount : booking.totalAmount;
+    
+    // For WebXPay card payments, back out the 3.2% service charge to only refund the session fee
+    if (!isCash && refundAmount > 0) {
+      refundAmount = Math.round((refundAmount / 1.032) * 100) / 100;
+    }
 
     try {
       if (isCash) {
