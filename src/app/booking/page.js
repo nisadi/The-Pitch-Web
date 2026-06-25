@@ -22,6 +22,7 @@ import {
   isSelectableSlot,
   buildSlotsFromLocation,
 } from '@/lib/booking/bookingSlots';
+import { formatHourLabel } from '@/components/admin/bookingsUtils';
 import {
   applyAvailabilityToSlots,
   fetchAvailabilityForDate,
@@ -43,8 +44,39 @@ export default function BookingPage() {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [selectedPitch, setSelectedPitch] = useState(null);
 
-  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [timeSlots, setTimeSlots] = useState([]);
+
+  const handleSlotClick = (clickedTime) => {
+    setSelectedSlots((prev) => {
+      if (prev.length === 0) return [clickedTime];
+
+      const sortedPrev = [...prev].sort(
+        (a, b) =>
+          timeSlots.findIndex((s) => s.time === a) -
+          timeSlots.findIndex((s) => s.time === b)
+      );
+
+      if (prev.includes(clickedTime)) {
+        if (clickedTime === sortedPrev[0])
+          return sortedPrev.slice(1);
+        if (clickedTime === sortedPrev[sortedPrev.length - 1])
+          return sortedPrev.slice(0, -1);
+        return [clickedTime];
+      }
+
+      const firstIndex = timeSlots.findIndex((s) => s.time === sortedPrev[0]);
+      const lastIndex = timeSlots.findIndex(
+        (s) => s.time === sortedPrev[sortedPrev.length - 1]
+      );
+      const clickedIndex = timeSlots.findIndex((s) => s.time === clickedTime);
+
+      if (clickedIndex === firstIndex - 1) return [clickedTime, ...sortedPrev];
+      if (clickedIndex === lastIndex + 1) return [...sortedPrev, clickedTime];
+
+      return [clickedTime];
+    });
+  };
 
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -147,7 +179,7 @@ export default function BookingPage() {
       !selectedSport ||
       !selectedLocation ||
       !selectedDate ||
-      !selectedSlot ||
+      selectedSlots.length === 0 ||
       !activePitchId
     ) {
       alert('Please select all details');
@@ -157,18 +189,28 @@ export default function BookingPage() {
       alert('Please choose a date from today onwards.');
       return;
     }
-    const slot = timeSlots.find((s) => s.time === selectedSlot);
-    if (!slot || !isSelectableSlot(slot, selectedDate)) {
-      alert('Please choose a future time slot.');
+
+    const sortedSlots = [...selectedSlots].sort(
+      (a, b) =>
+        timeSlots.findIndex((s) => s.time === a) -
+        timeSlots.findIndex((s) => s.time === b)
+    );
+
+    const firstSlot = timeSlots.find(s => s.time === sortedSlots[0]);
+    const lastSlot = timeSlots.find(s => s.time === sortedSlots[sortedSlots.length - 1]);
+
+    if (!firstSlot || !isSelectableSlot(firstSlot, selectedDate)) {
+      alert('Please choose a valid future time slot.');
       return;
     }
 
-    const startHour = slot.startHour;
-    const endHour = startHour + 1;
+    const startHour = firstSlot.startHour;
+    const endHour = lastSlot.startHour + 1;
+
     const pricing = resolveSessionPricing({
       location: selectedLocation,
       pitch: selectedPitch,
-      slot: selectedSlot,
+      slot: sortedSlots[0],
       startHour,
       endHour,
     });
@@ -189,7 +231,7 @@ export default function BookingPage() {
         non_peak_hour_rate: selectedPitch.nonPeakHourRate,
       },
       date: selectedDate.toDateString(),
-      slot: selectedSlot,
+      slot: `${firstSlot.time} - ${formatHourLabel(endHour)}`,
       startHour,
       endHour,
       subtotal: pricing.subtotal,
@@ -197,7 +239,7 @@ export default function BookingPage() {
       originalDate: selectedDate.toISOString(),
     };
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingDetails));
-    
+
     // Log the selected booking details
     console.log("Pending booking details stored:", bookingDetails);
 
@@ -210,17 +252,26 @@ export default function BookingPage() {
   };
 
   const sessionPricing = useMemo(() => {
-    if (!selectedLocation || !selectedPitch || !selectedSlot) return null;
-    const slot = timeSlots.find((s) => s.time === selectedSlot);
-    if (!slot) return null;
+    if (!selectedLocation || !selectedPitch || selectedSlots.length === 0) return null;
+
+    const sortedSlots = [...selectedSlots].sort(
+      (a, b) =>
+        timeSlots.findIndex((s) => s.time === a) -
+        timeSlots.findIndex((s) => s.time === b)
+    );
+    const firstSlot = timeSlots.find(s => s.time === sortedSlots[0]);
+    const lastSlot = timeSlots.find(s => s.time === sortedSlots[sortedSlots.length - 1]);
+
+    if (!firstSlot || !lastSlot) return null;
+
     return resolveSessionPricing({
       location: selectedLocation,
       pitch: selectedPitch,
-      slot: selectedSlot,
-      startHour: slot.startHour,
-      endHour: slot.startHour + 1,
+      slot: sortedSlots[0],
+      startHour: firstSlot.startHour,
+      endHour: lastSlot.startHour + 1,
     });
-  }, [selectedLocation, selectedPitch, selectedSlot, timeSlots]);
+  }, [selectedLocation, selectedPitch, selectedSlots, timeSlots]);
 
   const dateKey = useMemo(() => {
     const d = selectedDate;
@@ -291,15 +342,15 @@ export default function BookingPage() {
     const selectable = timeSlots.filter((s) =>
       isSelectableSlot(s, selectedDate)
     );
-    if (selectable.length === 0) {
-      setSelectedSlot(null);
-      return;
-    }
-    const stillValid = selectable.some((s) => s.time === selectedSlot);
-    if (!stillValid) {
-      setSelectedSlot(selectable[0].time);
-    }
-  }, [timeSlots, selectedSlot, selectedDate]);
+    setSelectedSlots(prev => {
+      if (selectable.length === 0) return [];
+      const validSlots = prev.filter(s => selectable.some(sel => sel.time === s));
+      if (validSlots.length !== prev.length) {
+        return validSlots.length > 0 ? [validSlots[0]] : [];
+      }
+      return prev;
+    });
+  }, [timeSlots, selectedDate]);
 
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();
@@ -354,11 +405,10 @@ export default function BookingPage() {
               {locations.map((location) => (
                 <div
                   key={location.id}
-                  className={`${styles.locationItem} ${
-                    selectedLocation?.id === location.id
+                  className={`${styles.locationItem} ${selectedLocation?.id === location.id
                       ? styles.activeLocation
                       : ''
-                  }`}
+                    }`}
                   onClick={() => setSelectedLocation(location)}
                 >
                   <div className={styles.radio}>
@@ -387,9 +437,8 @@ export default function BookingPage() {
               {availableSports.map((sport) => (
                 <div
                   key={sport.id}
-                  className={`${styles.sportCard} ${
-                    selectedSport?.id === sport.id ? styles.activeSport : ''
-                  }`}
+                  className={`${styles.sportCard} ${selectedSport?.id === sport.id ? styles.activeSport : ''
+                    }`}
                   onClick={() => setSelectedSport(sport)}
                 >
                   <img src={sport.image_url} alt={sport.name} />
@@ -411,11 +460,10 @@ export default function BookingPage() {
                 {locationPitches.map((pitch) => (
                   <div
                     key={pitchId(pitch)}
-                    className={`${styles.pitchItem} ${
-                      pitchId(pitch) === activePitchId
+                    className={`${styles.pitchItem} ${pitchId(pitch) === activePitchId
                         ? styles.activePitch
                         : ''
-                    }`}
+                      }`}
                     onClick={() => setSelectedPitch(pitch)}
                   >
                     <div className={styles.radio}>
@@ -500,9 +548,8 @@ export default function BookingPage() {
                 return (
                   <div
                     key={day}
-                    className={`${styles.day} ${
-                      isPast ? styles.dimmedDay : ''
-                    } ${isSelected ? styles.selectedDay : ''}`}
+                    className={`${styles.day} ${isPast ? styles.dimmedDay : ''
+                      } ${isSelected ? styles.selectedDay : ''}`}
                     onClick={() => {
                       if (!isPast) setSelectedDate(cellDate);
                     }}
@@ -534,15 +581,14 @@ export default function BookingPage() {
                 return (
                   <div
                     key={i}
-                    className={`${styles.slot} ${
-                      !selectable
+                    className={`${styles.slot} ${!selectable
                         ? styles.taken
-                        : selectedSlot === slot.time
+                        : selectedSlots.includes(slot.time)
                           ? styles.selected
                           : styles.available
-                    }`}
+                      }`}
                     onClick={() => {
-                      if (selectable) setSelectedSlot(slot.time);
+                      if (selectable) handleSlotClick(slot.time);
                     }}
                   >
                     {slot.time}
@@ -581,7 +627,21 @@ export default function BookingPage() {
 
             <div className={styles.infoGroup}>
               <label>SLOT</label>
-              <p>{selectedSlot ?? '—'}</p>
+              <p>
+                {selectedSlots.length > 0
+                  ? (() => {
+                    const sortedSlots = [...selectedSlots].sort(
+                      (a, b) =>
+                        timeSlots.findIndex((s) => s.time === a) -
+                        timeSlots.findIndex((s) => s.time === b)
+                    );
+                    const firstSlot = timeSlots.find(s => s.time === sortedSlots[0]);
+                    const lastSlot = timeSlots.find(s => s.time === sortedSlots[sortedSlots.length - 1]);
+                    if (!firstSlot || !lastSlot) return '—';
+                    return `${firstSlot.time} - ${formatHourLabel(lastSlot.startHour + 1)}`;
+                  })()
+                  : '—'}
+              </p>
             </div>
 
             {sessionPricing && sessionPricing.subtotal > 0 && (
