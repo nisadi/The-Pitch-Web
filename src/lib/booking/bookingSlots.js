@@ -73,18 +73,54 @@ export function isSelectableSlot(slot, selectedDate, now = new Date()) {
 }
 
 /**
+ * Returns true if the 1-hour slot starting at `hour` overlaps any peak window
+ * for the given day.
+ *
+ * @param {Array}  peakMappings - [{ dateId, startTime, endTime }]
+ * @param {number} dateId       - 0=Mon … 6=Sun
+ * @param {number} hour         - integer hour (e.g. 15 for 15:00)
+ */
+function isHourPeak(peakMappings, dateId, hour) {
+  if (!peakMappings?.length) return false;
+
+  const slotStart = hour * 60;        // in minutes
+  const slotEnd   = slotStart + 60;
+
+  return peakMappings.some((mapping) => {
+    if (mapping.dateId !== dateId) return false;
+
+    // startTime / endTime come normalised as "HH:MM"
+    const [sh, sm] = (mapping.startTime ?? "00:00").split(":").map(Number);
+    const [eh, em] = (mapping.endTime   ?? "00:00").split(":").map(Number);
+
+    const peakStart = sh * 60 + (sm || 0);
+    let   peakEnd   = eh * 60 + (em || 0);
+    // Midnight sentinel (00:00 as end means next-day midnight)
+    if (peakEnd === 0 && peakStart > 0) peakEnd = 24 * 60;
+
+    // Overlap: slot starts before peak ends AND slot ends after peak starts
+    return slotStart < peakEnd && slotEnd > peakStart;
+  });
+}
+
+/**
  * Build hourly booking slot labels from a location's operational hours.
  * Uses openTimeMappings to derive the start/end for the given date.
+ * Tags each slot with `isPeak` based on peakTimeMappings.
  *
- * @param {object} location      - normalised location with openTimeMappings
+ * @param {object} location      - normalised location with openTimeMappings & peakTimeMappings
  * @param {Date}   selectedDate  - date for which to build slots (used to determine day-of-week)
  */
 export function buildSlotsFromLocation(location, selectedDate = new Date()) {
   if (!location) return [];
 
+  const dateId = dateToDateId(selectedDate);
+  const peakMappings = Array.isArray(location.peakTimeMappings)
+    ? location.peakTimeMappings
+    : [];
+
   // New path: per-day open-time mappings
   if (Array.isArray(location.openTimeMappings)) {
-    const dateId = dateToDateId(selectedDate);
     const dayWindow = getOperationalWindowForDay(location.openTimeMappings, dateId);
     if (!dayWindow) return []; // location is closed on this day
 
@@ -97,6 +133,7 @@ export function buildSlotsFromLocation(location, selectedDate = new Date()) {
       time: formatHourLabel(hour),
       startHour: hour,
       status: isToday && hour * 60 < nowMinutes ? "past" : "available",
+      isPeak: isHourPeak(peakMappings, dateId, hour),
     }));
   }
 
@@ -112,5 +149,6 @@ export function buildSlotsFromLocation(location, selectedDate = new Date()) {
     time: formatHourLabel(hour),
     startHour: hour,
     status: isToday && hour * 60 < nowMinutes ? "past" : "available",
+    isPeak: isHourPeak(peakMappings, dateId, hour),
   }));
 }
