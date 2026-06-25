@@ -28,6 +28,29 @@ function formatRs(amount) {
   return `Rs. ${Number(amount).toFixed(2)}`;
 }
 
+/**
+ * Expands a time range into individual 1-hour slot labels.
+ * Prefers numeric startHour/endHour; falls back to parsing the slot string.
+ * Returns e.g. ["15:00–16:00", "16:00–17:00"] for a 2-hour block.
+ */
+function expandTimeSlots(startHour, endHour, slotString) {
+  const pad = (n) => String(Math.floor(n)).padStart(2, "0") + ":" + String(Math.round((n % 1) * 60)).padStart(2, "0");
+
+  const start = Number(startHour);
+  const end = Number(endHour);
+
+  if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+    const slots = [];
+    for (let h = start; h < end; h++) {
+      slots.push(`${pad(h)}–${pad(h + 1)}`);
+    }
+    return slots;
+  }
+
+  // Fallback: return the raw slot string as a single entry
+  return [slotString || ""];
+}
+
 const SERVICE_CHARGE_RATE = 0.032; // 3.2%
 
 function computeTotals(basePriceNum, discountAmount = 0) {
@@ -684,7 +707,34 @@ export default function CheckoutPage() {
               </div>
               <div className={styles.summaryItem}>
                 <label><Clock size={12} /> TIME SLOT</label>
-                <p>{booking.time}</p>
+                {(() => {
+                  const slots = expandTimeSlots(booking.startHour, booking.endHour, booking.time);
+                  if (slots.length <= 1) {
+                    return <p>{slots[0] || booking.time}</p>;
+                  }
+                  return (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
+                      {slots.map((s, i) => (
+                        <span
+                          key={i}
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 10px",
+                            borderRadius: "999px",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            background: "rgba(163,255,0,0.1)",
+                            color: "#000000",
+                            border: "1px solid rgba(163,255,0,0.25)",
+                            letterSpacing: "0.3px",
+                          }}
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
               <div className={styles.summaryItem}>
                 <label><Calendar size={12} /> DATE</label>
@@ -871,7 +921,7 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            
+
 
             <div className={styles.divider}></div>
 
