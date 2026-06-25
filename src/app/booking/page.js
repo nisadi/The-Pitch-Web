@@ -264,14 +264,19 @@ export default function BookingPage() {
 
     if (!firstSlot || !lastSlot) return null;
 
+    const d = selectedDate;
+    const bDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
     return resolveSessionPricing({
       location: selectedLocation,
       pitch: selectedPitch,
       slot: sortedSlots[0],
       startHour: firstSlot.startHour,
       endHour: lastSlot.startHour + 1,
+      bookingDate: bDate,
     });
-  }, [selectedLocation, selectedPitch, selectedSlots, timeSlots]);
+  }, [selectedLocation, selectedPitch, selectedSlots, timeSlots, selectedDate]);
+
 
   const dateKey = useMemo(() => {
     const d = selectedDate;
@@ -592,6 +597,19 @@ export default function BookingPage() {
                     }}
                   >
                     {slot.time} - {formatHourLabel(slot.startHour + 1)}
+                    {slot.isPeak && (
+                      <span style={{
+                        display: "block",
+                        fontSize: "9px",
+                        fontWeight: 800,
+                        letterSpacing: "1px",
+                        color: "#ff9500",
+                        marginTop: "2px",
+                        textTransform: "uppercase",
+                      }}>
+                        Peak
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -627,21 +645,50 @@ export default function BookingPage() {
 
             <div className={styles.infoGroup}>
               <label>SLOT</label>
-              <p>
-                {selectedSlots.length > 0
-                  ? (() => {
+              {selectedSlots.length > 0
+                ? (() => {
                     const sortedSlots = [...selectedSlots].sort(
                       (a, b) =>
                         timeSlots.findIndex((s) => s.time === a) -
                         timeSlots.findIndex((s) => s.time === b)
                     );
-                    const firstSlot = timeSlots.find(s => s.time === sortedSlots[0]);
-                    const lastSlot = timeSlots.find(s => s.time === sortedSlots[sortedSlots.length - 1]);
-                    if (!firstSlot || !lastSlot) return '—';
-                    return `${firstSlot.time} - ${formatHourLabel(lastSlot.startHour + 1)}`;
+                    const slotObjects = sortedSlots
+                      .map((t) => timeSlots.find((s) => s.time === t))
+                      .filter(Boolean);
+
+                    if (!slotObjects.length) return <p>—</p>;
+
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
+                        {slotObjects.map((slot) => (
+                          <div
+                            key={slot.startHour}
+                            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                          >
+                            <p style={{ margin: 0 }}>
+                              {slot.time} – {formatHourLabel(slot.startHour + 1)}
+                            </p>
+                            {slot.isPeak && (
+                              <span style={{
+                                fontSize: "9px",
+                                fontWeight: 800,
+                                letterSpacing: "1px",
+                                color: "#ff9500",
+                                textTransform: "uppercase",
+                                border: "1px solid rgba(255,149,0,0.4)",
+                                borderRadius: "4px",
+                                padding: "1px 5px",
+                                lineHeight: 1.4,
+                              }}>
+                                Peak
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
                   })()
-                  : '—'}
-              </p>
+                : <p>—</p>}
             </div>
 
             {sessionPricing && sessionPricing.subtotal > 0 && (
