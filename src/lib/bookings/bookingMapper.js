@@ -23,7 +23,7 @@ export const BOOKING_CALENDAR_SELECT = `
   sports ( id, name ),
   pitches ( id, name ),
   users ( id, full_name, email, phone ),
-  payments ( id, payment_method, transaction_id, paid_at )
+  payments ( id, payment_method, transaction_id, store_reference, paid_at )
 `;
 
 export function formatBookingReference(id) {
@@ -108,6 +108,7 @@ export function calendarBookingFromRow(row) {
     paymentStatus: row.payment_status,
     paymentMethod: paymentRow?.payment_method ?? null,
     transactionId: paymentRow?.transaction_id ?? null,
+    storeReference: paymentRow?.store_reference ?? null,
     paidAt: paymentRow?.paid_at ?? null,
     remark: row.remark ?? null,
     discountType: row.discount_type ?? null,

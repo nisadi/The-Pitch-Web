@@ -270,9 +270,13 @@ export async function POST(request) {
 
             // 5a. Insert a payments table row for this card payment
             if (bookingData?.id) {
-              const transactionId =
-                result.decoded.orderNumber ||
+              // transaction_id = WebXPay's own transaction reference (used for refunds)
+              // store_reference = the merchant-provided order number
+              const webxTransactionId =
                 result.decoded.webxOrderReference ||
+                null;
+              const storeReference =
+                result.decoded.orderNumber ||
                 null;
 
               const { error: paymentInsertError } = await supabaseAdmin
@@ -280,7 +284,8 @@ export async function POST(request) {
                 .insert({
                   booking_id: bookingData.id,
                   payment_method: 'card',
-                  transaction_id: transactionId,
+                  transaction_id: webxTransactionId,
+                  store_reference: storeReference,
                   amount: grandTotal,
                   payment_status: 'paid',
                   paid_at: new Date().toISOString(),
@@ -291,7 +296,7 @@ export async function POST(request) {
                 console.error('[verify] payments row insert error:', paymentInsertError);
                 result.paymentRowError = paymentInsertError.message;
               } else {
-                console.log(`[verify] payments row created for booking ${bookingData.id}`);
+                console.log(`[verify] payments row created for booking ${bookingData.id} | webx_txn=${webxTransactionId} | store_ref=${storeReference}`);
               }
             }
 

@@ -6,6 +6,7 @@ export const PAYMENT_SELECT = `
   payment_method,
   payment_method_other,
   transaction_id,
+  store_reference,
   amount,
   payment_status,
   paid_at,
@@ -186,6 +187,7 @@ export function paymentFromRow(row) {
       ? referenceFromUuid(booking.id, "BK")
       : referenceFromUuid(row.booking_id, "BK"),
     transactionId: row.transaction_id?.trim() || null,
+    storeReference: row.store_reference?.trim() || null,
     paidAt: row.paid_at ?? null,
     createdAt: row.created_at ?? null,
   };

@@ -683,16 +683,27 @@ export default function BookingDetailModal({
                 onClick={() => {
                   const isBlock = booking.bookingStatus === "blocked";
                   const title = isBlock ? "Remove block?" : "Cancel booking?";
+                  const eligibleForRefund = !isBlock && isRefundEligible(booking);
+                  
                   const message = isBlock
                     ? "Remove this block? The slot will become available for booking again."
-                    : "Cancel this booking? The slot will become available again.";
+                    : eligibleForRefund 
+                      ? "Cancel this booking? Since it is eligible, the customer will automatically receive a full refund and the slot will become available again."
+                      : "Cancel this booking? The slot will become available again.";
+
                   setConfirmState({
                     open: true,
                     title,
                     description: message,
-                    confirmLabel: isBlock ? "Remove block" : "Cancel booking",
+                    confirmLabel: isBlock ? "Remove block" : (eligibleForRefund ? "Cancel & Refund" : "Cancel booking"),
                     variant: "destructive",
-                    onConfirm: () => onCancel(booking.id)
+                    onConfirm: () => {
+                      if (eligibleForRefund) {
+                        onRefund?.(booking, true);
+                      } else {
+                        onCancel(booking.id);
+                      }
+                    }
                   });
                 }}
               >

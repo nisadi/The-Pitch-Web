@@ -236,7 +236,10 @@ export default function BookingPage() {
       endHour,
       subtotal: pricing.subtotal,
       rateLabel: pricing.rateLabel,
-      originalDate: selectedDate.toISOString(),
+      // Build YYYY-MM-DD from LOCAL date components to avoid UTC timezone shift.
+      // e.g. selectedDate.toISOString() for midnight June 20 in UTC+5:30 would
+      // return "2026-06-19T18:30:00Z" and the date would be stored as June 19.
+      originalDate: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`,
     };
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingDetails));
 
